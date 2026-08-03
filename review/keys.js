@@ -4,12 +4,13 @@ import { clampFocus, focusedCapture, state } from "./state.js";
  * @param {object} handlers
  * @param {() => void} handlers.onNavigate
  * @param {(id: string) => Promise<void>} handlers.onDrop
+ * @param {(id: string) => Promise<void>} [handlers.onEdit]
  */
-export function bindKeys({ onNavigate, onDrop }) {
+export function bindKeys({ onNavigate, onDrop, onEdit }) {
   document.addEventListener("keydown", (e) => {
     const tag = (e.target && e.target.tagName) || "";
     if (tag === "INPUT" || tag === "TEXTAREA" || e.target.isContentEditable) return;
-    if (document.querySelector(".rc-modal-overlay")) return;
+    if (document.querySelector(".rc-modal-overlay, .rv-lightbox")) return;
 
     const key = e.key;
     if (key === "j" || key === "J" || key === "ArrowDown") {
@@ -33,6 +34,13 @@ export function bindKeys({ onNavigate, onDrop }) {
     const focus = focusedCapture();
     if (!focus) return;
 
+    if (key === "e" || key === "E") {
+      if (onEdit) {
+        e.preventDefault();
+        onEdit(focus.id);
+      }
+      return;
+    }
     if (key === "Backspace" || key === "d" || key === "D") {
       e.preventDefault();
       onDrop(focus.id);

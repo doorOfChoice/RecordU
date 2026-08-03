@@ -8,8 +8,9 @@ import { clampFocus, focusedCapture, queueList, state } from "./state.js";
  * @param {HTMLElement} opts.progressEl
  * @param {HTMLElement} opts.emptyEl
  * @param {(id: string) => Promise<void>} opts.onDrop
+ * @param {(id: string) => Promise<void>} [opts.onEdit]
  */
-export function renderQueue({ root, progressEl, emptyEl, onDrop }) {
+export function renderQueue({ root, progressEl, emptyEl, onDrop, onEdit }) {
   clampFocus();
   const list = queueList();
   const rangeLabel = state.dateRange === "week" ? "本周" : dateRangeLabel(state.dateRange);
@@ -36,10 +37,11 @@ export function renderQueue({ root, progressEl, emptyEl, onDrop }) {
     focusIndex: state.focusIndex,
     onSelect: (index) => {
       state.focusIndex = index;
-      renderQueue({ root, progressEl, emptyEl, onDrop });
+      renderQueue({ root, progressEl, emptyEl, onDrop, onEdit });
     },
     onAction: async (c, act) => {
       if (act === "drop") await onDrop(c.id);
+      if (act === "edit" && onEdit) await onEdit(c.id);
     }
   }) || focusedCapture();
 }

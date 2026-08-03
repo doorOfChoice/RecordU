@@ -100,8 +100,68 @@ export function alert(opts = {}) {
   });
 }
 
+/** Edit dialog with textarea. Resolves to trimmed string, or null if cancelled. */
+export function promptEdit(opts = {}) {
+  const overlay = document.createElement("div");
+  overlay.className = "rc-modal-overlay";
+  overlay.innerHTML = `
+    <div class="rc-modal rc-modal-edit" role="dialog" aria-modal="true">
+      <div class="rc-modal-title">${escapeHtml(opts.title || "编辑")}</div>
+      <textarea class="rc-modal-input" rows="6" placeholder="${escapeHtml(opts.placeholder || "")}"></textarea>
+      <div class="rc-modal-actions">
+        <button type="button" class="btn rc-modal-cancel">${escapeHtml(opts.cancelText || "取消")}</button>
+        <button type="button" class="btn btn-primary">${escapeHtml(opts.confirmText || "保存")}</button>
+      </div>
+    </div>
+  `;
+  const textarea = overlay.querySelector(".rc-modal-input");
+  textarea.value = opts.value || "";
+
+  if (current) current.resolve("cancel");
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => {
+    overlay.classList.add("show");
+    textarea.focus();
+    textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+  });
+
+  return new Promise((resolve) => {
+    current = { overlay, resolve };
+
+    function done(result) {
+      if (current && current.overlay === overlay) current = null;
+      overlay.classList.remove("show");
+      overlay.addEventListener("transitionend", () => overlay.remove(), { once: true });
+      setTimeout(() => overlay.remove(), 250);
+      document.removeEventListener("keydown", onKeydown);
+      resolve(result);
+    }
+
+    function onKeydown(e) {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        done(null);
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+        e.preventDefault();
+        done(textarea.value);
+      }
+    }
+
+    overlay.querySelector(".btn-primary").addEventListener("click", () => done(textarea.value));
+    overlay.querySelector(".rc-modal-cancel").addEventListener("click", () => done(null));
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) done(null);
+    });
+    document.addEventListener("keydown", onKeydown);
+  }).then((value) => {
+    if (value == null || value === "cancel") return null;
+    return String(value);
+  });
+}
+
 export function close() {
   if (current) current.resolve("cancel");
 }
 
-window.RcModal = { confirm, alert, close };
+window.RcModal = { confirm, alert, promptEdit, close };

@@ -3,7 +3,8 @@ import { contextLabel, exactOf, isScreenshot } from "../shared/captures.js";
 import { escapeHtml } from "../shared/dom.js";
 import { favSlotHtml, fillFavSlots } from "../shared/favicon.js";
 import { dateRangeLabel, fmtTime } from "../shared/time.js";
-import { dropActionHtml } from "./action-icons.js";
+import { entryActionsHtml } from "./action-icons.js";
+import { bindShotPreview } from "./image-preview.js";
 import { clampFocus, focusedSite, siteGroups, state } from "./state.js";
 
 /**
@@ -12,8 +13,9 @@ import { clampFocus, focusedSite, siteGroups, state } from "./state.js";
  * @param {HTMLElement} opts.progressEl
  * @param {HTMLElement} opts.emptyEl
  * @param {(id: string) => Promise<void>} opts.onDrop
+ * @param {(id: string) => Promise<void>} [opts.onEdit]
  */
-export function renderBrowse({ root, progressEl, emptyEl, onDrop }) {
+export function renderBrowse({ root, progressEl, emptyEl, onDrop, onEdit }) {
   clampFocus();
   const sites = siteGroups();
   const range = dateRangeLabel(state.dateRange);
@@ -70,7 +72,7 @@ export function renderBrowse({ root, progressEl, emptyEl, onDrop }) {
                   : ""
               }
             </span>
-            <span class="rv-meta-actions">${dropActionHtml("删除", c.id)}</span>
+            <span class="rv-meta-actions">${entryActionsHtml(c.id)}</span>
           </div>
         </article>
       `;
@@ -106,6 +108,7 @@ export function renderBrowse({ root, progressEl, emptyEl, onDrop }) {
         return;
       }
       el.innerHTML = `<img alt="截图" src="${dataUrl}">`;
+      bindShotPreview(el, dataUrl);
     });
   });
 
@@ -115,7 +118,7 @@ export function renderBrowse({ root, progressEl, emptyEl, onDrop }) {
   root.querySelectorAll(".rv-rail-item").forEach((btn) => {
     btn.addEventListener("click", () => {
       state.focusIndex = Number(btn.dataset.index);
-      renderBrowse({ root, progressEl, emptyEl, onDrop });
+      renderBrowse({ root, progressEl, emptyEl, onDrop, onEdit });
     });
   });
 
@@ -125,6 +128,7 @@ export function renderBrowse({ root, progressEl, emptyEl, onDrop }) {
     const id = btn.dataset.id;
     if (!id) return;
     if (btn.dataset.act === "drop") await onDrop(id);
+    if (btn.dataset.act === "edit" && onEdit) await onEdit(id);
   });
 
   return site;

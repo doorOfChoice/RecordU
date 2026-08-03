@@ -2,7 +2,8 @@ import { getScreenshotDataUrl } from "../shared/api.js";
 import { contextLabel, exactOf, hostnameOf, isScreenshot } from "../shared/captures.js";
 import { escapeHtml } from "../shared/dom.js";
 import { fmtTime } from "../shared/time.js";
-import { dropActionHtml } from "./action-icons.js";
+import { entryActionsHtml } from "./action-icons.js";
+import { bindShotPreview } from "./image-preview.js";
 
 /**
  * Shared left-rail + right-pane layout.
@@ -37,7 +38,7 @@ export function renderSplitView({
   };
   const subFn = railSub || defaultSub;
 
-  const defaultActions = () => dropActionHtml("删除");
+  const defaultActions = () => entryActionsHtml();
   const actsFn = actionsHtml || defaultActions;
 
   const railItems = list
@@ -105,6 +106,7 @@ export function renderSplitView({
         return;
       }
       shotEl.innerHTML = `<img alt="截图" src="${dataUrl}">`;
+      bindShotPreview(shotEl, dataUrl);
     });
   }
 

@@ -1,6 +1,6 @@
-import { deleteCapture, getAllCaptures } from "../shared/api.js";
+import { deleteCapture, getAllCaptures, updateCapture } from "../shared/api.js";
 import { exactOf, isScreenshot } from "../shared/captures.js";
-import { confirm as modalConfirm } from "../modal.js";
+import { confirm as modalConfirm, promptEdit } from "../modal.js";
 import { renderBrowse } from "./browse-view.js";
 import { exportMarkdown } from "./export-md.js";
 import { bindKeys } from "./keys.js";
@@ -24,14 +24,16 @@ function render() {
       root: contentEl,
       progressEl,
       emptyEl,
-      onDrop: drop
+      onDrop: drop,
+      onEdit: edit
     });
   } else {
     renderBrowse({
       root: contentEl,
       progressEl,
       emptyEl,
-      onDrop: drop
+      onDrop: drop,
+      onEdit: edit
     });
   }
 }
@@ -43,6 +45,23 @@ function syncChrome() {
   document.querySelectorAll("[data-range]").forEach((el) => {
     el.classList.toggle("is-active", el.dataset.range === state.dateRange);
   });
+}
+
+async function edit(id) {
+  const c = state.captures.find((x) => x.id === id);
+  if (!c) return;
+  const next = await promptEdit({
+    title: "编辑感触",
+    value: c.text || "",
+    placeholder: "你的感触，用你自己的话……",
+    confirmText: "保存",
+    cancelText: "取消"
+  });
+  if (next == null) return;
+  const text = next.trim();
+  if (!text || text === (c.text || "").trim()) return;
+  await updateCapture(id, { text });
+  await load();
 }
 
 async function drop(id) {
@@ -96,7 +115,8 @@ document.getElementById("rv-export").addEventListener("click", (e) => {
 
 bindKeys({
   onNavigate: render,
-  onDrop: drop
+  onDrop: drop,
+  onEdit: edit
 });
 
 load();
