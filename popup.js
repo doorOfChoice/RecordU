@@ -42,14 +42,4 @@ async function save() {
 document.getElementById("save").addEventListener("click", save);
 document.getElementById("cancel").addEventListener("click", () => window.close());
 
-input.addEventListener("keydown", (e) => {
-  if (e.key === "Enter" && !e.shiftKey) {
-    e.preventDefault();
-    save();
-  }
-  if (e.key === "Escape") {
-    window.close();
-  }
-});
-
 init();

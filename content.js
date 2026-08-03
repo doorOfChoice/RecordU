@@ -5,7 +5,6 @@
   let floatBtn = null;
   let floatText = "";
   let pendingRange = null;
-  let tipEl = null;
   let reconcileTimer = null;
   let failCount = 0;
   let observer = null;
@@ -33,9 +32,6 @@
     }
     const overlay = document.getElementById("rc-overlay");
     if (overlay) overlay.remove();
-    const tip = document.getElementById("rc-tip");
-    if (tip) tip.remove();
-    tipEl = null;
     if (styleEl) styleEl.remove();
     if (observer) {
       observer.disconnect();
@@ -156,7 +152,7 @@
 
   function isInsideOwnUI(node) {
     if (!node || !node.parentElement) return false;
-    return !!node.parentElement.closest("#rc-overlay, #rc-float-btn, #rc-tip");
+    return !!node.parentElement.closest("#rc-overlay, #rc-float-btn");
   }
 
   function handleSelection() {
@@ -266,7 +262,7 @@
       font-family: inherit;
       line-height: 1.5;
       resize: vertical;
-      min-height: 64px;
+      min-height: 120px;
       outline: none;
     }
     #rc-overlay textarea.rc-input:focus { border-color: #e8590c; }
@@ -338,14 +334,14 @@
     return null;
   }
 
-  function positionOverlayNearSelection(overlay) {
+  function positionOverlay(overlay, anchorRect) {
     const pad = 8;
     const gap = 10;
     const w = overlay.offsetWidth || 360;
     const h = overlay.offsetHeight || 220;
     const vw = window.innerWidth;
     const vh = window.innerHeight;
-    const rect = getSelectionRect();
+    const rect = anchorRect || getSelectionRect();
 
     let x;
     let y;
@@ -379,7 +375,14 @@
     overlay.style.top = Math.round(y) + "px";
   }
 
-  function showOverlay(exactText) {
+  function openOverlay({
+    mode = "create",
+    title = "捕获感触",
+    exactText = "",
+    initialText = "",
+    captureId = null,
+    anchorRect = null
+  } = {}) {
     hideFloatButton();
     const old = document.getElementById("rc-overlay");
     if (old) old.remove();
@@ -394,24 +397,25 @@
     overlay.innerHTML = `
       <style>${STYLE}</style>
       <div class="rc-head">
-        <span>捕获感触</span>
-        <button type="button" class="rc-close" title="关闭 (Esc)" aria-label="关闭">×</button>
+        <span>${escapeHtml(title)}</span>
+        <button type="button" class="rc-close" title="关闭" aria-label="关闭">×</button>
       </div>
       ${ctx}
-      <textarea class="rc-input" rows="3"
-        placeholder="你的感触，用你自己的话……&#10;Enter 保存，Shift+Enter 换行"></textarea>
+      <textarea class="rc-input" rows="5"
+        placeholder="你的感触，用你自己的话……"></textarea>
       <div class="rc-actions">
-        <button class="rc-save">保存 (Enter)</button>
-        <button class="rc-cancel">取消</button>
+        <button type="button" class="rc-save">保存</button>
+        <button type="button" class="rc-cancel">取消</button>
       </div>
       <div class="rc-toast">✓ 已保存</div>
     `;
 
     document.documentElement.appendChild(overlay);
-    positionOverlayNearSelection(overlay);
+    positionOverlay(overlay, anchorRect);
 
     const textarea = overlay.querySelector(".rc-input");
     const toast = overlay.querySelector(".rc-toast");
+    textarea.value = initialText;
 
     function close() {
       overlay.remove();
@@ -423,33 +427,46 @@
         close();
         return;
       }
-      const range = pendingRange;
-      pendingRange = null;
-      let anchor = null;
-      let fragments = null;
-      if (range) {
-        const described = describeRange(range);
-        if (described) {
-          anchor = described.anchor;
-          fragments = described.fragments;
-        } else {
-          console.warn("[RecordU] 无法从选区生成锚点");
+
+      if (mode === "edit" && captureId) {
+        const res = await chrome.runtime.sendMessage({
+          type: "rc-update",
+          id: captureId,
+          patch: { text }
+        });
+        if (res && res.ok) updateHighlightNotes(captureId, text);
+        toast.textContent = "✓ 已更新";
+      } else {
+        const range = pendingRange;
+        pendingRange = null;
+        let anchor = null;
+        let fragments = null;
+        if (range) {
+          const described = describeRange(range);
+          if (described) {
+            anchor = described.anchor;
+            fragments = described.fragments;
+          } else {
+            console.warn("[RecordU] 无法从选区生成锚点");
+          }
         }
-      }
-      const res = await chrome.runtime.sendMessage({
-        type: "rc-save",
-        text,
-        anchor,
-        pageTitle: document.title,
-        pageUrl: location.href
-      });
-      if (fragments && res && res.ok) {
-        try {
-          applyHighlight(fragments, res.id, text);
-        } catch (e) {
-          console.warn("[RecordU] 立即高亮失败", e);
+        const res = await chrome.runtime.sendMessage({
+          type: "rc-save",
+          text,
+          anchor,
+          pageTitle: document.title,
+          pageUrl: location.href
+        });
+        if (fragments && res && res.ok) {
+          try {
+            applyHighlight(fragments, res.id, text);
+          } catch (e) {
+            console.warn("[RecordU] 立即高亮失败", e);
+          }
         }
+        toast.textContent = "✓ 已保存";
       }
+
       toast.classList.add("show");
       setTimeout(close, 650);
     }
@@ -457,17 +474,31 @@
     overlay.querySelector(".rc-save").addEventListener("click", save);
     overlay.querySelector(".rc-cancel").addEventListener("click", close);
     overlay.querySelector(".rc-close").addEventListener("click", close);
-    textarea.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
-        save();
-      }
-      if (e.key === "Escape") {
-        close();
-      }
-    });
 
     textarea.focus();
+  }
+
+  function showOverlay(exactText) {
+    openOverlay({ mode: "create", exactText });
+  }
+
+  async function showEditOverlay(captureId, anchorRect) {
+    try {
+      const data = await chrome.storage.local.get("rc_captures");
+      const capture = (data.rc_captures || []).find((c) => c.id === captureId);
+      if (!capture) return;
+      const exactText = (capture.anchor && capture.anchor.exact) || "";
+      openOverlay({
+        mode: "edit",
+        title: "编辑感触",
+        exactText,
+        initialText: capture.text || "",
+        captureId,
+        anchorRect
+      });
+    } catch (e) {
+      console.warn("[RecordU] 无法打开编辑", e);
+    }
   }
 
   // ---------- highlight & anchoring ----------
@@ -491,7 +522,7 @@
     if (!node || !node.nodeValue) return NodeFilter.FILTER_REJECT;
     const parent = node.parentElement;
     if (!parent) return NodeFilter.FILTER_REJECT;
-    if (parent.closest("script, style, noscript, textarea, #rc-overlay, #rc-float-btn, #rc-tip")) {
+    if (parent.closest("script, style, noscript, textarea, #rc-overlay, #rc-float-btn")) {
       return NodeFilter.FILTER_REJECT;
     }
     if (skipHighlights && parent.closest(".rc-highlight")) {
@@ -749,103 +780,18 @@
     });
   }
 
-  // ---------- hover tooltip (你的感触) ----------
-
-  const TIP_STYLE = `
-    #rc-tip {
-      position: fixed;
-      z-index: 2147483647;
-      max-width: 320px;
-      background: #fff;
-      border: 1px solid #e5e7eb;
-      border-radius: 8px;
-      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.18);
-      padding: 8px 12px;
-      font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
-      font-size: 13px;
-      line-height: 1.55;
-      color: #1f2328;
-      white-space: pre-wrap;
-      word-break: break-word;
-      pointer-events: none;
-      opacity: 0;
-      transition: opacity 0.15s;
-    }
-    #rc-tip.rc-show { opacity: 1; }
-    #rc-tip .rc-tip-label {
-      font-size: 11px;
-      font-weight: 700;
-      color: #e8590c;
-      margin-bottom: 4px;
-    }
-  `;
-
-  function ensureTip() {
-    if (tipEl) return tipEl;
-    const tip = document.createElement("div");
-    tip.id = "rc-tip";
-    tip.innerHTML = `<style>${TIP_STYLE}</style><div class="rc-tip-label">你的感触</div><div class="rc-tip-body"></div>`;
-    document.documentElement.appendChild(tip);
-    tipEl = tip;
-    return tip;
-  }
-
-  function showTip(e, note) {
-    const tip = ensureTip();
-    tip.querySelector(".rc-tip-body").textContent = note;
-    tip.classList.add("rc-show");
-    positionTip(e);
-  }
-
-  function positionTip(e) {
-    const tip = ensureTip();
-    const w = tip.offsetWidth;
-    const h = tip.offsetHeight;
-    let x = e.clientX + 14;
-    let y = e.clientY + 14;
-    if (x + w > window.innerWidth - 8) x = e.clientX - w - 14;
-    if (y + h > window.innerHeight - 8) y = e.clientY - h - 14;
-    if (x < 8) x = 8;
-    if (y < 8) y = 8;
-    tip.style.left = x + "px";
-    tip.style.top = y + "px";
-  }
-
-  function hideTip() {
-    if (tipEl) tipEl.classList.remove("rc-show");
-  }
+  // ---------- click highlight to edit ----------
 
   on(
     document,
-    "mouseover",
+    "click",
     (e) => {
       const h = e.target.closest && e.target.closest(".rc-highlight");
-      if (!h) return;
-      const note = h.dataset.rcNote;
-      if (!note) return;
-      showTip(e, note);
-    },
-    true
-  );
-
-  on(
-    document,
-    "mousemove",
-    (e) => {
-      if (tipEl && tipEl.classList.contains("rc-show")) positionTip(e);
-    },
-    true
-  );
-
-  on(
-    document,
-    "mouseout",
-    (e) => {
-      const from = e.target.closest && e.target.closest(".rc-highlight");
-      if (!from) return;
-      const to = e.relatedTarget;
-      if (to && to.closest && to.closest(".rc-highlight")) return;
-      hideTip();
+      if (!h || !h.dataset.rcId) return;
+      if (document.getElementById("rc-overlay")) return;
+      e.preventDefault();
+      e.stopPropagation();
+      showEditOverlay(h.dataset.rcId, h.getBoundingClientRect());
     },
     true
   );
@@ -867,20 +813,20 @@
     for (const m of mutations) {
       if (m.type === "characterData") {
         const parent = m.target.parentElement;
-        if (parent && parent.closest(".rc-highlight, #rc-overlay, #rc-float-btn, #rc-tip")) continue;
+        if (parent && parent.closest(".rc-highlight, #rc-overlay, #rc-float-btn")) continue;
         return true;
       }
       const nodes = [...m.addedNodes, ...m.removedNodes];
       for (const n of nodes) {
         if (n.nodeType === Node.ELEMENT_NODE) {
-          if (n.id === "rc-overlay" || n.id === "rc-float-btn" || n.id === "rc-tip") continue;
+          if (n.id === "rc-overlay" || n.id === "rc-float-btn") continue;
           if (n.classList && n.classList.contains("rc-highlight")) continue;
-          if (n.closest && n.closest("#rc-overlay, #rc-float-btn, #rc-tip")) continue;
+          if (n.closest && n.closest("#rc-overlay, #rc-float-btn")) continue;
           return true;
         }
         if (n.nodeType === Node.TEXT_NODE) {
           const parent = n.parentElement;
-          if (parent && parent.closest(".rc-highlight, #rc-overlay, #rc-float-btn, #rc-tip")) continue;
+          if (parent && parent.closest(".rc-highlight, #rc-overlay, #rc-float-btn")) continue;
           return true;
         }
       }
