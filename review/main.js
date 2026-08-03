@@ -1,5 +1,5 @@
 import { deleteCapture, getAllCaptures } from "../shared/api.js";
-import { exactOf } from "../shared/captures.js";
+import { exactOf, isScreenshot } from "../shared/captures.js";
 import { confirm as modalConfirm } from "../modal.js";
 import { renderBrowse } from "./browse-view.js";
 import { exportMarkdown } from "./export-md.js";
@@ -49,9 +49,10 @@ async function drop(id) {
   const c = state.captures.find((x) => x.id === id);
   if (!c) return;
   const exact = exactOf(c);
+  const extra = exact ? `\n\n原文：${exact}` : isScreenshot(c) ? "\n\n（含截图）" : "";
   const ok = await modalConfirm({
     title: "删除这条感触？",
-    message: exact ? `${c.text}\n\n原文：${exact}` : c.text,
+    message: `${c.text}${extra}`,
     confirmText: "删除",
     cancelText: "取消",
     danger: true

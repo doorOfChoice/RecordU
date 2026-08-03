@@ -1,4 +1,5 @@
-import { exactOf, hostnameOf } from "../shared/captures.js";
+import { getScreenshotDataUrl } from "../shared/api.js";
+import { contextLabel, exactOf, hostnameOf, isScreenshot } from "../shared/captures.js";
 import { escapeHtml } from "../shared/dom.js";
 import { fmtTime } from "../shared/time.js";
 import { dropActionHtml } from "./action-icons.js";
@@ -31,7 +32,8 @@ export function renderSplitView({
 
   const defaultSub = (c) => {
     const host = hostnameOf(c) || "未记录来源";
-    return `${host} · ${fmtTime(c.createdAt, true)}`;
+    const kind = isScreenshot(c) ? "截图 · " : "";
+    return `${kind}${host} · ${fmtTime(c.createdAt, true)}`;
   };
   const subFn = railSub || defaultSub;
 
@@ -50,14 +52,20 @@ export function renderSplitView({
     .join("");
 
   const exact = exactOf(focus);
+  const ctx = contextLabel(focus);
   const host = hostnameOf(focus) || "未记录来源";
+  const shotSlot = isScreenshot(focus)
+    ? `<div class="rv-shot" data-shot-id="${escapeHtml(focus.id)}"><div class="rv-shot-loading">加载截图…</div></div>`
+    : "";
 
   root.innerHTML = `
     <div class="rv-split">
       <aside class="rv-rail" aria-label="列表">${railItems}</aside>
       <section class="rv-pane">
         <p class="rv-note">${escapeHtml(focus.text)}</p>
+        ${shotSlot}
         ${exact ? `<blockquote class="rv-quote">${escapeHtml(exact)}</blockquote>` : ""}
+        ${!exact && ctx ? `<p class="rv-ctx-label">${escapeHtml(ctx)}</p>` : ""}
         <div class="rv-meta">
           <span class="rv-meta-info">
             <span>${escapeHtml(host)}</span>
@@ -86,6 +94,19 @@ export function renderSplitView({
     if (!btn) return;
     await onAction(focus, btn.dataset.act);
   });
+
+  const shotEl = root.querySelector(".rv-shot");
+  if (shotEl) {
+    const id = shotEl.dataset.shotId;
+    getScreenshotDataUrl(id).then((dataUrl) => {
+      if (!shotEl.isConnected) return;
+      if (!dataUrl) {
+        shotEl.innerHTML = `<div class="rv-shot-loading">截图不可用</div>`;
+        return;
+      }
+      shotEl.innerHTML = `<img alt="截图" src="${dataUrl}">`;
+    });
+  }
 
   return focus;
 }

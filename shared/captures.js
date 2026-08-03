@@ -6,6 +6,17 @@ export function exactOf(c) {
   return (c && c.anchor && c.anchor.exact) || "";
 }
 
+export function isScreenshot(c) {
+  return !!(c && c.type === "screenshot");
+}
+
+export function contextLabel(c) {
+  const exact = exactOf(c);
+  if (exact) return exact;
+  if (isScreenshot(c)) return "截图批注";
+  return "";
+}
+
 export function hostnameOf(c) {
   if (!c || !c.pageUrl) return null;
   try {

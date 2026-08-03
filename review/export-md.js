@@ -1,4 +1,4 @@
-import { exactOf, hostnameOf } from "../shared/captures.js";
+import { exactOf, hostnameOf, isScreenshot } from "../shared/captures.js";
 import { dateRangeLabel, fmtTime, weekLabel } from "../shared/time.js";
 
 export function exportMarkdown(list, { dateRange = "all", statusLabel = "全部" } = {}) {
@@ -29,7 +29,9 @@ export function exportMarkdown(list, { dateRange = "all", statusLabel = "全部"
     for (const c of g.items) {
       const src = c.pageUrl ? `\n\n来源：[${c.pageTitle || c.pageUrl}](${c.pageUrl})` : "";
       const exact = exactOf(c);
-      const ctx = exact ? `\n> ${exact.split("\n").join("\n> ")}` : "";
+      let ctx = "";
+      if (exact) ctx = `\n> ${exact.split("\n").join("\n> ")}`;
+      else if (isScreenshot(c)) ctx = `\n> [截图批注]`;
       lines.push(`### ${fmtTime(c.createdAt)}`);
       lines.push("");
       lines.push(c.text);

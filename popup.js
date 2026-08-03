@@ -1,8 +1,12 @@
-import { saveCapture } from "./shared/api.js";
+import { saveCapture, startRegionCapture } from "./shared/api.js";
 
 const input = document.getElementById("input");
 const toast = document.getElementById("toast");
 let currentTab = null;
+
+function isMac() {
+  return /Mac|iPhone|iPad|iPod/i.test(navigator.platform || navigator.userAgent || "");
+}
 
 async function init() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -14,6 +18,8 @@ async function init() {
   } else {
     info.textContent = "当前页面（未记录来源）";
   }
+  const hint = document.getElementById("shot-hint");
+  if (hint) hint.textContent = isMac() ? "⌥⇧S" : "Alt+Shift+S";
   input.focus();
 }
 
@@ -41,5 +47,9 @@ async function save() {
 
 document.getElementById("save").addEventListener("click", save);
 document.getElementById("cancel").addEventListener("click", () => window.close());
+document.getElementById("shot").addEventListener("click", () => {
+  startRegionCapture();
+  window.close();
+});
 
 init();

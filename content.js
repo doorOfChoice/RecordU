@@ -5,6 +5,8 @@
   let floatBtn = null;
   let floatText = "";
   let pendingRange = null;
+  let pendingScreenshot = null;
+  let regionMask = null;
   let reconcileTimer = null;
   let failCount = 0;
   let observer = null;
@@ -32,6 +34,7 @@
     }
     const overlay = document.getElementById("rc-overlay");
     if (overlay) overlay.remove();
+    tearDownRegionMask();
     if (styleEl) styleEl.remove();
     if (observer) {
       observer.disconnect();
@@ -152,7 +155,7 @@
 
   function isInsideOwnUI(node) {
     if (!node || !node.parentElement) return false;
-    return !!node.parentElement.closest("#rc-overlay, #rc-float-btn");
+    return !!node.parentElement.closest("#rc-overlay, #rc-float-btn, #rc-region-mask");
   }
 
   function handleSelection() {
@@ -250,6 +253,21 @@
       word-break: break-word;
     }
     #rc-overlay .rc-ctx .rc-q { color: #e8590c; font-weight: 700; margin-right: 4px; }
+    #rc-overlay .rc-shot {
+      margin: 10px 14px 0;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid #e5e7eb;
+      background: #f3f4f6;
+      max-height: 180px;
+    }
+    #rc-overlay .rc-shot img {
+      display: block;
+      width: 100%;
+      height: auto;
+      max-height: 180px;
+      object-fit: contain;
+    }
     #rc-overlay textarea.rc-input {
       display: block;
       width: calc(100% - 28px);
@@ -308,13 +326,25 @@
   `;
 
   chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-    if (msg && msg.type === "rc-show-capture") {
+    if (!msg || !msg.type) return;
+    if (msg.type === "rc-show-capture") {
       const sel = window.getSelection();
       if (sel && !sel.isCollapsed && sel.rangeCount > 0) {
         pendingRange = sel.getRangeAt(0).cloneRange();
       }
       hideFloatButton();
       showOverlay(msg.exact || "");
+      sendResponse({ ok: true });
+      return;
+    }
+    if (msg.type === "rc-start-region-capture") {
+      startRegionCapture();
+      sendResponse({ ok: true });
+      return;
+    }
+    if (msg.type === "rc-captures-changed") {
+      failCount = 0;
+      reconcileHighlights();
       sendResponse({ ok: true });
     }
   });
@@ -381,7 +411,8 @@
     exactText = "",
     initialText = "",
     captureId = null,
-    anchorRect = null
+    anchorRect = null,
+    screenshot = null
   } = {}) {
     hideFloatButton();
     const old = document.getElementById("rc-overlay");
@@ -393,6 +424,10 @@
     const ctx = exactText
       ? `<div class="rc-ctx"><span class="rc-q">原文</span>${escapeHtml(exactText)}</div>`
       : "";
+    const shotHtml =
+      screenshot && screenshot.dataUrl
+        ? `<div class="rc-shot"><img alt="截图预览" src="${screenshot.dataUrl}"></div>`
+        : "";
 
     overlay.innerHTML = `
       <style>${STYLE}</style>
@@ -400,6 +435,7 @@
         <span>${escapeHtml(title)}</span>
         <button type="button" class="rc-close" title="关闭" aria-label="关闭">×</button>
       </div>
+      ${shotHtml}
       ${ctx}
       <textarea class="rc-input" rows="5"
         placeholder="你的感触，用你自己的话……"></textarea>
@@ -418,6 +454,10 @@
     textarea.value = initialText;
 
     function close() {
+      if (mode === "create" && screenshot) {
+        if (screenshot.revokePreview) screenshot.revokePreview();
+        pendingScreenshot = null;
+      }
       overlay.remove();
     }
 
@@ -436,6 +476,49 @@
         });
         if (res && res.ok) updateHighlightNotes(captureId, text);
         toast.textContent = "✓ 已更新";
+      } else if (screenshot && (screenshot.base64 || screenshot.dataUrl)) {
+        const shot = screenshot;
+        pendingScreenshot = null;
+        let res;
+        try {
+          const payload = {
+            type: "rc-save-screenshot",
+            text,
+            w: shot.w,
+            h: shot.h,
+            mime: shot.mime || "image/jpeg",
+            pageTitle: document.title,
+            pageUrl: location.href
+          };
+          if (shot.base64) {
+            payload.base64 = shot.base64;
+          } else if (typeof shot.dataUrl === "string" && shot.dataUrl.startsWith("data:image/")) {
+            payload.dataUrl = shot.dataUrl;
+          } else {
+            throw new Error("missing screenshot base64");
+          }
+          res = await chrome.runtime.sendMessage(payload);
+        } catch (e) {
+          console.warn("[RecordU] 截图保存失败", e);
+          toast.textContent = "保存失败";
+          toast.classList.add("show");
+          setTimeout(close, 900);
+          return;
+        }
+        if (chrome.runtime.lastError || !res || !res.ok) {
+          console.warn(
+            "[RecordU] 截图保存失败",
+            (chrome.runtime.lastError && chrome.runtime.lastError.message) ||
+              (res && res.error) ||
+              res
+          );
+          toast.textContent = "保存失败";
+          toast.classList.add("show");
+          setTimeout(close, 900);
+          return;
+        }
+        if (shot.revokePreview) shot.revokePreview();
+        toast.textContent = "✓ 已保存";
       } else {
         const range = pendingRange;
         pendingRange = null;
@@ -484,17 +567,23 @@
 
   async function showEditOverlay(captureId, anchorRect) {
     try {
-      const data = await chrome.storage.local.get("rc_captures");
-      const capture = (data.rc_captures || []).find((c) => c.id === captureId);
+      const res = await chrome.runtime.sendMessage({ type: "rc-get-one", id: captureId });
+      const capture = res && res.capture;
       if (!capture) return;
       const exactText = (capture.anchor && capture.anchor.exact) || "";
+      let screenshot = null;
+      if (capture.type === "screenshot") {
+        const shot = await chrome.runtime.sendMessage({ type: "rc-get-screenshot", id: captureId });
+        if (shot && shot.dataUrl) screenshot = { dataUrl: shot.dataUrl, w: shot.w, h: shot.h };
+      }
       openOverlay({
         mode: "edit",
         title: "编辑感触",
         exactText,
         initialText: capture.text || "",
         captureId,
-        anchorRect
+        anchorRect,
+        screenshot
       });
     } catch (e) {
       console.warn("[RecordU] 无法打开编辑", e);
@@ -522,7 +611,7 @@
     if (!node || !node.nodeValue) return NodeFilter.FILTER_REJECT;
     const parent = node.parentElement;
     if (!parent) return NodeFilter.FILTER_REJECT;
-    if (parent.closest("script, style, noscript, textarea, #rc-overlay, #rc-float-btn")) {
+    if (parent.closest("script, style, noscript, textarea, #rc-overlay, #rc-float-btn, #rc-region-mask")) {
       return NodeFilter.FILTER_REJECT;
     }
     if (skipHighlights && parent.closest(".rc-highlight")) {
@@ -813,20 +902,20 @@
     for (const m of mutations) {
       if (m.type === "characterData") {
         const parent = m.target.parentElement;
-        if (parent && parent.closest(".rc-highlight, #rc-overlay, #rc-float-btn")) continue;
+        if (parent && parent.closest(".rc-highlight, #rc-overlay, #rc-float-btn, #rc-region-mask")) continue;
         return true;
       }
       const nodes = [...m.addedNodes, ...m.removedNodes];
       for (const n of nodes) {
         if (n.nodeType === Node.ELEMENT_NODE) {
-          if (n.id === "rc-overlay" || n.id === "rc-float-btn") continue;
+          if (n.id === "rc-overlay" || n.id === "rc-float-btn" || n.id === "rc-region-mask") continue;
           if (n.classList && n.classList.contains("rc-highlight")) continue;
-          if (n.closest && n.closest("#rc-overlay, #rc-float-btn")) continue;
+          if (n.closest && n.closest("#rc-overlay, #rc-float-btn, #rc-region-mask")) continue;
           return true;
         }
         if (n.nodeType === Node.TEXT_NODE) {
           const parent = n.parentElement;
-          if (parent && parent.closest(".rc-highlight, #rc-overlay, #rc-float-btn")) continue;
+          if (parent && parent.closest(".rc-highlight, #rc-overlay, #rc-float-btn, #rc-region-mask")) continue;
           return true;
         }
       }
@@ -835,10 +924,14 @@
   }
 
   async function reconcileHighlights() {
-    const data = await chrome.storage.local.get("rc_captures");
-    const captures = (data.rc_captures || []).filter(
-      (c) => c.anchor && c.anchor.exact && samePage(c.pageUrl)
-    );
+    let all = [];
+    try {
+      const res = await chrome.runtime.sendMessage({ type: "rc-get-page" });
+      all = (res && res.captures) || [];
+    } catch (e) {
+      return;
+    }
+    const captures = all.filter((c) => c.anchor && c.anchor.exact && samePage(c.pageUrl));
     const ids = new Set(captures.map((c) => c.id));
 
     document.querySelectorAll("span.rc-highlight").forEach((el) => {
@@ -955,12 +1048,234 @@
     [500, 1500, 4000].forEach((ms) => setTimeout(reconcileHighlights, ms));
   });
 
-  chrome.storage.onChanged.addListener((changes, area) => {
-    if (area === "local" && changes.rc_captures) {
-      failCount = 0;
-      reconcileHighlights();
+  // ---------- region screenshot ----------
+
+  function tearDownRegionMask() {
+    if (!regionMask) return;
+    try {
+      regionMask.remove();
+    } catch (e) {}
+    regionMask = null;
+  }
+
+  function waitFrame() {
+    return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  }
+
+  function loadImage(dataUrl) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error("image load failed"));
+      img.src = dataUrl;
+    });
+  }
+
+  function canvasToJpegBlob(canvas, quality) {
+    return new Promise((resolve, reject) => {
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) reject(new Error("toBlob failed"));
+          else resolve(blob);
+        },
+        "image/jpeg",
+        quality
+      );
+    });
+  }
+
+  async function blobToBase64(blob) {
+    const buffer = await blob.arrayBuffer();
+    const bytes = new Uint8Array(buffer);
+    const chunk = 0x8000;
+    let binary = "";
+    for (let i = 0; i < bytes.length; i += chunk) {
+      binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
     }
-  });
+    return btoa(binary);
+  }
+
+  async function cropVisibleToJpeg(dataUrl, rect) {
+    const img = await loadImage(dataUrl);
+    const dpr = window.devicePixelRatio || 1;
+    const sx = Math.max(0, Math.round(rect.left * dpr));
+    const sy = Math.max(0, Math.round(rect.top * dpr));
+    const sw = Math.max(1, Math.round(rect.width * dpr));
+    const sh = Math.max(1, Math.round(rect.height * dpr));
+    const maxSide = 1200;
+    const scale = Math.min(1, maxSide / Math.max(sw, sh));
+    const dw = Math.max(1, Math.round(sw * scale));
+    const dh = Math.max(1, Math.round(sh * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = dw;
+    canvas.height = dh;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, dw, dh);
+    const blob = await canvasToJpegBlob(canvas, 0.72);
+    const previewUrl = URL.createObjectURL(blob);
+    const base64 = await blobToBase64(blob);
+    return {
+      dataUrl: previewUrl,
+      base64,
+      mime: "image/jpeg",
+      w: dw,
+      h: dh,
+      revokePreview: () => {
+        try {
+          URL.revokeObjectURL(previewUrl);
+        } catch (e) {}
+      }
+    };
+  }
+
+  async function finishRegionCapture(cssRect) {
+    tearDownRegionMask();
+    await waitFrame();
+    let res;
+    try {
+      res = await chrome.runtime.sendMessage({ type: "rc-capture-visible" });
+    } catch (e) {
+      console.warn("[RecordU] captureVisible failed", e);
+      return;
+    }
+    if (!res || !res.ok || !res.dataUrl) {
+      console.warn("[RecordU] captureVisible error", res && res.error);
+      return;
+    }
+    try {
+      const shot = await cropVisibleToJpeg(res.dataUrl, cssRect);
+      pendingScreenshot = shot;
+      openOverlay({
+        mode: "create",
+        title: "截图批注",
+        screenshot: shot,
+        anchorRect: {
+          left: cssRect.left,
+          top: cssRect.top,
+          right: cssRect.left + cssRect.width,
+          bottom: cssRect.top + cssRect.height,
+          width: cssRect.width,
+          height: cssRect.height
+        }
+      });
+    } catch (e) {
+      console.warn("[RecordU] crop failed", e);
+    }
+  }
+
+  function startRegionCapture() {
+    if (regionMask) tearDownRegionMask();
+    hideFloatButton();
+    const old = document.getElementById("rc-overlay");
+    if (old) old.remove();
+
+    const mask = document.createElement("div");
+    mask.id = "rc-region-mask";
+    mask.innerHTML = `
+      <style>
+        #rc-region-mask {
+          position: fixed;
+          inset: 0;
+          z-index: 2147483646;
+          cursor: crosshair;
+          user-select: none;
+          background: rgba(15, 23, 42, 0.18);
+        }
+        #rc-region-mask .rc-region-tip {
+          position: fixed;
+          top: 16px;
+          left: 50%;
+          transform: translateX(-50%);
+          background: rgba(31, 35, 40, 0.9);
+          color: #fff;
+          font: 13px/1.4 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+          padding: 8px 14px;
+          border-radius: 999px;
+          pointer-events: none;
+          box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+        }
+        #rc-region-mask .rc-region-box {
+          position: fixed;
+          border: 2px solid #e8590c;
+          background: rgba(232, 89, 12, 0.12);
+          box-shadow: 0 0 0 9999px rgba(15, 23, 42, 0.35);
+          display: none;
+          pointer-events: none;
+        }
+      </style>
+      <div class="rc-region-tip">拖拽选择区域 · Esc 取消</div>
+      <div class="rc-region-box"></div>
+    `;
+    document.documentElement.appendChild(mask);
+    regionMask = mask;
+
+    const box = mask.querySelector(".rc-region-box");
+    let startX = 0;
+    let startY = 0;
+    let dragging = false;
+
+    function onKey(e) {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        cleanupListeners();
+        tearDownRegionMask();
+      }
+    }
+
+    function cleanupListeners() {
+      mask.removeEventListener("mousedown", onDown, true);
+      window.removeEventListener("mousemove", onMove, true);
+      window.removeEventListener("mouseup", onUp, true);
+      window.removeEventListener("keydown", onKey, true);
+    }
+
+    function onDown(e) {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      dragging = true;
+      startX = e.clientX;
+      startY = e.clientY;
+      box.style.display = "block";
+      box.style.left = startX + "px";
+      box.style.top = startY + "px";
+      box.style.width = "0px";
+      box.style.height = "0px";
+    }
+
+    function onMove(e) {
+      if (!dragging) return;
+      const x1 = Math.min(startX, e.clientX);
+      const y1 = Math.min(startY, e.clientY);
+      const x2 = Math.max(startX, e.clientX);
+      const y2 = Math.max(startY, e.clientY);
+      box.style.left = x1 + "px";
+      box.style.top = y1 + "px";
+      box.style.width = x2 - x1 + "px";
+      box.style.height = y2 - y1 + "px";
+    }
+
+    function onUp(e) {
+      if (!dragging) return;
+      dragging = false;
+      const x1 = Math.min(startX, e.clientX);
+      const y1 = Math.min(startY, e.clientY);
+      const x2 = Math.max(startX, e.clientX);
+      const y2 = Math.max(startY, e.clientY);
+      const w = x2 - x1;
+      const h = y2 - y1;
+      cleanupListeners();
+      if (w < 8 || h < 8) {
+        tearDownRegionMask();
+        return;
+      }
+      finishRegionCapture({ left: x1, top: y1, width: w, height: h });
+    }
+
+    mask.addEventListener("mousedown", onDown, true);
+    window.addEventListener("mousemove", onMove, true);
+    window.addEventListener("mouseup", onUp, true);
+    window.addEventListener("keydown", onKey, true);
+  }
 
   function escapeHtml(s) {
     const div = document.createElement("div");

@@ -1,4 +1,5 @@
-import { exactOf } from "../shared/captures.js";
+import { getScreenshotDataUrl } from "../shared/api.js";
+import { contextLabel, exactOf, isScreenshot } from "../shared/captures.js";
 import { escapeHtml } from "../shared/dom.js";
 import { favSlotHtml, fillFavSlots } from "../shared/favicon.js";
 import { dateRangeLabel, fmtTime } from "../shared/time.js";
@@ -50,10 +51,16 @@ export function renderBrowse({ root, progressEl, emptyEl, onDrop }) {
   const entries = site.items
     .map((c) => {
       const exact = exactOf(c);
+      const ctx = contextLabel(c);
+      const shot = isScreenshot(c)
+        ? `<div class="rv-shot rv-shot-sm" data-shot-id="${escapeHtml(c.id)}"><div class="rv-shot-loading">加载截图…</div></div>`
+        : "";
       return `
         <article class="rv-site-entry" data-id="${escapeHtml(c.id)}">
           <p class="rv-note">${escapeHtml(c.text)}</p>
+          ${shot}
           ${exact ? `<blockquote class="rv-quote">${escapeHtml(exact)}</blockquote>` : ""}
+          ${!exact && ctx ? `<p class="rv-ctx-label">${escapeHtml(ctx)}</p>` : ""}
           <div class="rv-meta">
             <span class="rv-meta-info">
               <span>${fmtTime(c.createdAt, true)}</span>
@@ -89,6 +96,18 @@ export function renderBrowse({ root, progressEl, emptyEl, onDrop }) {
   `;
 
   fillFavSlots(root);
+
+  root.querySelectorAll(".rv-shot[data-shot-id]").forEach((el) => {
+    const id = el.dataset.shotId;
+    getScreenshotDataUrl(id).then((dataUrl) => {
+      if (!el.isConnected) return;
+      if (!dataUrl) {
+        el.innerHTML = `<div class="rv-shot-loading">截图不可用</div>`;
+        return;
+      }
+      el.innerHTML = `<img alt="截图" src="${dataUrl}">`;
+    });
+  });
 
   const onItem = root.querySelector(`.rv-rail-item[data-index="${state.focusIndex}"]`);
   if (onItem) onItem.scrollIntoView({ block: "nearest", behavior: "smooth" });
