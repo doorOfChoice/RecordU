@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="popup">
+    <div class="popup-head">
+      <span class="popup-title">RecordU</span>
+      <a href="review.html" target="_blank" class="link">回顾 ↗</a>
+    </div>
+    <div class="page-info" id="page-info"></div>
+    <textarea id="input" class="input" rows="4"
+      placeholder="你的感触，用你自己的话……&#10;Enter 保存，Shift+Enter 换行"></textarea>
+    <div class="actions">
+      <button id="save" class="btn btn-primary">保存 (Enter)</button>
+      <button id="cancel" class="btn">取消 (Esc)</button>
+    </div>
+    <div class="toast" id="toast">✓ 已保存</div>
+  </div>
+  <script type="module" src="popup.js"></script>
+</body>
+</html>
