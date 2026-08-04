@@ -66,9 +66,24 @@ body.popup-page {
 
 .popup-head {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   margin-bottom: 10px;
+}
+
+.popup-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.popup-logo {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  display: block;
 }
 
 .popup-title {
@@ -248,11 +263,26 @@ body.review-page {
 
 .rv-brand-row {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 16px;
   flex-wrap: wrap;
   margin-bottom: 20px;
+}
+
+.rv-brand-lockup {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.rv-logo {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: block;
 }
 
 .rv-brand {
