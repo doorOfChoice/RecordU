@@ -16,7 +16,7 @@ export function renderQueue({ root, progressEl, emptyEl, onDrop, onEdit }) {
   const rangeLabel = state.dateRange === "week" ? "本周" : dateRangeLabel(state.dateRange);
 
   if (!list.length) {
-    progressEl.textContent = `${rangeLabel}待回顾 · 0 条`;
+    progressEl.textContent = `0 条`;
     emptyEl.classList.remove("hidden");
     root.classList.add("hidden");
     root.innerHTML = "";
@@ -27,7 +27,7 @@ export function renderQueue({ root, progressEl, emptyEl, onDrop, onEdit }) {
     return null;
   }
 
-  progressEl.textContent = `${rangeLabel}待回顾 · 第 ${state.focusIndex + 1} / ${list.length} 条`;
+  progressEl.textContent = `第 ${state.focusIndex + 1} / ${list.length} 条`;
   emptyEl.classList.add("hidden");
   root.classList.remove("hidden");
 

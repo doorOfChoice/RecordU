@@ -61,15 +61,16 @@
   window.__rcInstalled = true;
   window.__rcDestroy = cleanup;
 
-  const PAGE_STYLE = `
+  const theme = (typeof globalThis !== "undefined" && globalThis.RcCaptureTheme) || {};
+  const PAGE_STYLE = theme.highlightCss || `
     .rc-highlight {
-      background: rgba(255, 212, 0, 0.35);
+      background: rgba(196, 163, 90, 0.28);
       border-radius: 2px;
       cursor: pointer;
-      box-shadow: 0 0 0 1px rgba(255, 180, 0, 0.35);
+      box-shadow: 0 0 0 1px rgba(196, 163, 90, 0.28);
     }
     .rc-highlight:hover {
-      background: rgba(255, 180, 0, 0.55);
+      background: rgba(196, 163, 90, 0.42);
     }
   `;
   const styleEl = document.createElement("style");
@@ -78,39 +79,7 @@
 
   // ---------- floating capture button ----------
 
-  const BTN_STYLE = `
-    #rc-float-btn {
-      position: fixed;
-      z-index: 2147483646;
-      width: 22px;
-      height: 22px;
-      border-radius: 4px;
-      background: rgba(255, 255, 255, 0.96);
-      border: 1px solid rgba(232, 89, 12, 0.28);
-      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
-      cursor: pointer;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      color: #e8590c;
-      line-height: 0;
-      padding: 0;
-      transition: color 0.12s, border-color 0.12s, box-shadow 0.12s;
-    }
-    #rc-float-btn:hover {
-      color: #c2410c;
-      border-color: rgba(194, 65, 12, 0.4);
-      box-shadow: 0 2px 6px rgba(194, 65, 12, 0.18);
-    }
-    #rc-float-btn svg {
-      width: 12px;
-      height: 12px;
-      display: block;
-      stroke-width: 1.75;
-    }
-    #rc-float-btn.rc-show { display: flex; }
-  `;
-
+  const BTN_STYLE = theme.floatBtnCss || "";
   const BTN_ICON = `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M4 7.5c0-1.8 1-3 2.5-3V5c-.9 0-1.3.6-1.3 1.5H4zm6 0c0-1.8 1-3 2.5-3V5c-.9 0-1.3.6-1.3 1.5H10z"/></svg>`;
 
   function ensureButton() {
@@ -118,7 +87,7 @@
     const btn = document.createElement("button");
     btn.id = "rc-float-btn";
     btn.type = "button";
-    btn.title = "捕获感触";
+    btn.title = "记下感触";
     btn.innerHTML = `<style>${BTN_STYLE}</style>${BTN_ICON}`;
     btn.addEventListener("mousedown", (e) => e.preventDefault());
     btn.addEventListener("click", () => {
@@ -184,146 +153,7 @@
 
   // ---------- capture overlay ----------
 
-  const STYLE = `
-    #rc-overlay {
-      position: fixed;
-      top: 20px;
-      left: 20px;
-      z-index: 2147483647;
-      width: 360px;
-      max-width: calc(100vw - 16px);
-      background: #fff;
-      border: 1px solid #e5e7eb;
-      border-radius: 12px;
-      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
-      font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
-      font-size: 14px;
-      line-height: 1.6;
-      color: #1f2328;
-      overflow: hidden;
-      box-sizing: border-box;
-    }
-    #rc-overlay *, #rc-overlay *::before, #rc-overlay *::after {
-      box-sizing: border-box;
-    }
-    #rc-overlay .rc-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 10px 14px;
-      background: #fff0e6;
-      font-weight: 700;
-      color: #e8590c;
-      font-size: 13px;
-    }
-    #rc-overlay .rc-close {
-      flex: 0 0 auto;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 28px;
-      height: 28px;
-      margin: 0;
-      padding: 0;
-      background: transparent;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      color: #6b7280;
-      font-size: 18px;
-      font-weight: 400;
-      line-height: 1;
-      font-family: inherit;
-    }
-    #rc-overlay .rc-close:hover {
-      color: #1f2328;
-      background: #f3f4f6;
-    }
-    #rc-overlay .rc-ctx {
-      margin: 10px 14px 0;
-      padding: 8px 10px;
-      background: #f9fafb;
-      border-left: 3px solid #e8590c;
-      border-radius: 6px;
-      font-size: 13px;
-      color: #6b7280;
-      max-height: 120px;
-      overflow-y: auto;
-      white-space: pre-wrap;
-      word-break: break-word;
-    }
-    #rc-overlay .rc-ctx .rc-q { color: #e8590c; font-weight: 700; margin-right: 4px; }
-    #rc-overlay .rc-shot {
-      margin: 10px 14px 0;
-      border-radius: 8px;
-      overflow: hidden;
-      border: 1px solid #e5e7eb;
-      background: #f3f4f6;
-      max-height: 180px;
-    }
-    #rc-overlay .rc-shot img {
-      display: block;
-      width: 100%;
-      height: auto;
-      max-height: 180px;
-      object-fit: contain;
-    }
-    #rc-overlay textarea.rc-input {
-      display: block;
-      width: calc(100% - 28px);
-      max-width: calc(100% - 28px);
-      margin: 10px 14px 0;
-      border: 1px solid #e5e7eb;
-      border-radius: 8px;
-      padding: 10px;
-      font-size: 14px;
-      font-family: inherit;
-      line-height: 1.5;
-      resize: vertical;
-      min-height: 120px;
-      outline: none;
-    }
-    #rc-overlay textarea.rc-input:focus { border-color: #e8590c; }
-    #rc-overlay .rc-actions {
-      display: flex;
-      gap: 8px;
-      padding: 10px 14px 14px;
-    }
-    #rc-overlay .rc-actions button {
-      flex: 1;
-      border: 1px solid #e5e7eb;
-      background: #fff;
-      color: #1f2328;
-      border-radius: 8px;
-      padding: 7px 0;
-      font-size: 13px;
-      cursor: pointer;
-      font-family: inherit;
-    }
-    #rc-overlay .rc-actions button:hover { background: #f3f4f6; }
-    #rc-overlay .rc-actions button.rc-save {
-      background: #e8590c;
-      border-color: #e8590c;
-      color: #fff;
-      font-weight: 600;
-    }
-    #rc-overlay .rc-actions button.rc-save:hover { background: #d9480f; }
-    #rc-overlay .rc-toast {
-      position: absolute;
-      left: 50%;
-      bottom: 16px;
-      transform: translateX(-50%);
-      background: #e8590c;
-      color: #fff;
-      padding: 6px 16px;
-      border-radius: 20px;
-      font-size: 13px;
-      opacity: 0;
-      transition: opacity 0.2s;
-      pointer-events: none;
-    }
-    #rc-overlay .rc-toast.show { opacity: 1; }
-  `;
+  const STYLE = theme.overlayCss || "";
 
   chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     if (!msg || !msg.type) return;
@@ -405,9 +235,67 @@
     overlay.style.top = Math.round(y) + "px";
   }
 
+  function bindOverlayDrag(overlay) {
+    const head = overlay.querySelector(".rc-head");
+    if (!head) return;
+
+    let dragging = false;
+    let startX = 0;
+    let startY = 0;
+    let originLeft = 0;
+    let originTop = 0;
+
+    function clamp(left, top) {
+      const pad = 8;
+      const w = overlay.offsetWidth || 360;
+      const h = overlay.offsetHeight || 220;
+      const maxL = Math.max(pad, window.innerWidth - w - pad);
+      const maxT = Math.max(pad, window.innerHeight - h - pad);
+      return {
+        left: Math.min(Math.max(pad, left), maxL),
+        top: Math.min(Math.max(pad, top), maxT)
+      };
+    }
+
+    function onMove(e) {
+      if (!dragging) return;
+      e.preventDefault();
+      const next = clamp(originLeft + (e.clientX - startX), originTop + (e.clientY - startY));
+      overlay.style.left = Math.round(next.left) + "px";
+      overlay.style.top = Math.round(next.top) + "px";
+    }
+
+    function onUp() {
+      if (!dragging) return;
+      dragging = false;
+      overlay.classList.remove("rc-dragging");
+      window.removeEventListener("pointermove", onMove, true);
+      window.removeEventListener("pointerup", onUp, true);
+      window.removeEventListener("pointercancel", onUp, true);
+    }
+
+    head.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0) return;
+      if (e.target.closest(".rc-close")) return;
+      e.preventDefault();
+      dragging = true;
+      startX = e.clientX;
+      startY = e.clientY;
+      originLeft = parseFloat(overlay.style.left) || overlay.offsetLeft || 0;
+      originTop = parseFloat(overlay.style.top) || overlay.offsetTop || 0;
+      overlay.classList.add("rc-dragging");
+      try {
+        head.setPointerCapture(e.pointerId);
+      } catch (err) {}
+      window.addEventListener("pointermove", onMove, true);
+      window.addEventListener("pointerup", onUp, true);
+      window.addEventListener("pointercancel", onUp, true);
+    });
+  }
+
   function openOverlay({
     mode = "create",
-    title = "捕获感触",
+    title = "记下感触",
     exactText = "",
     initialText = "",
     captureId = null,
@@ -448,6 +336,8 @@
 
     document.documentElement.appendChild(overlay);
     positionOverlay(overlay, anchorRect);
+    bindOverlayDrag(overlay);
+    requestAnimationFrame(() => overlay.classList.add("rc-show"));
 
     const textarea = overlay.querySelector(".rc-input");
     const toast = overlay.querySelector(".rc-toast");
@@ -1172,37 +1062,7 @@
     const mask = document.createElement("div");
     mask.id = "rc-region-mask";
     mask.innerHTML = `
-      <style>
-        #rc-region-mask {
-          position: fixed;
-          inset: 0;
-          z-index: 2147483646;
-          cursor: crosshair;
-          user-select: none;
-          background: rgba(15, 23, 42, 0.18);
-        }
-        #rc-region-mask .rc-region-tip {
-          position: fixed;
-          top: 16px;
-          left: 50%;
-          transform: translateX(-50%);
-          background: rgba(31, 35, 40, 0.9);
-          color: #fff;
-          font: 13px/1.4 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
-          padding: 8px 14px;
-          border-radius: 999px;
-          pointer-events: none;
-          box-shadow: 0 6px 20px rgba(0,0,0,0.2);
-        }
-        #rc-region-mask .rc-region-box {
-          position: fixed;
-          border: 2px solid #e8590c;
-          background: rgba(232, 89, 12, 0.12);
-          box-shadow: 0 0 0 9999px rgba(15, 23, 42, 0.35);
-          display: none;
-          pointer-events: none;
-        }
-      </style>
+      <style>${theme.regionCss || ""}</style>
       <div class="rc-region-tip">拖拽选择区域 · Esc 取消</div>
       <div class="rc-region-box"></div>
     `;

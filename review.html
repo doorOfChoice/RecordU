@@ -4,9 +4,6 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>RecordU · 回顾</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+JP:wght@400;500;600&family=Shippori+Mincho:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body class="review-page">
@@ -14,18 +11,20 @@
     <header class="rv-head">
       <div class="rv-brand-row">
         <h1 class="rv-brand">RecordU</h1>
+        <a href="#" class="rv-export" id="rv-export">导出</a>
+      </div>
+      <div class="rv-toolbar">
         <nav class="rv-nav" aria-label="模式">
           <a href="#" class="rv-nav-link is-active" data-mode="queue">待回顾</a>
           <a href="#" class="rv-nav-link" data-mode="site">网站</a>
-          <a href="#" class="rv-nav-link" id="rv-export">导出</a>
+        </nav>
+        <nav class="rv-range" aria-label="日期范围">
+          <a href="#" class="rv-range-link is-active" data-range="week">本周</a>
+          <a href="#" class="rv-range-link" data-range="earlier">更早</a>
+          <a href="#" class="rv-range-link" data-range="all">全部</a>
         </nav>
       </div>
-      <p class="rv-progress" id="rv-progress">本周待回顾 · 0 条</p>
-      <nav class="rv-range" aria-label="日期范围">
-        <a href="#" class="rv-range-link is-active" data-range="week">本周</a>
-        <a href="#" class="rv-range-link" data-range="earlier">更早</a>
-        <a href="#" class="rv-range-link" data-range="all">全部</a>
-      </nav>
+      <p class="rv-progress" id="rv-progress">0 条</p>
     </header>
 
     <main id="rv-content" class="rv-content"></main>

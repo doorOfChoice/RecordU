@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "RecordU",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "description": "看到让你咯噔一下的内容，5 秒记下你自己的话。每周回顾，积累成属于你的认知清单。",
   "permissions": ["storage", "contextMenus", "activeTab", "scripting"],
   "host_permissions": ["<all_urls>"],
@@ -29,7 +29,7 @@
         "default": "Alt+S",
         "mac": "Alt+S"
       },
-      "description": "快速捕获感触（Mac：⌥S）"
+      "description": "快速记下感触（Mac：⌥S）"
     },
     "capture-screenshot": {
       "suggested_key": {
@@ -42,11 +42,11 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["content.js"],
+      "js": ["shared/capture-theme.js", "content.js"],
       "run_at": "document_idle"
     }
   ],
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https:"
+    "extension_pages": "script-src 'self'; object-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: https: blob:; connect-src 'self' https:"
   }
 }

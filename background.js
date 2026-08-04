@@ -165,7 +165,7 @@ async function startRegionCaptureOnTab(tabId) {
     try {
       await chrome.scripting.executeScript({
         target: { tabId },
-        files: ["content.js"]
+        files: ["shared/capture-theme.js", "content.js"]
       });
       await chrome.tabs.sendMessage(tabId, { type: "rc-start-region-capture" });
       return { ok: true };
@@ -187,7 +187,7 @@ async function startRegionCaptureActive() {
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
     id: "rc-capture-selection",
-    title: "捕获感触",
+    title: "记下感触",
     contexts: ["selection"]
   });
   ensureMigrated();

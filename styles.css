@@ -1,11 +1,37 @@
+/* 和紙 tokens — keep in sync with shared/capture-theme.js */
 :root {
-  --bg: #ffffff;
-  --text: #1f2328;
-  --muted: #6b7280;
-  --accent: #e8590c;
-  --accent-soft: #fff0e6;
-  --border: #e5e7eb;
-  --radius: 10px;
+  --ru-ink: #1a1a1a;
+  --ru-sumi: #5c5c5c;
+  --ru-thin: #9a958c;
+  --ru-line: #d8d2c8;
+  --ru-paper: #f2f0eb;
+  --ru-paper-deep: #e8e4db;
+  --ru-focus: #2f3e46;
+  --ru-accent: #3d5a80;
+  --ru-vermilion: #9b2226;
+  --ru-warm: #c4a35a;
+  --ru-serif: "Hiragino Mincho ProN", "Songti SC", "STSong", "SimSun", serif;
+  --ru-sans: "PingFang SC", "Hiragino Sans", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+
+  /* aliases used across popup / review / modal */
+  --bg: var(--ru-paper);
+  --text: var(--ru-ink);
+  --muted: var(--ru-sumi);
+  --accent: var(--ru-accent);
+  --border: var(--ru-line);
+  --radius: 2px;
+
+  --rv-ink: var(--ru-ink);
+  --rv-sumi: var(--ru-sumi);
+  --rv-thin: var(--ru-thin);
+  --rv-line: var(--ru-line);
+  --rv-paper: var(--ru-paper);
+  --rv-paper-deep: var(--ru-paper-deep);
+  --rv-focus: var(--ru-focus);
+  --rv-accent: var(--ru-accent);
+  --rv-vermilion: var(--ru-vermilion);
+  --rv-serif: var(--ru-serif);
+  --rv-sans: var(--ru-sans);
 }
 
 * {
@@ -15,8 +41,7 @@
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei",
-    "Segoe UI", sans-serif;
+  font-family: var(--ru-sans);
   color: var(--text);
   background: var(--bg);
   font-size: 14px;
@@ -28,41 +53,56 @@ body {
 }
 
 /* ---------- popup ---------- */
+body.popup-page {
+  background-color: var(--ru-paper);
+  background-image: radial-gradient(rgba(26, 26, 26, 0.03) 0.6px, transparent 0.6px);
+  background-size: 3px 3px;
+}
+
 .popup {
   width: 340px;
-  padding: 14px;
+  padding: 16px 16px 14px;
 }
 
 .popup-head {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   justify-content: space-between;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 
 .popup-title {
-  font-weight: 700;
-  font-size: 15px;
-  color: var(--accent);
+  font-family: var(--ru-serif);
+  font-weight: 600;
+  font-size: 18px;
+  letter-spacing: 0.04em;
+  color: var(--ru-ink);
 }
 
 .link {
-  color: var(--muted);
+  color: var(--ru-thin);
   font-size: 12px;
+  letter-spacing: 0.06em;
   text-decoration: none;
+  border-bottom: 1px solid transparent;
+  padding-bottom: 1px;
+  transition: color 0.15s, border-color 0.15s;
 }
 
 .link:hover {
-  color: var(--accent);
+  color: var(--ru-ink);
+  border-bottom-color: var(--ru-ink);
 }
 
 .page-info {
-  font-size: 12px;
-  color: var(--muted);
-  background: var(--accent-soft);
-  border-radius: 6px;
-  padding: 6px 8px;
-  margin-bottom: 10px;
+  font-size: 11px;
+  color: var(--ru-thin);
+  letter-spacing: 0.04em;
+  background: transparent;
+  border-bottom: 1px solid var(--ru-line);
+  border-radius: 0;
+  padding: 0 0 8px;
+  margin-bottom: 12px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -70,11 +110,14 @@ body {
 
 .input {
   width: 100%;
-  border: 1px solid var(--border);
+  border: 1px solid var(--ru-line);
   border-radius: var(--radius);
-  padding: 10px;
-  font-size: 14px;
-  font-family: inherit;
+  padding: 10px 12px;
+  font-size: 15px;
+  font-family: var(--ru-serif);
+  line-height: 1.65;
+  color: var(--ru-ink);
+  background: rgba(255, 255, 255, 0.45);
   resize: vertical;
   min-height: 120px;
   outline: none;
@@ -82,79 +125,94 @@ body {
 }
 
 .input:focus {
-  border-color: var(--accent);
+  border-color: var(--ru-ink);
 }
 
 .actions {
   display: flex;
   gap: 8px;
-  margin-top: 10px;
+  margin-top: 12px;
 }
 
 .popup-extra {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 10px;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--ru-line);
 }
 
-.popup-extra .btn-ghost {
-  flex: 0 0 auto;
-  padding: 6px 12px;
-  background: transparent;
-  border-color: var(--border);
-  color: var(--muted);
+.popup-shot {
+  appearance: none;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  color: var(--ru-thin);
+  cursor: pointer;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
 }
 
-.popup-extra .btn-ghost:hover {
-  color: var(--accent);
-  border-color: rgba(232, 89, 12, 0.35);
-  background: var(--accent-soft);
+.popup-shot:hover {
+  color: var(--ru-ink);
+  border-bottom-color: var(--ru-ink);
 }
 
 .popup-hint {
   font-size: 11px;
-  color: var(--muted);
+  color: var(--ru-thin);
+  letter-spacing: 0.04em;
 }
 
 .btn {
   flex: 1;
-  border: 1px solid var(--border);
-  background: #fff;
-  color: var(--text);
-  border-radius: 8px;
+  border: 1px solid var(--ru-line);
+  background: transparent;
+  color: var(--ru-sumi);
+  border-radius: var(--radius);
   padding: 8px 0;
-  font-size: 13px;
+  font-size: 12px;
+  letter-spacing: 0.08em;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
   font-family: inherit;
 }
 
 .btn:hover {
-  background: #f3f4f6;
+  color: var(--ru-ink);
+  border-color: var(--ru-ink);
+  background: rgba(26, 26, 26, 0.03);
 }
 
 .btn-primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
-  font-weight: 600;
+  background: var(--ru-ink);
+  border-color: var(--ru-ink);
+  color: #f7f5f0;
+  font-weight: 500;
 }
 
 .btn-primary:hover {
-  background: #d9480f;
+  background: #2a2a2a;
+  border-color: #2a2a2a;
+  color: #f7f5f0;
 }
 
 .toast {
   position: fixed;
   left: 50%;
   bottom: 14px;
-  transform: translateX(-50%) translateY(10px);
-  background: var(--accent);
-  color: #fff;
-  padding: 6px 16px;
-  border-radius: 20px;
-  font-size: 13px;
+  transform: translateX(-50%) translateY(6px);
+  background: var(--ru-ink);
+  color: #f7f5f0;
+  padding: 6px 14px;
+  border-radius: 2px;
+  font-size: 12px;
+  letter-spacing: 0.06em;
   opacity: 0;
   transition: opacity 0.2s, transform 0.2s;
   pointer-events: none;
@@ -167,18 +225,6 @@ body {
 
 /* ---------- review page · 和紙 ---------- */
 body.review-page {
-  --rv-ink: #1a1a1a;
-  --rv-sumi: #5c5c5c;
-  --rv-thin: #9a958c;
-  --rv-line: #d8d2c8;
-  --rv-paper: #f2f0eb;
-  --rv-paper-deep: #e8e4db;
-  --rv-focus: #2f3e46;
-  --rv-accent: #3d5a80;
-  --rv-vermilion: #9b2226;
-  --rv-serif: "Shippori Mincho", "Noto Serif JP", "Hiragino Mincho ProN", "Songti SC", serif;
-  --rv-sans: "IBM Plex Sans JP", "Hiragino Sans", "PingFang SC", "Yu Gothic", sans-serif;
-
   min-height: 100vh;
   color: var(--rv-ink);
   font-family: var(--rv-sans);
@@ -197,7 +243,7 @@ body.review-page {
 }
 
 .rv-head {
-  margin-bottom: 36px;
+  margin-bottom: 28px;
 }
 
 .rv-brand-row {
@@ -206,7 +252,7 @@ body.review-page {
   justify-content: space-between;
   gap: 16px;
   flex-wrap: wrap;
-  margin-bottom: 18px;
+  margin-bottom: 20px;
 }
 
 .rv-brand {
@@ -216,6 +262,30 @@ body.review-page {
   letter-spacing: 0.04em;
   line-height: 1.2;
   color: var(--rv-ink);
+}
+
+.rv-export {
+  color: var(--rv-thin);
+  text-decoration: none;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  border-bottom: 1px solid transparent;
+  padding-bottom: 2px;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.rv-export:hover {
+  color: var(--rv-ink);
+  border-bottom-color: var(--rv-ink);
+}
+
+.rv-toolbar {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px 24px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
 }
 
 .rv-nav {
@@ -248,7 +318,7 @@ body.review-page {
   font-size: 15px;
   color: var(--rv-sumi);
   letter-spacing: 0.04em;
-  margin-bottom: 12px;
+  margin-bottom: 0;
 }
 
 .rv-range {
@@ -471,10 +541,10 @@ body.review-page {
 
 .rv-shot {
   margin: 0 0 14px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
+  border: 1px solid var(--rv-line);
+  border-radius: 2px;
   overflow: hidden;
-  background: #f3f4f6;
+  background: var(--rv-paper-deep);
   max-width: 100%;
 }
 
@@ -491,7 +561,7 @@ body.review-page {
 }
 
 .rv-shot.is-clickable:hover {
-  border-color: rgba(232, 89, 12, 0.45);
+  border-color: var(--rv-ink);
 }
 
 .rv-shot-sm {
@@ -505,7 +575,7 @@ body.review-page {
 .rv-shot-loading {
   padding: 16px;
   font-size: 12px;
-  color: var(--muted);
+  color: var(--rv-thin);
   text-align: center;
 }
 
@@ -608,7 +678,7 @@ body.review-page {
 .rv-ctx-label {
   margin: 0 0 14px;
   font-size: 12px;
-  color: var(--muted);
+  color: var(--rv-thin);
 }
 
 .rv-quote {
@@ -641,6 +711,25 @@ body.review-page {
   align-items: center;
   gap: 8px 14px;
   min-width: 0;
+}
+
+.rv-meta-host {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.rv-meta-host .rv-fav,
+.rv-meta-host .rv-fav-slot {
+  width: 14px;
+  height: 14px;
+  margin-top: 0;
+  border-radius: 2px;
+}
+
+.rv-meta-host .rv-fav-letter {
+  font-size: 9px;
 }
 
 .rv-source {
@@ -678,7 +767,7 @@ body.review-page {
 
 .rv-icon-act.rv-icon-edit:hover {
   color: var(--rv-accent);
-  background: rgba(232, 89, 12, 0.1);
+  background: rgba(61, 90, 128, 0.1);
 }
 
 .rv-icon-act.rv-icon-drop {
@@ -695,46 +784,6 @@ body.review-page {
   width: 14px;
   height: 14px;
   display: block;
-}
-
-.rv-actions {
-  display: flex;
-  gap: 10px;
-}
-
-.rv-act {
-  appearance: none;
-  background: transparent;
-  border: 1px solid var(--rv-line);
-  color: var(--rv-sumi);
-  font-family: var(--rv-sans);
-  font-size: 12px;
-  letter-spacing: 0.12em;
-  padding: 6px 14px;
-  border-radius: 2px;
-  cursor: pointer;
-  transition: color 0.15s, border-color 0.15s, background 0.15s;
-}
-
-.rv-act:hover {
-  color: var(--rv-ink);
-  border-color: var(--rv-ink);
-}
-
-.rv-act-keep {
-  border-color: var(--rv-accent);
-  color: var(--rv-accent);
-}
-
-.rv-act-keep:hover {
-  background: rgba(61, 90, 128, 0.06);
-  border-color: var(--rv-accent);
-  color: var(--rv-accent);
-}
-
-.rv-act-drop:hover {
-  border-color: var(--rv-vermilion);
-  color: var(--rv-vermilion);
 }
 
 .rv-site {
@@ -839,14 +888,14 @@ body.review-page {
 .rc-modal {
   width: 100%;
   max-width: 400px;
-  background: #f7f5f0;
-  border: 1px solid #d8d2c8;
+  background: var(--ru-paper);
+  border: 1px solid var(--ru-line);
   border-radius: 2px;
   box-shadow: 0 8px 28px rgba(26, 26, 26, 0.12);
   padding: 22px 22px 18px;
   transform: translateY(6px);
   transition: transform 0.18s;
-  font-family: "IBM Plex Sans JP", "Hiragino Sans", "PingFang SC", sans-serif;
+  font-family: var(--ru-sans);
 }
 
 .rc-modal-overlay.show .rc-modal {
@@ -854,16 +903,16 @@ body.review-page {
 }
 
 .rc-modal-title {
-  font-family: "Shippori Mincho", "Noto Serif JP", serif;
+  font-family: var(--ru-serif);
   font-size: 17px;
   font-weight: 600;
   margin-bottom: 10px;
-  color: #1a1a1a;
+  color: var(--ru-ink);
 }
 
 .rc-modal-body {
   font-size: 13px;
-  color: #5c5c5c;
+  color: var(--ru-sumi);
   line-height: 1.7;
   white-space: pre-wrap;
   word-break: break-word;
@@ -878,21 +927,21 @@ body.review-page {
   display: block;
   width: 100%;
   margin: 0 0 18px;
-  border: 1px solid #d8d2c8;
+  border: 1px solid var(--ru-line);
   border-radius: 2px;
   padding: 10px 12px;
-  font: inherit;
-  font-size: 14px;
-  line-height: 1.6;
-  color: #1a1a1a;
-  background: #fff;
+  font-family: var(--ru-serif);
+  font-size: 15px;
+  line-height: 1.65;
+  color: var(--ru-ink);
+  background: rgba(255, 255, 255, 0.45);
   resize: vertical;
   min-height: 140px;
   outline: none;
 }
 
 .rc-modal-input:focus {
-  border-color: #e8590c;
+  border-color: var(--ru-ink);
 }
 
 .rc-modal-actions {
@@ -910,13 +959,15 @@ body.review-page {
 }
 
 .rc-modal-danger {
-  background: #9b2226;
-  border-color: #9b2226;
+  background: var(--ru-vermilion);
+  border-color: var(--ru-vermilion);
   color: #fff;
 }
 
 .rc-modal-danger:hover {
   background: #7a1b1e;
+  border-color: #7a1b1e;
+  color: #fff;
 }
 
 @media (min-width: 1280px) {

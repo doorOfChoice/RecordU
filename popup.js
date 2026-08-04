@@ -13,7 +13,13 @@ async function init() {
   currentTab = tab;
   const info = document.getElementById("page-info");
   if (tab && tab.url && !/^(chrome|edge|about):/i.test(tab.url)) {
-    info.textContent = `${tab.title || "无标题"} · ${tab.url}`;
+    let host = "";
+    try {
+      host = new URL(tab.url).hostname;
+    } catch (e) {
+      host = tab.url;
+    }
+    info.textContent = `${tab.title || "无标题"} · ${host}`;
     info.title = tab.url;
   } else {
     info.textContent = "当前页面（未记录来源）";
