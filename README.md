@@ -1,5 +1,7 @@
 # RecordU
 
+![RecordU](icons/icon128.png)
+
 看到让你咯噔一下的内容，5 秒记下你自己的话。每周回顾，积累成属于你的认知清单。
 
 Chrome / Chromium 扩展（Manifest V3），帮助你在浏览网页时快速捕获阅读感触，并在原页面高亮标注，方便日后回顾与筛选。
