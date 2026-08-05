@@ -510,6 +510,39 @@ body.review-page {
   margin: 8px 0 20px;
 }
 
+.rv-settings-modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 4px 0 8px;
+}
+
+.rv-settings-mode {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--rv-line);
+  border-radius: 2px;
+  padding: 8px 12px;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  color: var(--rv-sumi);
+  cursor: pointer;
+  user-select: none;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.rv-settings-mode:has(input:checked) {
+  color: var(--rv-ink);
+  border-color: var(--rv-ink);
+  background: rgba(26, 26, 26, 0.03);
+}
+
+.rv-settings-mode input {
+  margin: 0;
+  accent-color: var(--rv-ink);
+}
+
 .rv-settings-preset {
   display: inline-flex;
   align-items: center;

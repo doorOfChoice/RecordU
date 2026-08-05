@@ -15,6 +15,7 @@
   let applyingWordHighlight = false;
   let wordHlQuietUntil = 0;
   let cachedWords = [];
+  let cachedSettings = null;
   let lastUrl = location.href;
   let historyPatched = false;
   let origPushState = null;
@@ -102,6 +103,7 @@
 
   function applyHighlightSettings(settings) {
     if (!settings) return;
+    cachedSettings = settings;
     const root = document.documentElement;
     if (settings.ideaHighlightColor) {
       root.style.setProperty("--rc-idea-hl", settings.ideaHighlightColor);
@@ -109,6 +111,11 @@
     if (settings.wordHighlightColor) {
       root.style.setProperty("--rc-word-hl", settings.wordHighlightColor);
     }
+  }
+
+  function currentWordMatchMode() {
+    const mode = cachedSettings && cachedSettings.wordMatchMode;
+    return mode === "exact" ? "exact" : "variant";
   }
 
   async function loadHighlightSettings() {
@@ -244,6 +251,7 @@
     }
     if (msg.type === "rc-settings-changed") {
       applyHighlightSettings(msg.settings);
+      scheduleWordReconcile(50);
       sendResponse({ ok: true });
     }
   });
@@ -1216,6 +1224,82 @@
     return /[A-Za-z0-9]/.test(ch);
   }
 
+  /** Longest-first English suffixes for stem derivation. */
+  const LATIN_STEM_SUFFIXES = [
+    "ingly",
+    "tions",
+    "ments",
+    "ings",
+    "tion",
+    "sion",
+    "ment",
+    "ness",
+    "able",
+    "ible",
+    "less",
+    "ful",
+    "ous",
+    "ive",
+    "ial",
+    "ies",
+    "ied",
+    "ers",
+    "est",
+    "ing",
+    "ion",
+    "ions",
+    "ly",
+    "er",
+    "al",
+    "ic",
+    "es",
+    "ed",
+    "en",
+    "s",
+    "y",
+    "d",
+    "n"
+  ];
+
+  const LATIN_WORD_SUFFIX =
+    /^(s|es|ed|ing|ings|ingly|er|ers|est|ly|ies|ied|ion|ions|tion|tions|ment|ments|ness|able|ible|ful|less|ous|ive|al|ial|ic|y|d|en|n)$/i;
+
+  function deriveLatinStem(lower) {
+    if (!lower || lower.length < 5) return lower || "";
+    for (const suf of LATIN_STEM_SUFFIXES) {
+      if (lower.length - suf.length >= 4 && lower.endsWith(suf)) {
+        return lower.slice(0, -suf.length);
+      }
+    }
+    return lower;
+  }
+
+  function isSuffixRest(rest) {
+    return rest.length > 0 && LATIN_WORD_SUFFIX.test(rest);
+  }
+
+  /**
+   * Match page token to saved Latin word.
+   * exact: whole-token equality; variant: bidirectional stem / common suffixes.
+   */
+  function latinTokenMatches(tokenLower, wordLower, mode) {
+    if (!tokenLower || !wordLower) return false;
+    if (tokenLower === wordLower) return true;
+    if (mode === "exact") return false;
+
+    const stemT = deriveLatinStem(tokenLower);
+    const stemW = deriveLatinStem(wordLower);
+    if (stemW.length >= 4 && stemT === stemW) return true;
+
+    if (wordLower.length >= 4 && tokenLower.startsWith(wordLower) && isSuffixRest(tokenLower.slice(wordLower.length))) {
+      return true;
+    }
+    if (tokenLower.length >= 4 && wordLower.startsWith(tokenLower) && isSuffixRest(wordLower.slice(tokenLower.length))) {
+      return true;
+    }
+    return false;
+  }
+
   function unwrapWordHighlight(el) {
     el.replaceWith(...el.childNodes);
   }
@@ -1246,23 +1330,24 @@
     span.appendChild(target);
   }
 
-  function findWordMatchesInNode(nodeValue, word, latin) {
+  function findWordMatchesInNode(nodeValue, word, latin, mode) {
     const matches = [];
     if (!nodeValue || !word) return matches;
     if (latin) {
-      const lowerText = nodeValue.toLowerCase();
       const lowerWord = word.toLowerCase();
-      let from = 0;
-      while (from <= lowerText.length - lowerWord.length) {
-        const idx = lowerText.indexOf(lowerWord, from);
-        if (idx < 0) break;
-        const before = idx === 0 ? "" : nodeValue[idx - 1];
-        const afterIdx = idx + lowerWord.length;
-        const after = afterIdx >= nodeValue.length ? "" : nodeValue[afterIdx];
-        if ((!before || !isWordChar(before)) && (!after || !isWordChar(after))) {
-          matches.push({ start: idx, end: afterIdx });
+      let i = 0;
+      while (i < nodeValue.length) {
+        if (!isWordChar(nodeValue[i])) {
+          i++;
+          continue;
         }
-        from = idx + 1;
+        let j = i + 1;
+        while (j < nodeValue.length && isWordChar(nodeValue[j])) j++;
+        const tokenLower = nodeValue.slice(i, j).toLowerCase();
+        if (latinTokenMatches(tokenLower, lowerWord, mode)) {
+          matches.push({ start: i, end: j });
+        }
+        i = j;
       }
     } else {
       let from = 0;
@@ -1280,6 +1365,7 @@
     if (!entry || !entry.word || !document.body) return 0;
     const word = entry.word;
     const latin = isLatinWord(word);
+    const mode = currentWordMatchMode();
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
       acceptNode(node) {
         return acceptTextNode(node, true);
@@ -1289,7 +1375,7 @@
     const planned = [];
     while (walker.nextNode()) {
       const node = walker.currentNode;
-      const hits = findWordMatchesInNode(node.nodeValue, word, latin);
+      const hits = findWordMatchesInNode(node.nodeValue, word, latin, mode);
       for (const hit of hits) {
         planned.push({ node, start: hit.start, end: hit.end });
         if (planned.length >= WORD_HL_MAX) break;
@@ -1313,6 +1399,9 @@
   }
 
   async function reconcileWordHighlights() {
+    if (!cachedSettings) {
+      await loadHighlightSettings();
+    }
     let words = [];
     try {
       const res = await chrome.runtime.sendMessage({ type: "rc-get-all-words" });

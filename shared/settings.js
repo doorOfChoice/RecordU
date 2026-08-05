@@ -6,7 +6,9 @@ export const DEFAULT_SETTINGS = {
   /** 感触高亮色 */
   ideaHighlightColor: "#c4a35a",
   /** 单词高亮色 */
-  wordHighlightColor: "#3d5a80"
+  wordHighlightColor: "#3d5a80",
+  /** 单词高亮匹配：exact = 整词精确；variant = 双向词形变体 */
+  wordMatchMode: "variant"
 };
 
 const HEX_RE = /^#([0-9a-fA-F]{6})$/;
@@ -16,6 +18,10 @@ export function normalizeHexColor(value, fallback) {
   if (HEX_RE.test(raw)) return raw.toLowerCase();
   if (/^[0-9a-fA-F]{6}$/.test(raw)) return `#${raw.toLowerCase()}`;
   return fallback;
+}
+
+export function normalizeWordMatchMode(value) {
+  return value === "exact" ? "exact" : "variant";
 }
 
 export function normalizeSettings(input) {
@@ -28,7 +34,8 @@ export function normalizeSettings(input) {
     wordHighlightColor: normalizeHexColor(
       src.wordHighlightColor,
       DEFAULT_SETTINGS.wordHighlightColor
-    )
+    ),
+    wordMatchMode: normalizeWordMatchMode(src.wordMatchMode)
   };
 }
 

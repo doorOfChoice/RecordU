@@ -37,6 +37,8 @@ export function renderSettings({
 
   const idea = settings.ideaHighlightColor || DEFAULT_SETTINGS.ideaHighlightColor;
   const word = settings.wordHighlightColor || DEFAULT_SETTINGS.wordHighlightColor;
+  const matchMode =
+    settings.wordMatchMode === "exact" ? "exact" : DEFAULT_SETTINGS.wordMatchMode;
 
   root.innerHTML = `
     <div class="rv-settings">
@@ -74,7 +76,24 @@ export function renderSettings({
             </button>`
           ).join("")}
         </div>
+      </section>
 
+      <section class="rv-settings-section">
+        <h2 class="rv-settings-title">单词匹配</h2>
+        <p class="rv-settings-desc">变体匹配会高亮常见英语词形（如 overwhelm ↔ overwhelmed）；精准匹配仅高亮与标记完全相同的词。</p>
+        <div class="rv-settings-modes" role="radiogroup" aria-label="单词匹配模式">
+          <label class="rv-settings-mode">
+            <input type="radio" name="rv-word-match" value="variant" ${matchMode === "variant" ? "checked" : ""}>
+            <span>变体匹配</span>
+          </label>
+          <label class="rv-settings-mode">
+            <input type="radio" name="rv-word-match" value="exact" ${matchMode === "exact" ? "checked" : ""}>
+            <span>精准匹配</span>
+          </label>
+        </div>
+      </section>
+
+      <section class="rv-settings-section">
         <div class="rv-settings-actions">
           <button type="button" class="btn btn-primary" id="rv-set-save">保存</button>
           <button type="button" class="btn" id="rv-set-reset">恢复默认</button>
@@ -161,14 +180,28 @@ export function renderSettings({
     });
   });
 
+  function selectedMatchMode() {
+    const checked = root.querySelector('input[name="rv-word-match"]:checked');
+    return checked && checked.value === "exact" ? "exact" : "variant";
+  }
+
+  function setMatchMode(mode) {
+    const value = mode === "exact" ? "exact" : "variant";
+    root.querySelectorAll('input[name="rv-word-match"]').forEach((el) => {
+      el.checked = el.value === value;
+    });
+  }
+
   root.querySelector("#rv-set-save").addEventListener("click", async () => {
     const next = await onSave({
       ideaHighlightColor: ideaColor.value,
-      wordHighlightColor: wordColor.value
+      wordHighlightColor: wordColor.value,
+      wordMatchMode: selectedMatchMode()
     });
     if (next) {
       setIdea(next.ideaHighlightColor);
       setWord(next.wordHighlightColor);
+      setMatchMode(next.wordMatchMode);
       showToast(toast, "✓ 已保存");
     } else {
       showToast(toast, "保存失败");
@@ -180,6 +213,7 @@ export function renderSettings({
     if (next) {
       setIdea(next.ideaHighlightColor);
       setWord(next.wordHighlightColor);
+      setMatchMode(next.wordMatchMode);
       showToast(toast, "✓ 已恢复默认");
     }
   });
