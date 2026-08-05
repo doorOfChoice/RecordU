@@ -369,6 +369,194 @@ body.review-page {
   color: var(--rv-accent);
 }
 
+.rv-words {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  max-width: 640px;
+}
+
+.rv-word-entry {
+  padding: 16px 0 14px;
+  border-bottom: 1px solid var(--rv-line);
+  cursor: pointer;
+}
+
+.rv-word-entry:last-child {
+  border-bottom: none;
+}
+
+.rv-word-entry.is-on {
+  background: linear-gradient(90deg, rgba(61, 90, 128, 0.06), transparent 70%);
+  margin: 0 -12px;
+  padding-left: 12px;
+  padding-right: 12px;
+  border-radius: 2px;
+}
+
+.rv-word-term {
+  font-family: var(--rv-serif);
+  font-size: 20px;
+  line-height: 1.35;
+  color: var(--rv-ink);
+  margin: 0 0 6px;
+  letter-spacing: 0.02em;
+}
+
+.rv-word-note {
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--rv-sumi);
+  margin: 0 0 10px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.rv-word-note-empty {
+  color: var(--rv-thin);
+  font-style: italic;
+}
+
+.rv-settings {
+  max-width: 520px;
+}
+
+.rv-settings-section {
+  padding: 4px 0 24px;
+}
+
+.rv-settings-title {
+  font-family: var(--rv-serif);
+  font-size: 20px;
+  font-weight: 500;
+  color: var(--rv-ink);
+  margin: 0 0 8px;
+  letter-spacing: 0.02em;
+}
+
+.rv-settings-desc {
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--rv-sumi);
+  margin: 0 0 22px;
+}
+
+.rv-settings-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.rv-settings-label {
+  flex: 0 0 88px;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  color: var(--rv-thin);
+}
+
+.rv-settings-color {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+
+.rv-settings-color input[type="color"] {
+  width: 36px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--rv-line);
+  border-radius: 2px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.rv-settings-hex {
+  width: 88px;
+  border: 1px solid var(--rv-line);
+  border-radius: 2px;
+  padding: 6px 8px;
+  font-size: 13px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: var(--rv-ink);
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.rv-settings-hex:focus {
+  outline: none;
+  border-color: var(--rv-ink);
+}
+
+.rv-settings-swatch {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 56px;
+  padding: 4px 10px;
+  border-radius: 2px;
+  font-size: 12px;
+  color: var(--rv-ink);
+  background: color-mix(in srgb, var(--swatch, var(--ru-warm)) 28%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--swatch, var(--ru-warm)) 28%, transparent);
+}
+
+.rv-settings-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0 20px;
+}
+
+.rv-settings-preset {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--rv-line);
+  background: transparent;
+  color: var(--rv-sumi);
+  border-radius: 2px;
+  padding: 6px 10px;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.rv-settings-preset:hover {
+  color: var(--rv-ink);
+  border-color: var(--rv-ink);
+  background: rgba(26, 26, 26, 0.03);
+}
+
+.rv-settings-preset-dots {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.rv-settings-preset-dots i {
+  display: block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.rv-settings-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.rv-settings-toast {
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  color: var(--rv-sumi);
+}
+
 .rv-content {
   min-height: 200px;
 }

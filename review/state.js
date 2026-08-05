@@ -3,7 +3,9 @@ import { inEarlierThanThisWeek, inThisWeek } from "../shared/time.js";
 
 export const state = {
   captures: [],
-  /** @type {"queue"|"site"} */
+  words: [],
+  settings: null,
+  /** @type {"queue"|"site"|"words"|"settings"} */
   mode: "queue",
   /** @type {"week"|"earlier"|"all"} */
   dateRange: "week",
@@ -25,14 +27,20 @@ export function browseList() {
   return state.captures.filter((c) => matchDate(c));
 }
 
+export function wordsList() {
+  return state.words.slice();
+}
+
 /** Aggregated sites for site mode (left rail entries). */
 export function siteGroups() {
   return groupBySite(browseList());
 }
 
-/** Active mode list for focus navigation (captures or site groups). */
+/** Active mode list for focus navigation (captures, site groups, or words). */
 export function modeList() {
   if (state.mode === "queue") return queueList();
+  if (state.mode === "words") return wordsList();
+  if (state.mode === "settings") return [];
   return siteGroups();
 }
 
@@ -47,9 +55,14 @@ export function clampFocus() {
 }
 
 export function focusedCapture() {
-  if (state.mode === "site") return null;
+  if (state.mode === "site" || state.mode === "words") return null;
   const list = modeList();
   return list[state.focusIndex] || null;
+}
+
+export function focusedWord() {
+  if (state.mode !== "words") return null;
+  return wordsList()[state.focusIndex] || null;
 }
 
 export function focusedSite() {

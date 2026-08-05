@@ -1,10 +1,17 @@
 const DB_NAME = "recordu";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const MIGRATE_FLAG = "rc_migrated_v1";
 const OLD_CAPTURES_KEY = "rc_captures";
 const OLD_FAVICON_KEY = "rc_favicon_cache";
 
 let dbPromise = null;
+
+function ensureWordsStore(db) {
+  if (db.objectStoreNames.contains("words")) return;
+  const store = db.createObjectStore("words", { keyPath: "id" });
+  store.createIndex("by_word", "wordKey", { unique: true });
+  store.createIndex("by_createdAt", "createdAt", { unique: false });
+}
 
 function openDB() {
   if (dbPromise) return dbPromise;
@@ -24,10 +31,18 @@ function openDB() {
       if (!db.objectStoreNames.contains("favicons")) {
         db.createObjectStore("favicons", { keyPath: "host" });
       }
+      ensureWordsStore(db);
     };
     req.onsuccess = () => resolve(req.result);
   });
   return dbPromise;
+}
+
+/** Normalize word for dedupe: trim + lowercase Latin letters only. */
+export function normalizeWordKey(word) {
+  const trimmed = String(word || "").replace(/\s+/g, " ").trim();
+  if (!trimmed) return "";
+  return trimmed.replace(/[A-Za-z]+/g, (m) => m.toLowerCase());
 }
 
 function reqToPromise(req) {
@@ -207,6 +222,94 @@ export async function getAllFavicons() {
   const all = await reqToPromise(tx.objectStore("favicons").getAll());
   await txDone(tx);
   return all || [];
+}
+
+function normalizeWordRecord(input) {
+  const word = String(input.word || "").replace(/\s+/g, " ").trim();
+  const wordKey = input.wordKey || normalizeWordKey(word);
+  return {
+    id: input.id || newId(),
+    word,
+    wordKey,
+    note: typeof input.note === "string" ? input.note : "",
+    pageTitle: input.pageTitle || "",
+    pageUrl: input.pageUrl || "",
+    createdAt: input.createdAt || Date.now()
+  };
+}
+
+export async function getAllWords() {
+  const db = await openDB();
+  const tx = db.transaction("words", "readonly");
+  const all = await reqToPromise(tx.objectStore("words").getAll());
+  await txDone(tx);
+  return all || [];
+}
+
+export async function getWord(id) {
+  if (!id) return null;
+  const db = await openDB();
+  const tx = db.transaction("words", "readonly");
+  const row = await reqToPromise(tx.objectStore("words").get(id));
+  await txDone(tx);
+  return row || null;
+}
+
+export async function findWordByNormalized(wordOrKey) {
+  const key = normalizeWordKey(wordOrKey);
+  if (!key) return null;
+  const db = await openDB();
+  const tx = db.transaction("words", "readonly");
+  const row = await reqToPromise(tx.objectStore("words").index("by_word").get(key));
+  await txDone(tx);
+  return row || null;
+}
+
+/** Insert or update by normalized word key (dedupe). */
+export async function saveWord(input) {
+  const word = String(input.word || "").replace(/\s+/g, " ").trim();
+  if (!word) throw new Error("word is required");
+  const wordKey = normalizeWordKey(word);
+  const existing = await findWordByNormalized(wordKey);
+  const record = normalizeWordRecord({
+    ...input,
+    id: existing ? existing.id : input.id,
+    word,
+    wordKey,
+    note: input.note != null ? input.note : existing ? existing.note : "",
+    pageTitle: input.pageTitle != null ? input.pageTitle : existing ? existing.pageTitle : "",
+    pageUrl: input.pageUrl != null ? input.pageUrl : existing ? existing.pageUrl : "",
+    createdAt: existing ? existing.createdAt : input.createdAt
+  });
+  const db = await openDB();
+  const tx = db.transaction("words", "readwrite");
+  tx.objectStore("words").put(record);
+  await txDone(tx);
+  return record;
+}
+
+export async function updateWord(id, patch) {
+  const existing = await getWord(id);
+  if (!existing) return null;
+  const next = { ...existing, ...patch, id: existing.id };
+  if ("word" in patch) {
+    next.word = String(patch.word || "").replace(/\s+/g, " ").trim();
+    next.wordKey = normalizeWordKey(next.word);
+  }
+  if ("note" in patch) next.note = typeof patch.note === "string" ? patch.note : "";
+  const db = await openDB();
+  const tx = db.transaction("words", "readwrite");
+  tx.objectStore("words").put(next);
+  await txDone(tx);
+  return next;
+}
+
+export async function deleteWord(id) {
+  if (!id) return;
+  const db = await openDB();
+  const tx = db.transaction("words", "readwrite");
+  tx.objectStore("words").delete(id);
+  await txDone(tx);
 }
 
 /** One-time migrate from chrome.storage.local into IndexedDB. */

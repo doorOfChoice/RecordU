@@ -20,20 +20,43 @@
   g.RcCaptureTheme = {
     highlightCss: `
     .rc-highlight {
-      background: rgba(196, 163, 90, 0.28);
+      background: color-mix(in srgb, var(--rc-idea-hl, ${warm}) 28%, transparent);
       border-radius: 2px;
       cursor: pointer;
-      box-shadow: 0 0 0 1px rgba(196, 163, 90, 0.28);
+      box-shadow: 0 0 0 1px color-mix(in srgb, var(--rc-idea-hl, ${warm}) 28%, transparent);
     }
     .rc-highlight:hover {
-      background: rgba(196, 163, 90, 0.42);
+      background: color-mix(in srgb, var(--rc-idea-hl, ${warm}) 42%, transparent);
+    }
+    .rc-word-highlight {
+      background: color-mix(in srgb, var(--rc-word-hl, ${accent}) 22%, transparent);
+      border-radius: 2px;
+      cursor: pointer;
+      box-shadow: 0 0 0 1px color-mix(in srgb, var(--rc-word-hl, ${accent}) 22%, transparent);
+    }
+    .rc-word-highlight:hover {
+      background: color-mix(in srgb, var(--rc-word-hl, ${accent}) 36%, transparent);
     }
   `,
 
     floatBtnCss: `
-    #rc-float-btn {
+    #rc-float-bar {
       position: fixed;
       z-index: 2147483646;
+      display: none;
+      flex-direction: row;
+      align-items: center;
+      gap: 4px;
+      padding: 0;
+      margin: 0;
+      border: none;
+      background: transparent;
+      box-shadow: none;
+    }
+    #rc-float-bar.rc-show {
+      display: flex;
+    }
+    #rc-float-bar .rc-float-item {
       width: 24px;
       height: 24px;
       border-radius: 3px;
@@ -41,27 +64,40 @@
       border: 1px solid ${line};
       box-shadow: 0 1px 4px rgba(26, 26, 26, 0.08);
       cursor: pointer;
-      display: none;
+      display: flex;
       align-items: center;
       justify-content: center;
       color: ${ink};
-      line-height: 0;
+      line-height: 1;
       padding: 0;
+      margin: 0;
+      font-family: ${serif};
+      font-size: 13px;
+      font-weight: 600;
+      font-style: italic;
+      letter-spacing: 0;
       transition: color 0.12s, border-color 0.12s, background 0.12s, box-shadow 0.12s;
     }
-    #rc-float-btn:hover {
+    #rc-float-bar .rc-float-item:hover {
       color: ${ink};
       border-color: ${warm};
       background: #f7f5f0;
       box-shadow: 0 2px 6px rgba(26, 26, 26, 0.1);
     }
-    #rc-float-btn svg {
-      width: 12px;
-      height: 12px;
-      display: block;
-      stroke-width: 1.75;
+    #rc-float-bar .rc-float-item[data-action="word"] {
+      font-style: normal;
+      font-size: 12px;
+      letter-spacing: -0.02em;
     }
-    #rc-float-btn.rc-show { display: flex; }
+    #rc-float-bar .rc-float-item[data-action="word"]:hover {
+      border-color: ${accent};
+    }
+    #rc-float-bar .rc-float-letter {
+      display: block;
+      line-height: 1;
+      pointer-events: none;
+      user-select: none;
+    }
   `,
 
     overlayCss: `

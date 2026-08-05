@@ -2,19 +2,28 @@
   const listenerRegistry = [];
   const AFFIX_LEN = 64;
 
-  let floatBtn = null;
+  let floatBar = null;
   let floatText = "";
   let pendingRange = null;
   let pendingScreenshot = null;
   let regionMask = null;
   let reconcileTimer = null;
+  let wordReconcileTimer = null;
   let failCount = 0;
   let observer = null;
   let applyingHighlight = false;
+  let applyingWordHighlight = false;
+  let wordHlQuietUntil = 0;
+  let cachedWords = [];
   let lastUrl = location.href;
   let historyPatched = false;
   let origPushState = null;
   let origReplaceState = null;
+  let wordToastEl = null;
+  let wordToastTimer = null;
+
+  const OWN_UI_SEL = "#rc-overlay, #rc-float-bar, #rc-region-mask";
+  const WORD_HL_MAX = 40;
 
   function on(target, type, fn, capture) {
     target.addEventListener(type, fn, capture);
@@ -28,12 +37,20 @@
       } catch (e) {}
     }
     listenerRegistry.length = 0;
-    if (floatBtn) {
-      floatBtn.remove();
-      floatBtn = null;
+    if (floatBar) {
+      floatBar.remove();
+      floatBar = null;
     }
     const overlay = document.getElementById("rc-overlay");
     if (overlay) overlay.remove();
+    if (wordToastEl) {
+      wordToastEl.remove();
+      wordToastEl = null;
+    }
+    if (wordToastTimer) {
+      clearTimeout(wordToastTimer);
+      wordToastTimer = null;
+    }
     tearDownRegionMask();
     if (styleEl) styleEl.remove();
     if (observer) {
@@ -43,6 +60,10 @@
     if (reconcileTimer) {
       clearTimeout(reconcileTimer);
       reconcileTimer = null;
+    }
+    if (wordReconcileTimer) {
+      clearTimeout(wordReconcileTimer);
+      wordReconcileTimer = null;
     }
     if (historyPatched) {
       if (origPushState) history.pushState = origPushState;
@@ -64,67 +85,103 @@
   const theme = (typeof globalThis !== "undefined" && globalThis.RcCaptureTheme) || {};
   const PAGE_STYLE = theme.highlightCss || `
     .rc-highlight {
-      background: rgba(196, 163, 90, 0.28);
+      background: color-mix(in srgb, var(--rc-idea-hl, #c4a35a) 28%, transparent);
       border-radius: 2px;
       cursor: pointer;
-      box-shadow: 0 0 0 1px rgba(196, 163, 90, 0.28);
+      box-shadow: 0 0 0 1px color-mix(in srgb, var(--rc-idea-hl, #c4a35a) 28%, transparent);
     }
     .rc-highlight:hover {
-      background: rgba(196, 163, 90, 0.42);
+      background: color-mix(in srgb, var(--rc-idea-hl, #c4a35a) 42%, transparent);
+    }
+    .rc-word-highlight {
+      background: color-mix(in srgb, var(--rc-word-hl, #3d5a80) 22%, transparent);
+      border-radius: 2px;
+      cursor: pointer;
+      box-shadow: 0 0 0 1px color-mix(in srgb, var(--rc-word-hl, #3d5a80) 22%, transparent);
+    }
+    .rc-word-highlight:hover {
+      background: color-mix(in srgb, var(--rc-word-hl, #3d5a80) 36%, transparent);
     }
   `;
   const styleEl = document.createElement("style");
   styleEl.textContent = PAGE_STYLE;
   (document.head || document.documentElement).appendChild(styleEl);
 
-  // ---------- floating capture button ----------
+  function applyHighlightSettings(settings) {
+    if (!settings) return;
+    const root = document.documentElement;
+    if (settings.ideaHighlightColor) {
+      root.style.setProperty("--rc-idea-hl", settings.ideaHighlightColor);
+    }
+    if (settings.wordHighlightColor) {
+      root.style.setProperty("--rc-word-hl", settings.wordHighlightColor);
+    }
+  }
+
+  async function loadHighlightSettings() {
+    try {
+      const res = await chrome.runtime.sendMessage({ type: "rc-get-settings" });
+      if (res && res.settings) applyHighlightSettings(res.settings);
+    } catch (e) {}
+  }
+
+  loadHighlightSettings();
+
+  // ---------- floating capture bar ----------
 
   const BTN_STYLE = theme.floatBtnCss || "";
-  const BTN_ICON = `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M4 7.5c0-1.8 1-3 2.5-3V5c-.9 0-1.3.6-1.3 1.5H4zm6 0c0-1.8 1-3 2.5-3V5c-.9 0-1.3.6-1.3 1.5H10z"/></svg>`;
-
-  function ensureButton() {
-    if (floatBtn) return floatBtn;
-    const btn = document.createElement("button");
-    btn.id = "rc-float-btn";
-    btn.type = "button";
-    btn.title = "记下感触";
-    btn.innerHTML = `<style>${BTN_STYLE}</style>${BTN_ICON}`;
-    btn.addEventListener("mousedown", (e) => e.preventDefault());
-    btn.addEventListener("click", () => {
+  function ensureFloatBar() {
+    if (floatBar) return floatBar;
+    const bar = document.createElement("div");
+    bar.id = "rc-float-bar";
+    bar.innerHTML = `
+      <style>${BTN_STYLE}</style>
+      <button type="button" class="rc-float-item" data-action="capture" title="记下感触"><span class="rc-float-letter" aria-hidden="true">i</span></button>
+      <button type="button" class="rc-float-item" data-action="word" title="标记单词"><span class="rc-float-letter" aria-hidden="true">w</span></button>
+    `;
+    bar.addEventListener("mousedown", (e) => e.preventDefault());
+    bar.addEventListener("click", (e) => {
+      const btn = e.target.closest && e.target.closest(".rc-float-item");
+      if (!btn) return;
       const sel = window.getSelection();
       if (sel && !sel.isCollapsed && sel.rangeCount > 0) {
         pendingRange = sel.getRangeAt(0).cloneRange();
       }
+      const text = floatText || (sel ? sel.toString().trim() : "");
       hideFloatButton();
-      showOverlay(floatText || (sel ? sel.toString().trim() : ""));
+      if (btn.dataset.action === "word") {
+        showWordOverlay(text);
+      } else {
+        showOverlay(text);
+      }
     });
-    document.documentElement.appendChild(btn);
-    floatBtn = btn;
-    return btn;
+    document.documentElement.appendChild(bar);
+    floatBar = bar;
+    return bar;
   }
 
   function showFloatButton(rect) {
-    const btn = ensureButton();
-    const w = btn.offsetWidth || 22;
-    const h = btn.offsetHeight || 22;
+    const bar = ensureFloatBar();
+    const w = bar.offsetWidth || 52;
+    const h = bar.offsetHeight || 24;
     let x = rect.right + 4;
     let y = rect.top;
     if (x + w > window.innerWidth - 4) x = rect.left - w - 4;
     if (x < 4) x = 4;
-    if (y + h > window.innerHeight - 4) y = rect.bottom + 8;
+    if (y + h > window.innerHeight - 4) y = Math.max(4, window.innerHeight - h - 4);
     if (y < 4) y = 4;
-    btn.style.left = x + "px";
-    btn.style.top = y + "px";
-    btn.classList.add("rc-show");
+    bar.style.left = x + "px";
+    bar.style.top = y + "px";
+    bar.classList.add("rc-show");
   }
 
   function hideFloatButton() {
-    if (floatBtn) floatBtn.classList.remove("rc-show");
+    if (floatBar) floatBar.classList.remove("rc-show");
   }
 
   function isInsideOwnUI(node) {
     if (!node || !node.parentElement) return false;
-    return !!node.parentElement.closest("#rc-overlay, #rc-float-btn, #rc-region-mask");
+    return !!node.parentElement.closest(OWN_UI_SEL);
   }
 
   function handleSelection() {
@@ -175,6 +232,16 @@
     if (msg.type === "rc-captures-changed") {
       failCount = 0;
       reconcileHighlights();
+      sendResponse({ ok: true });
+      return;
+    }
+    if (msg.type === "rc-words-changed") {
+      scheduleWordReconcile(50);
+      sendResponse({ ok: true });
+      return;
+    }
+    if (msg.type === "rc-settings-changed") {
+      applyHighlightSettings(msg.settings);
       sendResponse({ ok: true });
     }
   });
@@ -455,6 +522,77 @@
     openOverlay({ mode: "create", exactText });
   }
 
+  function showWordOverlay(wordText) {
+    hideFloatButton();
+    const old = document.getElementById("rc-overlay");
+    if (old) old.remove();
+
+    const word = String(wordText || "").replace(/\s+/g, " ").trim();
+    const overlay = document.createElement("div");
+    overlay.id = "rc-overlay";
+    const ctx = word
+      ? `<div class="rc-ctx"><span class="rc-q">单词</span>${escapeHtml(word)}</div>`
+      : "";
+
+    overlay.innerHTML = `
+      <style>${STYLE}</style>
+      <div class="rc-head">
+        <span>标记单词</span>
+        <button type="button" class="rc-close" title="关闭" aria-label="关闭">×</button>
+      </div>
+      ${ctx}
+      <textarea class="rc-input" rows="4"
+        placeholder="释义或备注……"></textarea>
+      <div class="rc-actions">
+        <button type="button" class="rc-save">保存</button>
+        <button type="button" class="rc-cancel">取消</button>
+      </div>
+      <div class="rc-toast">✓ 已标记</div>
+    `;
+
+    document.documentElement.appendChild(overlay);
+    positionOverlay(overlay, null);
+    bindOverlayDrag(overlay);
+    requestAnimationFrame(() => overlay.classList.add("rc-show"));
+
+    const textarea = overlay.querySelector(".rc-input");
+    const toast = overlay.querySelector(".rc-toast");
+
+    function close() {
+      overlay.remove();
+    }
+
+    async function save() {
+      if (!word) {
+        close();
+        return;
+      }
+      const note = textarea.value.trim();
+      const res = await chrome.runtime.sendMessage({
+        type: "rc-save-word",
+        word,
+        note,
+        pageTitle: document.title,
+        pageUrl: location.href
+      });
+      if (chrome.runtime.lastError || !res || !res.ok) {
+        toast.textContent = "保存失败";
+        toast.classList.add("show");
+        setTimeout(close, 900);
+        return;
+      }
+      toast.textContent = "✓ 已标记";
+      toast.classList.add("show");
+      scheduleWordReconcile(80);
+      setTimeout(close, 650);
+    }
+
+    overlay.querySelector(".rc-save").addEventListener("click", save);
+    overlay.querySelector(".rc-cancel").addEventListener("click", close);
+    overlay.querySelector(".rc-close").addEventListener("click", close);
+    textarea.focus();
+  }
+
   async function showEditOverlay(captureId, anchorRect) {
     try {
       const res = await chrome.runtime.sendMessage({ type: "rc-get-one", id: captureId });
@@ -501,10 +639,10 @@
     if (!node || !node.nodeValue) return NodeFilter.FILTER_REJECT;
     const parent = node.parentElement;
     if (!parent) return NodeFilter.FILTER_REJECT;
-    if (parent.closest("script, style, noscript, textarea, #rc-overlay, #rc-float-btn, #rc-region-mask")) {
+    if (parent.closest(`script, style, noscript, textarea, ${OWN_UI_SEL}`)) {
       return NodeFilter.FILTER_REJECT;
     }
-    if (skipHighlights && parent.closest(".rc-highlight")) {
+    if (skipHighlights && parent.closest(".rc-highlight, .rc-word-highlight")) {
       return NodeFilter.FILTER_REJECT;
     }
     return NodeFilter.FILTER_ACCEPT;
@@ -703,7 +841,7 @@
 
   function wrapTextRange(node, start, end, id, note) {
     if (!node || !node.parentNode || start >= end) return;
-    if (node.parentElement && node.parentElement.closest(".rc-highlight")) return;
+    if (node.parentElement && node.parentElement.closest(".rc-highlight, .rc-word-highlight")) return;
 
     const text = node.nodeValue || "";
     let s = Math.max(0, start);
@@ -765,6 +903,16 @@
     document,
     "click",
     (e) => {
+      const wordEl = e.target.closest && e.target.closest(".rc-word-highlight");
+      if (wordEl) {
+        if (document.getElementById("rc-overlay")) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const note = wordEl.dataset.rcNote || "";
+        const word = wordEl.dataset.rcWord || wordEl.textContent || "";
+        showWordNoteToast(word, note, wordEl.getBoundingClientRect());
+        return;
+      }
       const h = e.target.closest && e.target.closest(".rc-highlight");
       if (!h || !h.dataset.rcId) return;
       if (document.getElementById("rc-overlay")) return;
@@ -774,6 +922,48 @@
     },
     true
   );
+
+  function showWordNoteToast(word, note, rect) {
+    if (wordToastEl) wordToastEl.remove();
+    if (wordToastTimer) clearTimeout(wordToastTimer);
+    const el = document.createElement("div");
+    el.id = "rc-word-toast";
+    el.style.cssText = [
+      "position:fixed",
+      "z-index:2147483647",
+      "max-width:280px",
+      "padding:8px 12px",
+      "background:#1a1a1a",
+      "color:#f7f5f0",
+      "font:12px/1.5 sans-serif",
+      "border-radius:2px",
+      "box-shadow:0 4px 16px rgba(26,26,26,0.18)",
+      "pointer-events:none",
+      "white-space:pre-wrap",
+      "word-break:break-word"
+    ].join(";");
+    const title = word ? `「${word}」` : "单词";
+    el.textContent = note ? `${title}\n${note}` : title;
+    document.documentElement.appendChild(el);
+    const w = el.offsetWidth || 160;
+    const h = el.offsetHeight || 40;
+    let x = rect ? rect.left : 16;
+    let y = rect ? rect.bottom + 8 : 16;
+    if (x + w > window.innerWidth - 8) x = window.innerWidth - w - 8;
+    if (x < 8) x = 8;
+    if (y + h > window.innerHeight - 8) y = (rect ? rect.top : 16) - h - 8;
+    if (y < 8) y = 8;
+    el.style.left = Math.round(x) + "px";
+    el.style.top = Math.round(y) + "px";
+    wordToastEl = el;
+    wordToastTimer = setTimeout(() => {
+      if (wordToastEl === el) {
+        el.remove();
+        wordToastEl = null;
+      }
+      wordToastTimer = null;
+    }, 2200);
+  }
 
   function samePage(url) {
     try {
@@ -792,20 +982,20 @@
     for (const m of mutations) {
       if (m.type === "characterData") {
         const parent = m.target.parentElement;
-        if (parent && parent.closest(".rc-highlight, #rc-overlay, #rc-float-btn, #rc-region-mask")) continue;
+        if (parent && parent.closest(`.rc-highlight, .rc-word-highlight, ${OWN_UI_SEL}`)) continue;
         return true;
       }
       const nodes = [...m.addedNodes, ...m.removedNodes];
       for (const n of nodes) {
         if (n.nodeType === Node.ELEMENT_NODE) {
-          if (n.id === "rc-overlay" || n.id === "rc-float-btn" || n.id === "rc-region-mask") continue;
-          if (n.classList && n.classList.contains("rc-highlight")) continue;
-          if (n.closest && n.closest("#rc-overlay, #rc-float-btn, #rc-region-mask")) continue;
+          if (n.id === "rc-overlay" || n.id === "rc-float-bar" || n.id === "rc-region-mask" || n.id === "rc-word-toast") continue;
+          if (n.classList && (n.classList.contains("rc-highlight") || n.classList.contains("rc-word-highlight"))) continue;
+          if (n.closest && n.closest(OWN_UI_SEL)) continue;
           return true;
         }
         if (n.nodeType === Node.TEXT_NODE) {
           const parent = n.parentElement;
-          if (parent && parent.closest(".rc-highlight, #rc-overlay, #rc-float-btn, #rc-region-mask")) continue;
+          if (parent && parent.closest(`.rc-highlight, .rc-word-highlight, ${OWN_UI_SEL}`)) continue;
           return true;
         }
       }
@@ -875,13 +1065,158 @@
     }, d);
   }
 
+  // ---------- word highlights (global) ----------
+
+  function isLatinWord(word) {
+    return /^[A-Za-z0-9][A-Za-z0-9'\-]*$/.test(word);
+  }
+
+  function isWordChar(ch) {
+    return /[A-Za-z0-9]/.test(ch);
+  }
+
+  function unwrapWordHighlight(el) {
+    el.replaceWith(...el.childNodes);
+  }
+
+  function wrapWordRange(node, start, end, id, word, note) {
+    if (!node || !node.parentNode || start >= end) return;
+    if (node.parentElement && node.parentElement.closest(".rc-highlight, .rc-word-highlight")) return;
+
+    const text = node.nodeValue || "";
+    let s = Math.max(0, start);
+    let e = Math.min(text.length, end);
+    if (s >= e) return;
+
+    let target = node;
+    if (e < target.nodeValue.length) {
+      target.splitText(e);
+    }
+    if (s > 0) {
+      target = target.splitText(s);
+    }
+
+    const span = document.createElement("span");
+    span.className = "rc-word-highlight";
+    span.dataset.rcWordId = id;
+    span.dataset.rcWord = word;
+    if (note) span.dataset.rcNote = note;
+    target.parentNode.replaceChild(span, target);
+    span.appendChild(target);
+  }
+
+  function findWordMatchesInNode(nodeValue, word, latin) {
+    const matches = [];
+    if (!nodeValue || !word) return matches;
+    if (latin) {
+      const lowerText = nodeValue.toLowerCase();
+      const lowerWord = word.toLowerCase();
+      let from = 0;
+      while (from <= lowerText.length - lowerWord.length) {
+        const idx = lowerText.indexOf(lowerWord, from);
+        if (idx < 0) break;
+        const before = idx === 0 ? "" : nodeValue[idx - 1];
+        const afterIdx = idx + lowerWord.length;
+        const after = afterIdx >= nodeValue.length ? "" : nodeValue[afterIdx];
+        if ((!before || !isWordChar(before)) && (!after || !isWordChar(after))) {
+          matches.push({ start: idx, end: afterIdx });
+        }
+        from = idx + 1;
+      }
+    } else {
+      let from = 0;
+      while (from <= nodeValue.length - word.length) {
+        const idx = nodeValue.indexOf(word, from);
+        if (idx < 0) break;
+        matches.push({ start: idx, end: idx + word.length });
+        from = idx + word.length;
+      }
+    }
+    return matches;
+  }
+
+  function applyWordHighlightsForWord(entry) {
+    if (!entry || !entry.word || !document.body) return 0;
+    const word = entry.word;
+    const latin = isLatinWord(word);
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+      acceptNode(node) {
+        return acceptTextNode(node, true);
+      }
+    });
+
+    const planned = [];
+    while (walker.nextNode()) {
+      const node = walker.currentNode;
+      const hits = findWordMatchesInNode(node.nodeValue, word, latin);
+      for (const hit of hits) {
+        planned.push({ node, start: hit.start, end: hit.end });
+        if (planned.length >= WORD_HL_MAX) break;
+      }
+      if (planned.length >= WORD_HL_MAX) break;
+    }
+
+    const sorted = planned.slice().sort((a, b) => {
+      if (a.node === b.node) return b.start - a.start;
+      const pos = a.node.compareDocumentPosition(b.node);
+      if (pos & Node.DOCUMENT_POSITION_FOLLOWING) return 1;
+      if (pos & Node.DOCUMENT_POSITION_PRECEDING) return -1;
+      return 0;
+    });
+
+    for (const frag of sorted) {
+      if (!frag.node || !frag.node.isConnected) continue;
+      wrapWordRange(frag.node, frag.start, frag.end, entry.id, word, entry.note || "");
+    }
+    return sorted.length;
+  }
+
+  async function reconcileWordHighlights() {
+    let words = [];
+    try {
+      const res = await chrome.runtime.sendMessage({ type: "rc-get-all-words" });
+      words = (res && res.words) || [];
+    } catch (e) {
+      return;
+    }
+    cachedWords = words;
+
+    applyingWordHighlight = true;
+    try {
+      document.querySelectorAll("span.rc-word-highlight").forEach((el) => {
+        unwrapWordHighlight(el);
+      });
+      for (const w of words) {
+        try {
+          applyWordHighlightsForWord(w);
+        } catch (e) {
+          console.warn("[RecordU] 单词高亮失败", w.word, e);
+        }
+      }
+    } finally {
+      applyingWordHighlight = false;
+      wordHlQuietUntil = Date.now() + 250;
+    }
+  }
+
+  function scheduleWordReconcile(delay) {
+    const d = delay != null ? delay : 350;
+    if (wordReconcileTimer) clearTimeout(wordReconcileTimer);
+    wordReconcileTimer = setTimeout(() => {
+      wordReconcileTimer = null;
+      reconcileWordHighlights();
+    }, d);
+  }
+
   function ensureObserver() {
     if (observer || !document.body) return;
     observer = new MutationObserver((mutations) => {
-      if (applyingHighlight) return;
+      if (applyingHighlight || applyingWordHighlight) return;
+      if (Date.now() < wordHlQuietUntil) return;
       if (!mutationTouchesContent(mutations)) return;
       failCount = 0;
       scheduleReconcile(300);
+      scheduleWordReconcile(400);
     });
     observer.observe(document.body, {
       childList: true,
@@ -895,7 +1230,11 @@
     lastUrl = location.href;
     failCount = 0;
     scheduleReconcile(100);
-    [400, 1200, 3000].forEach((ms) => setTimeout(reconcileHighlights, ms));
+    scheduleWordReconcile(120);
+    [400, 1200, 3000].forEach((ms) => {
+      setTimeout(reconcileHighlights, ms);
+      setTimeout(reconcileWordHighlights, ms);
+    });
   }
 
   function hookSpaNavigation() {
@@ -920,8 +1259,12 @@
   function init() {
     hookSpaNavigation();
     reconcileHighlights();
+    reconcileWordHighlights();
     ensureObserver();
-    [800, 2000, 5000].forEach((ms) => setTimeout(reconcileHighlights, ms));
+    [800, 2000, 5000].forEach((ms) => {
+      setTimeout(reconcileHighlights, ms);
+      setTimeout(reconcileWordHighlights, ms);
+    });
   }
 
   if (document.readyState === "loading") {
@@ -934,8 +1277,12 @@
     failCount = 0;
     lastUrl = location.href;
     reconcileHighlights();
+    reconcileWordHighlights();
     ensureObserver();
-    [500, 1500, 4000].forEach((ms) => setTimeout(reconcileHighlights, ms));
+    [500, 1500, 4000].forEach((ms) => {
+      setTimeout(reconcileHighlights, ms);
+      setTimeout(reconcileWordHighlights, ms);
+    });
   });
 
   // ---------- region screenshot ----------

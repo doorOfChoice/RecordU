@@ -1,4 +1,4 @@
-import { clampFocus, focusedCapture, state } from "./state.js";
+import { clampFocus, focusedCapture, focusedWord, state } from "./state.js";
 
 /**
  * @param {object} handlers
@@ -11,6 +11,7 @@ export function bindKeys({ onNavigate, onDrop, onEdit }) {
     const tag = (e.target && e.target.tagName) || "";
     if (tag === "INPUT" || tag === "TEXTAREA" || e.target.isContentEditable) return;
     if (document.querySelector(".rc-modal-overlay, .rv-lightbox")) return;
+    if (state.mode === "settings") return;
 
     const key = e.key;
     if (key === "j" || key === "J" || key === "ArrowDown") {
@@ -28,10 +29,10 @@ export function bindKeys({ onNavigate, onDrop, onEdit }) {
       return;
     }
 
-    // Site mode: rail is sites; item actions are mouse-only in the pane.
-    if (state.mode === "site") return;
+    // Site / settings: no item keyboard actions.
+    if (state.mode === "site" || state.mode === "settings") return;
 
-    const focus = focusedCapture();
+    const focus = state.mode === "words" ? focusedWord() : focusedCapture();
     if (!focus) return;
 
     if (key === "e" || key === "E") {

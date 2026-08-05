@@ -1,14 +1,25 @@
 import {
+  DEFAULT_SETTINGS,
+  SETTINGS_KEY,
+  mergeSettings,
+  normalizeSettings
+} from "./shared/settings.js";
+import {
   deleteCapture as dbDeleteCapture,
+  deleteWord as dbDeleteWord,
   getAllCaptures as dbGetAllCaptures,
+  getAllWords as dbGetAllWords,
   getCapture as dbGetCapture,
   getFavicon as dbGetFavicon,
   getScreenshot as dbGetScreenshot,
+  getWord as dbGetWord,
   migrateFromStorage,
   putFavicon as dbPutFavicon,
   saveCapture as dbSaveCapture,
   saveScreenshotCapture as dbSaveScreenshotCapture,
-  updateCapture as dbUpdateCapture
+  saveWord as dbSaveWord,
+  updateCapture as dbUpdateCapture,
+  updateWord as dbUpdateWord
 } from "./shared/db.js";
 
 const faviconMem = new Map();
@@ -36,7 +47,7 @@ function hostFromUrl(url) {
   }
 }
 
-async function notifyCapturesChanged(pageUrl) {
+async function broadcastToContentTabs(message) {
   try {
     const tabs = await chrome.tabs.query({});
     await Promise.all(
@@ -44,16 +55,68 @@ async function notifyCapturesChanged(pageUrl) {
         if (!tab.id || !tab.url) return;
         if (!/^https?:/i.test(tab.url) && !/\.pdf(\?|#|$)/i.test(tab.url)) return;
         try {
-          await chrome.tabs.sendMessage(tab.id, {
-            type: "rc-captures-changed",
-            pageUrl: pageUrl || null
-          });
+          await chrome.tabs.sendMessage(tab.id, message);
         } catch (e) {
           // tab without content script
         }
       })
     );
   } catch (e) {}
+}
+
+async function notifyCapturesChanged(pageUrl) {
+  await broadcastToContentTabs({
+    type: "rc-captures-changed",
+    pageUrl: pageUrl || null
+  });
+}
+
+async function notifyWordsChanged() {
+  await broadcastToContentTabs({ type: "rc-words-changed" });
+}
+
+async function notifySettingsChanged(settings) {
+  await broadcastToContentTabs({ type: "rc-settings-changed", settings });
+}
+
+async function getSettings() {
+  const data = await chrome.storage.local.get(SETTINGS_KEY);
+  return normalizeSettings(data[SETTINGS_KEY]);
+}
+
+async function saveSettings(patch) {
+  const current = await getSettings();
+  const next = mergeSettings(current, patch);
+  await chrome.storage.local.set({ [SETTINGS_KEY]: next });
+  await notifySettingsChanged(next);
+  return next;
+}
+
+async function resetSettings() {
+  const next = { ...DEFAULT_SETTINGS };
+  await chrome.storage.local.set({ [SETTINGS_KEY]: next });
+  await notifySettingsChanged(next);
+  return next;
+}
+
+async function saveWord(payload) {
+  await ensureMigrated();
+  const record = await dbSaveWord(payload);
+  await notifyWordsChanged();
+  return record;
+}
+
+async function updateWord(id, patch) {
+  await ensureMigrated();
+  const next = await dbUpdateWord(id, patch);
+  if (next) await notifyWordsChanged();
+  return next;
+}
+
+async function deleteWord(id) {
+  await ensureMigrated();
+  await dbDeleteWord(id);
+  await notifyWordsChanged();
 }
 
 async function saveCapture(capture) {
@@ -345,6 +408,69 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       .then(() => dbGetCapture(msg.id))
       .then((capture) => sendResponse({ ok: true, capture }))
       .catch((e) => sendResponse({ ok: false, capture: null, error: String(e) }));
+    return true;
+  }
+
+  if (msg.type === "rc-save-word") {
+    saveWord({
+      word: msg.word,
+      note: msg.note,
+      pageTitle: msg.pageTitle,
+      pageUrl: msg.pageUrl
+    })
+      .then((record) => sendResponse({ ok: true, id: record.id, word: record }))
+      .catch((e) => sendResponse({ ok: false, error: String(e) }));
+    return true;
+  }
+
+  if (msg.type === "rc-update-word") {
+    updateWord(msg.id, msg.patch)
+      .then((word) => sendResponse({ ok: true, word }))
+      .catch((e) => sendResponse({ ok: false, error: String(e) }));
+    return true;
+  }
+
+  if (msg.type === "rc-delete-word") {
+    deleteWord(msg.id)
+      .then(() => sendResponse({ ok: true }))
+      .catch((e) => sendResponse({ ok: false, error: String(e) }));
+    return true;
+  }
+
+  if (msg.type === "rc-get-all-words") {
+    ensureMigrated()
+      .then(() => dbGetAllWords())
+      .then((all) => sendResponse({ ok: true, words: all || [] }))
+      .catch((e) => sendResponse({ ok: false, words: [], error: String(e) }));
+    return true;
+  }
+
+  if (msg.type === "rc-get-word") {
+    ensureMigrated()
+      .then(() => dbGetWord(msg.id))
+      .then((word) => sendResponse({ ok: true, word }))
+      .catch((e) => sendResponse({ ok: false, word: null, error: String(e) }));
+    return true;
+  }
+
+  if (msg.type === "rc-get-settings") {
+    getSettings()
+      .then((settings) => sendResponse({ ok: true, settings }))
+      .catch((e) => sendResponse({ ok: false, settings: DEFAULT_SETTINGS, error: String(e) }));
+    return true;
+  }
+
+  if (msg.type === "rc-save-settings") {
+    saveSettings(msg.patch || msg.settings || {})
+      .then((settings) => sendResponse({ ok: true, settings }))
+      .catch((e) => sendResponse({ ok: false, error: String(e) }));
+    return true;
+  }
+
+  if (msg.type === "rc-reset-settings") {
+    resetSettings()
+      .then((settings) => sendResponse({ ok: true, settings }))
+      .catch((e) => sendResponse({ ok: false, error: String(e) }));
     return true;
   }
 
