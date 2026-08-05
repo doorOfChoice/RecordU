@@ -265,6 +265,17 @@
       background: #2a2a2a;
       border-color: #2a2a2a;
     }
+    #rc-overlay .rc-actions button.rc-delete {
+      flex: 0 0 auto;
+      min-width: 64px;
+      color: #9b2226;
+      border-color: rgba(155, 34, 38, 0.35);
+    }
+    #rc-overlay .rc-actions button.rc-delete:hover {
+      color: #fff;
+      background: #9b2226;
+      border-color: #9b2226;
+    }
     #rc-overlay .rc-toast {
       position: absolute;
       left: 50%;

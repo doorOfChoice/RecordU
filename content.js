@@ -19,10 +19,10 @@
   let historyPatched = false;
   let origPushState = null;
   let origReplaceState = null;
-  let wordToastEl = null;
-  let wordToastTimer = null;
+  let wordTipEl = null;
+  let wordTipHideTimer = null;
 
-  const OWN_UI_SEL = "#rc-overlay, #rc-float-bar, #rc-region-mask";
+  const OWN_UI_SEL = "#rc-overlay, #rc-float-bar, #rc-region-mask, #rc-word-tip";
   const WORD_HL_MAX = 40;
 
   function on(target, type, fn, capture) {
@@ -43,14 +43,7 @@
     }
     const overlay = document.getElementById("rc-overlay");
     if (overlay) overlay.remove();
-    if (wordToastEl) {
-      wordToastEl.remove();
-      wordToastEl = null;
-    }
-    if (wordToastTimer) {
-      clearTimeout(wordToastTimer);
-      wordToastTimer = null;
-    }
+    hideWordTip();
     tearDownRegionMask();
     if (styleEl) styleEl.remove();
     if (observer) {
@@ -150,9 +143,18 @@
       const text = floatText || (sel ? sel.toString().trim() : "");
       hideFloatButton();
       if (btn.dataset.action === "word") {
-        showWordOverlay(text);
+        const existing = findCachedWord(text);
+        showWordOverlay(text, existing
+          ? { wordId: existing.id, note: existing.note || "" }
+          : {});
       } else {
-        showOverlay(text);
+        const existingId = captureIdFromSelection();
+        if (existingId) {
+          const rect = pendingRange ? pendingRange.getBoundingClientRect() : null;
+          showEditOverlay(existingId, rect);
+        } else {
+          showOverlay(text);
+        }
       }
     });
     document.documentElement.appendChild(bar);
@@ -383,6 +385,10 @@
       screenshot && screenshot.dataUrl
         ? `<div class="rc-shot"><img alt="截图预览" src="${screenshot.dataUrl}"></div>`
         : "";
+    const deleteBtn =
+      mode === "edit" && captureId
+        ? `<button type="button" class="rc-delete">删除</button>`
+        : "";
 
     overlay.innerHTML = `
       <style>${STYLE}</style>
@@ -396,7 +402,7 @@
         placeholder="你的感触，用你自己的话……"></textarea>
       <div class="rc-actions">
         <button type="button" class="rc-save">保存</button>
-        <button type="button" class="rc-cancel">取消</button>
+        ${deleteBtn}
       </div>
       <div class="rc-toast">✓ 已保存</div>
     `;
@@ -416,6 +422,28 @@
         pendingScreenshot = null;
       }
       overlay.remove();
+    }
+
+    async function removeCapture() {
+      if (!captureId) return;
+      const res = await chrome.runtime.sendMessage({ type: "rc-delete", id: captureId });
+      if (chrome.runtime.lastError || !res || !res.ok) {
+        toast.textContent = "删除失败";
+        toast.classList.add("show");
+        setTimeout(() => toast.classList.remove("show"), 900);
+        return;
+      }
+      applyingHighlight = true;
+      try {
+        document
+          .querySelectorAll(`span.rc-highlight[data-rc-id="${CSS.escape(captureId)}"]`)
+          .forEach((el) => unwrapHighlight(el));
+      } finally {
+        applyingHighlight = false;
+      }
+      toast.textContent = "✓ 已删除";
+      toast.classList.add("show");
+      setTimeout(close, 650);
     }
 
     async function save() {
@@ -512,8 +540,9 @@
     }
 
     overlay.querySelector(".rc-save").addEventListener("click", save);
-    overlay.querySelector(".rc-cancel").addEventListener("click", close);
     overlay.querySelector(".rc-close").addEventListener("click", close);
+    const delBtn = overlay.querySelector(".rc-delete");
+    if (delBtn) delBtn.addEventListener("click", removeCapture);
 
     textarea.focus();
   }
@@ -522,22 +551,52 @@
     openOverlay({ mode: "create", exactText });
   }
 
-  function showWordOverlay(wordText) {
+  function normalizeWordKeyLocal(word) {
+    const trimmed = String(word || "").replace(/\s+/g, " ").trim();
+    if (!trimmed) return "";
+    return trimmed.replace(/[A-Za-z]+/g, (m) => m.toLowerCase());
+  }
+
+  function findCachedWord(wordText) {
+    const key = normalizeWordKeyLocal(wordText);
+    if (!key) return null;
+    return cachedWords.find((w) => normalizeWordKeyLocal(w.word) === key) || null;
+  }
+
+  function captureIdFromSelection() {
+    const sel = window.getSelection();
+    if (!sel || !sel.anchorNode) return null;
+    const el =
+      sel.anchorNode.nodeType === Node.ELEMENT_NODE
+        ? sel.anchorNode
+        : sel.anchorNode.parentElement;
+    const h = el && el.closest && el.closest(".rc-highlight");
+    return h && h.dataset.rcId ? h.dataset.rcId : null;
+  }
+
+  function showWordOverlay(wordText, opts = {}) {
     hideFloatButton();
     const old = document.getElementById("rc-overlay");
     if (old) old.remove();
 
     const word = String(wordText || "").replace(/\s+/g, " ").trim();
+    const wordId = opts.wordId || null;
+    const initialNote = typeof opts.note === "string" ? opts.note : "";
+    const isEdit = !!wordId;
+
     const overlay = document.createElement("div");
     overlay.id = "rc-overlay";
     const ctx = word
       ? `<div class="rc-ctx"><span class="rc-q">单词</span>${escapeHtml(word)}</div>`
       : "";
+    const deleteBtn = isEdit
+      ? `<button type="button" class="rc-delete">取消标记</button>`
+      : "";
 
     overlay.innerHTML = `
       <style>${STYLE}</style>
       <div class="rc-head">
-        <span>标记单词</span>
+        <span>${isEdit ? "编辑单词" : "标记单词"}</span>
         <button type="button" class="rc-close" title="关闭" aria-label="关闭">×</button>
       </div>
       ${ctx}
@@ -545,21 +604,37 @@
         placeholder="释义或备注……"></textarea>
       <div class="rc-actions">
         <button type="button" class="rc-save">保存</button>
-        <button type="button" class="rc-cancel">取消</button>
+        ${deleteBtn}
       </div>
       <div class="rc-toast">✓ 已标记</div>
     `;
 
     document.documentElement.appendChild(overlay);
-    positionOverlay(overlay, null);
+    positionOverlay(overlay, opts.anchorRect || null);
     bindOverlayDrag(overlay);
     requestAnimationFrame(() => overlay.classList.add("rc-show"));
 
     const textarea = overlay.querySelector(".rc-input");
     const toast = overlay.querySelector(".rc-toast");
+    textarea.value = initialNote;
 
     function close() {
       overlay.remove();
+    }
+
+    async function removeWord() {
+      if (!wordId) return;
+      const res = await chrome.runtime.sendMessage({ type: "rc-delete-word", id: wordId });
+      if (chrome.runtime.lastError || !res || !res.ok) {
+        toast.textContent = "取消失败";
+        toast.classList.add("show");
+        setTimeout(() => toast.classList.remove("show"), 900);
+        return;
+      }
+      toast.textContent = "✓ 已取消标记";
+      toast.classList.add("show");
+      scheduleWordReconcile(50);
+      setTimeout(close, 650);
     }
 
     async function save() {
@@ -568,28 +643,38 @@
         return;
       }
       const note = textarea.value.trim();
-      const res = await chrome.runtime.sendMessage({
-        type: "rc-save-word",
-        word,
-        note,
-        pageTitle: document.title,
-        pageUrl: location.href
-      });
+      let res;
+      if (isEdit) {
+        res = await chrome.runtime.sendMessage({
+          type: "rc-update-word",
+          id: wordId,
+          patch: { note }
+        });
+      } else {
+        res = await chrome.runtime.sendMessage({
+          type: "rc-save-word",
+          word,
+          note,
+          pageTitle: document.title,
+          pageUrl: location.href
+        });
+      }
       if (chrome.runtime.lastError || !res || !res.ok) {
         toast.textContent = "保存失败";
         toast.classList.add("show");
         setTimeout(close, 900);
         return;
       }
-      toast.textContent = "✓ 已标记";
+      toast.textContent = isEdit ? "✓ 已更新" : "✓ 已标记";
       toast.classList.add("show");
       scheduleWordReconcile(80);
       setTimeout(close, 650);
     }
 
     overlay.querySelector(".rc-save").addEventListener("click", save);
-    overlay.querySelector(".rc-cancel").addEventListener("click", close);
     overlay.querySelector(".rc-close").addEventListener("click", close);
+    const delBtn = overlay.querySelector(".rc-delete");
+    if (delBtn) delBtn.addEventListener("click", removeWord);
     textarea.focus();
   }
 
@@ -897,7 +982,7 @@
     });
   }
 
-  // ---------- click highlight to edit ----------
+  // ---------- click highlight to edit / unmark ----------
 
   on(
     document,
@@ -908,9 +993,20 @@
         if (document.getElementById("rc-overlay")) return;
         e.preventDefault();
         e.stopPropagation();
-        const note = wordEl.dataset.rcNote || "";
+        hideWordTip();
         const word = wordEl.dataset.rcWord || wordEl.textContent || "";
-        showWordNoteToast(word, note, wordEl.getBoundingClientRect());
+        const wordId = wordEl.dataset.rcWordId || null;
+        const existing = wordId
+          ? cachedWords.find((w) => w.id === wordId) || {
+              id: wordId,
+              note: wordEl.dataset.rcNote || ""
+            }
+          : findCachedWord(word);
+        showWordOverlay(word, {
+          wordId: existing && existing.id,
+          note: (existing && existing.note) || wordEl.dataset.rcNote || "",
+          anchorRect: wordEl.getBoundingClientRect()
+        });
         return;
       }
       const h = e.target.closest && e.target.closest(".rc-highlight");
@@ -923,47 +1019,92 @@
     true
   );
 
-  function showWordNoteToast(word, note, rect) {
-    if (wordToastEl) wordToastEl.remove();
-    if (wordToastTimer) clearTimeout(wordToastTimer);
+  function hideWordTip() {
+    if (wordTipHideTimer) {
+      clearTimeout(wordTipHideTimer);
+      wordTipHideTimer = null;
+    }
+    if (wordTipEl) {
+      wordTipEl.remove();
+      wordTipEl = null;
+    }
+  }
+
+  function showWordTip(wordEl) {
+    const note = (wordEl.dataset.rcNote || "").trim();
+    if (!note) {
+      hideWordTip();
+      return;
+    }
+    hideWordTip();
     const el = document.createElement("div");
-    el.id = "rc-word-toast";
+    el.id = "rc-word-tip";
+    el.setAttribute("role", "tooltip");
     el.style.cssText = [
       "position:fixed",
-      "z-index:2147483647",
-      "max-width:280px",
-      "padding:8px 12px",
+      "z-index:2147483646",
+      "max-width:260px",
+      "padding:7px 11px",
       "background:#1a1a1a",
       "color:#f7f5f0",
-      "font:12px/1.5 sans-serif",
+      "font:12px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",
       "border-radius:2px",
-      "box-shadow:0 4px 16px rgba(26,26,26,0.18)",
+      "box-shadow:0 4px 14px rgba(26,26,26,0.18)",
       "pointer-events:none",
       "white-space:pre-wrap",
-      "word-break:break-word"
+      "word-break:break-word",
+      "opacity:0",
+      "transition:opacity 0.12s ease"
     ].join(";");
-    const title = word ? `「${word}」` : "单词";
-    el.textContent = note ? `${title}\n${note}` : title;
+    el.textContent = note;
     document.documentElement.appendChild(el);
-    const w = el.offsetWidth || 160;
-    const h = el.offsetHeight || 40;
-    let x = rect ? rect.left : 16;
-    let y = rect ? rect.bottom + 8 : 16;
+
+    const rect = wordEl.getBoundingClientRect();
+    const w = el.offsetWidth || 140;
+    const h = el.offsetHeight || 32;
+    let x = rect.left;
+    let y = rect.bottom + 6;
     if (x + w > window.innerWidth - 8) x = window.innerWidth - w - 8;
     if (x < 8) x = 8;
-    if (y + h > window.innerHeight - 8) y = (rect ? rect.top : 16) - h - 8;
+    if (y + h > window.innerHeight - 8) y = rect.top - h - 6;
     if (y < 8) y = 8;
     el.style.left = Math.round(x) + "px";
     el.style.top = Math.round(y) + "px";
-    wordToastEl = el;
-    wordToastTimer = setTimeout(() => {
-      if (wordToastEl === el) {
-        el.remove();
-        wordToastEl = null;
-      }
-      wordToastTimer = null;
-    }, 2200);
+    requestAnimationFrame(() => {
+      el.style.opacity = "1";
+    });
+    wordTipEl = el;
   }
+
+  on(
+    document,
+    "mouseover",
+    (e) => {
+      const wordEl = e.target.closest && e.target.closest(".rc-word-highlight");
+      if (!wordEl) return;
+      if (document.getElementById("rc-overlay")) return;
+      const from = e.relatedTarget;
+      if (from && wordEl.contains(from)) return;
+      showWordTip(wordEl);
+    },
+    true
+  );
+
+  on(
+    document,
+    "mouseout",
+    (e) => {
+      const wordEl = e.target.closest && e.target.closest(".rc-word-highlight");
+      if (!wordEl) return;
+      const to = e.relatedTarget;
+      if (to && wordEl.contains(to)) return;
+      if (wordTipHideTimer) clearTimeout(wordTipHideTimer);
+      wordTipHideTimer = setTimeout(hideWordTip, 80);
+    },
+    true
+  );
+
+  on(window, "scroll", hideWordTip, true);
 
   function samePage(url) {
     try {
@@ -988,7 +1129,7 @@
       const nodes = [...m.addedNodes, ...m.removedNodes];
       for (const n of nodes) {
         if (n.nodeType === Node.ELEMENT_NODE) {
-          if (n.id === "rc-overlay" || n.id === "rc-float-bar" || n.id === "rc-region-mask" || n.id === "rc-word-toast") continue;
+          if (n.id === "rc-overlay" || n.id === "rc-float-bar" || n.id === "rc-region-mask" || n.id === "rc-word-tip") continue;
           if (n.classList && (n.classList.contains("rc-highlight") || n.classList.contains("rc-word-highlight"))) continue;
           if (n.closest && n.closest(OWN_UI_SEL)) continue;
           return true;
