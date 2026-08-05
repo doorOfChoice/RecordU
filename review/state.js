@@ -5,8 +5,11 @@ export const state = {
   captures: [],
   words: [],
   settings: null,
-  /** @type {"queue"|"site"|"words"|"settings"} */
+  /** @type {"queue"|"words"|"settings"} */
   mode: "queue",
+  /** Capture layout when mode is queue: timeline list vs by-site. */
+  /** @type {"queue"|"site"} */
+  captureView: "queue",
   /** @type {"week"|"earlier"|"all"} */
   dateRange: "week",
   focusIndex: 0
@@ -31,17 +34,21 @@ export function wordsList() {
   return state.words.slice();
 }
 
-/** Aggregated sites for site mode (left rail entries). */
+/** Aggregated sites for site capture view (left rail entries). */
 export function siteGroups() {
   return groupBySite(browseList());
 }
 
+export function isSiteCaptureView() {
+  return state.mode === "queue" && state.captureView === "site";
+}
+
 /** Active mode list for focus navigation (captures, site groups, or words). */
 export function modeList() {
-  if (state.mode === "queue") return queueList();
   if (state.mode === "words") return wordsList();
   if (state.mode === "settings") return [];
-  return siteGroups();
+  if (state.captureView === "site") return siteGroups();
+  return queueList();
 }
 
 export function clampFocus() {
@@ -55,7 +62,7 @@ export function clampFocus() {
 }
 
 export function focusedCapture() {
-  if (state.mode === "site" || state.mode === "words") return null;
+  if (state.mode !== "queue" || state.captureView === "site") return null;
   const list = modeList();
   return list[state.focusIndex] || null;
 }
@@ -66,6 +73,6 @@ export function focusedWord() {
 }
 
 export function focusedSite() {
-  if (state.mode !== "site") return null;
+  if (!isSiteCaptureView()) return null;
   return siteGroups()[state.focusIndex] || null;
 }

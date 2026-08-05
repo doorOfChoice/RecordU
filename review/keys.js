@@ -29,8 +29,9 @@ export function bindKeys({ onNavigate, onDrop, onEdit }) {
       return;
     }
 
-    // Site / settings: no item keyboard actions.
-    if (state.mode === "site" || state.mode === "settings") return;
+    // Site capture view / settings: no item keyboard actions.
+    if (state.mode === "settings") return;
+    if (state.mode === "queue" && state.captureView === "site") return;
 
     const focus = state.mode === "words" ? focusedWord() : focusedCapture();
     if (!focus) return;

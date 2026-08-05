@@ -19,11 +19,20 @@ import { bindKeys } from "./keys.js";
 import { renderQueue } from "./queue-view.js";
 import { renderSettings } from "./settings-view.js";
 import { renderWords } from "./words-view.js";
-import { browseList, clampFocus, modeList, queueList, state } from "./state.js";
+import {
+  browseList,
+  clampFocus,
+  isSiteCaptureView,
+  modeList,
+  queueList,
+  state
+} from "./state.js";
 
 const progressEl = document.getElementById("rv-progress");
 const contentEl = document.getElementById("rv-content");
 const emptyEl = document.getElementById("rv-empty");
+const filtersEl = document.querySelector(".rv-toolbar-filters");
+const viewNav = document.querySelector(".rv-view");
 const rangeNav = document.querySelector(".rv-range");
 const exportLink = document.getElementById("rv-export");
 
@@ -86,8 +95,8 @@ function render() {
       onDrop: dropWord,
       onEdit: editWord
     });
-  } else if (state.mode === "queue") {
-    renderQueue({
+  } else if (state.captureView === "site") {
+    renderBrowse({
       root: contentEl,
       progressEl,
       emptyEl,
@@ -95,7 +104,7 @@ function render() {
       onEdit: edit
     });
   } else {
-    renderBrowse({
+    renderQueue({
       root: contentEl,
       progressEl,
       emptyEl,
@@ -109,10 +118,15 @@ function syncChrome() {
   document.querySelectorAll("[data-mode]").forEach((el) => {
     el.classList.toggle("is-active", el.dataset.mode === state.mode);
   });
+  document.querySelectorAll("[data-view]").forEach((el) => {
+    el.classList.toggle("is-active", el.dataset.view === state.captureView);
+  });
   document.querySelectorAll("[data-range]").forEach((el) => {
     el.classList.toggle("is-active", el.dataset.range === state.dateRange);
   });
   const hideChrome = state.mode === "words" || state.mode === "settings";
+  if (filtersEl) filtersEl.classList.toggle("hidden", hideChrome);
+  if (viewNav) viewNav.classList.toggle("hidden", hideChrome);
   if (rangeNav) rangeNav.classList.toggle("hidden", hideChrome);
   if (exportLink) exportLink.classList.toggle("hidden", hideChrome);
 }
@@ -147,7 +161,7 @@ async function drop(id) {
     danger: true
   });
   if (!ok) return;
-  if (state.mode === "site") {
+  if (isSiteCaptureView()) {
     await deleteCapture(id);
   } else {
     const list = modeList();
@@ -203,6 +217,16 @@ document.querySelectorAll("[data-mode]").forEach((el) => {
   });
 });
 
+document.querySelectorAll("[data-view]").forEach((el) => {
+  el.addEventListener("click", (e) => {
+    e.preventDefault();
+    const view = el.dataset.view === "site" ? "site" : "queue";
+    state.captureView = view;
+    state.focusIndex = 0;
+    render();
+  });
+});
+
 document.querySelectorAll("[data-range]").forEach((el) => {
   el.addEventListener("click", (e) => {
     e.preventDefault();
@@ -215,8 +239,8 @@ document.querySelectorAll("[data-range]").forEach((el) => {
 document.getElementById("rv-export").addEventListener("click", (e) => {
   e.preventDefault();
   if (state.mode === "words" || state.mode === "settings") return;
-  const list = state.mode === "queue" ? queueList() : browseList();
-  const statusLabel = state.mode === "queue" ? "待回顾" : "按网站";
+  const list = state.captureView === "site" ? browseList() : queueList();
+  const statusLabel = state.captureView === "site" ? "按网站" : "待回顾";
   exportMarkdown(list, { dateRange: state.dateRange, statusLabel });
 });
 

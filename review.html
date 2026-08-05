@@ -19,15 +19,20 @@
       <div class="rv-toolbar">
         <nav class="rv-nav" aria-label="模式">
           <a href="#" class="rv-nav-link is-active" data-mode="queue">待回顾</a>
-          <a href="#" class="rv-nav-link" data-mode="site">网站</a>
           <a href="#" class="rv-nav-link" data-mode="words">单词</a>
           <a href="#" class="rv-nav-link" data-mode="settings">设置</a>
         </nav>
-        <nav class="rv-range" aria-label="日期范围">
-          <a href="#" class="rv-range-link is-active" data-range="week">本周</a>
-          <a href="#" class="rv-range-link" data-range="earlier">更早</a>
-          <a href="#" class="rv-range-link" data-range="all">全部</a>
-        </nav>
+        <div class="rv-toolbar-filters">
+          <nav class="rv-view" aria-label="展示方式">
+            <a href="#" class="rv-view-link is-active" data-view="queue">按时间</a>
+            <a href="#" class="rv-view-link" data-view="site">按网站</a>
+          </nav>
+          <nav class="rv-range" aria-label="日期范围">
+            <a href="#" class="rv-range-link is-active" data-range="week">本周</a>
+            <a href="#" class="rv-range-link" data-range="earlier">更早</a>
+            <a href="#" class="rv-range-link" data-range="all">全部</a>
+          </nav>
+        </div>
       </div>
       <p class="rv-progress" id="rv-progress">0 条</p>
     </header>

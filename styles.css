@@ -318,6 +318,19 @@ body.review-page {
   margin-bottom: 14px;
 }
 
+.rv-toolbar-filters {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+}
+
+.rv-toolbar-filters .rv-range {
+  padding-left: 16px;
+  border-left: 1px solid var(--rv-line);
+  margin-left: 2px;
+}
+
 .rv-nav {
   display: flex;
   flex-wrap: wrap;
@@ -351,6 +364,7 @@ body.review-page {
   margin-bottom: 0;
 }
 
+.rv-view,
 .rv-range {
   display: flex;
   gap: 16px;
@@ -358,12 +372,15 @@ body.review-page {
   letter-spacing: 0.08em;
 }
 
+.rv-view-link,
 .rv-range-link {
   color: var(--rv-thin);
   text-decoration: none;
   transition: color 0.15s;
 }
 
+.rv-view-link:hover,
+.rv-view-link.is-active,
 .rv-range-link:hover,
 .rv-range-link.is-active {
   color: var(--rv-accent);
