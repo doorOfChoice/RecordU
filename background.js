@@ -151,7 +151,24 @@ function mimeToExt(mime) {
   if (m.includes("png")) return "png";
   if (m.includes("webp")) return "webp";
   if (m.includes("gif")) return "gif";
+  if (m.includes("svg")) return "svg";
+  if (m.includes("x-icon") || m.includes("vnd.microsoft.icon") || m.includes("icon")) return "ico";
   return "jpg";
+}
+
+function mimeFromDataUrl(dataUrl) {
+  if (typeof dataUrl !== "string") return "";
+  const m = /^data:([^;,]+)/i.exec(dataUrl);
+  return (m && m[1]) || "";
+}
+
+function sanitizeHostForFile(host) {
+  return String(host || "unknown")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 120) || "unknown";
 }
 
 async function exportBackupMeta() {
@@ -176,6 +193,27 @@ async function exportBackupMeta() {
         file: `screenshots/${s.captureId}.${ext}`
       };
     });
+  const usedFavNames = new Set();
+  const favIndex = (favicons || [])
+    .filter((f) => f && f.host && f.dataUrl)
+    .map((f) => {
+      const mime = mimeFromDataUrl(f.dataUrl) || "image/png";
+      const ext = mimeToExt(mime);
+      let base = sanitizeHostForFile(f.host);
+      let file = `favicons/${base}.${ext}`;
+      let n = 2;
+      while (usedFavNames.has(file)) {
+        file = `favicons/${base}_${n}.${ext}`;
+        n++;
+      }
+      usedFavNames.add(file);
+      return {
+        host: f.host,
+        mime,
+        updatedAt: f.updatedAt || 0,
+        file
+      };
+    });
   return {
     format: "recordu-backup",
     version: 1,
@@ -183,11 +221,7 @@ async function exportBackupMeta() {
     settings,
     captures: captures || [],
     words: words || [],
-    favicons: (favicons || []).map((f) => ({
-      host: f.host,
-      dataUrl: f.dataUrl,
-      updatedAt: f.updatedAt || 0
-    })),
+    favicons: favIndex,
     screenshots: shotIndex
   };
 }
@@ -209,6 +243,24 @@ async function getScreenshotBuffer(captureId) {
   };
 }
 
+async function getFaviconBuffer(host) {
+  await ensureMigrated();
+  if (!host) return null;
+  const dataUrl = await dbGetFavicon(host);
+  if (!dataUrl || typeof dataUrl !== "string" || !dataUrl.startsWith("data:")) return null;
+  const comma = dataUrl.indexOf(",");
+  if (comma < 0) return null;
+  const meta = dataUrl.slice(0, comma);
+  const base64 = dataUrl.slice(comma + 1);
+  if (!base64) return null;
+  const mimeMatch = /^data:([^;,]+)/i.exec(meta);
+  return {
+    host,
+    mime: (mimeMatch && mimeMatch[1]) || "image/png",
+    base64
+  };
+}
+
 async function importBackupBegin(payload) {
   await ensureMigrated();
   if (!payload || payload.format !== "recordu-backup") {
@@ -216,10 +268,14 @@ async function importBackupBegin(payload) {
   }
   const settings = normalizeSettings(payload.settings);
   await chrome.storage.local.set({ [SETTINGS_KEY]: settings });
+  // Legacy backups embed favicon dataUrl in JSON; file-based favicons are imported later.
+  const legacyFavs = (Array.isArray(payload.favicons) ? payload.favicons : []).filter(
+    (f) => f && f.host && typeof f.dataUrl === "string" && f.dataUrl.startsWith("data:")
+  );
   const counts = await dbImportAllData({
     captures: payload.captures,
     words: payload.words,
-    favicons: payload.favicons,
+    favicons: legacyFavs,
     screenshots: []
   });
   faviconMem.clear();
@@ -256,6 +312,24 @@ async function importScreenshotRow(msg) {
     h: typeof msg.h === "number" ? msg.h : 0
   });
   return { captureId };
+}
+
+async function importFaviconRow(msg) {
+  await ensureMigrated();
+  const host = typeof msg.host === "string" ? msg.host.trim() : "";
+  if (!host) throw new Error("host required");
+  let dataUrl = null;
+  if (typeof msg.dataUrl === "string" && msg.dataUrl.startsWith("data:")) {
+    dataUrl = msg.dataUrl;
+  } else if (typeof msg.base64 === "string" && msg.base64.length > 0) {
+    const mime = typeof msg.mime === "string" && msg.mime ? msg.mime : "image/png";
+    dataUrl = `data:${mime};base64,${msg.base64}`;
+  } else {
+    throw new Error("missing favicon payload");
+  }
+  await dbPutFavicon(host, dataUrl);
+  faviconMem.set(host, dataUrl);
+  return { host };
 }
 
 async function blobToDataUrl(blob) {
@@ -625,6 +699,13 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true;
   }
 
+  if (msg.type === "rc-get-favicon-buffer") {
+    getFaviconBuffer(msg.host)
+      .then((row) => sendResponse({ ok: true, fav: row }))
+      .catch((e) => sendResponse({ ok: false, fav: null, error: String(e) }));
+    return true;
+  }
+
   if (msg.type === "rc-import-backup-begin") {
     importBackupBegin(msg.payload || msg.meta || {})
       .then((result) => sendResponse({ ok: true, ...result }))
@@ -634,6 +715,13 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
   if (msg.type === "rc-import-screenshot") {
     importScreenshotRow(msg)
+      .then((result) => sendResponse({ ok: true, ...result }))
+      .catch((e) => sendResponse({ ok: false, error: String(e) }));
+    return true;
+  }
+
+  if (msg.type === "rc-import-favicon") {
+    importFaviconRow(msg)
       .then((result) => sendResponse({ ok: true, ...result }))
       .catch((e) => sendResponse({ ok: false, error: String(e) }));
     return true;

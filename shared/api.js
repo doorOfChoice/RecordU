@@ -100,6 +100,15 @@ export async function getScreenshotBuffer(captureId) {
   return res.shot || null;
 }
 
+export async function getFaviconBuffer(host) {
+  const res = await chrome.runtime.sendMessage({
+    type: "rc-get-favicon-buffer",
+    host
+  });
+  if (!res || !res.ok) throw new Error((res && res.error) || "get favicon buffer failed");
+  return res.fav || null;
+}
+
 export async function importBackupBegin(payload) {
   const res = await chrome.runtime.sendMessage({
     type: "rc-import-backup-begin",
@@ -115,6 +124,15 @@ export async function importScreenshot(payload) {
     ...payload
   });
   if (!res || !res.ok) throw new Error((res && res.error) || "import screenshot failed");
+  return res;
+}
+
+export async function importFavicon(payload) {
+  const res = await chrome.runtime.sendMessage({
+    type: "rc-import-favicon",
+    ...payload
+  });
+  if (!res || !res.ok) throw new Error((res && res.error) || "import favicon failed");
   return res;
 }
 
