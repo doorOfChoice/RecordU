@@ -16,8 +16,21 @@ const PRESETS = [
  * @param {object} opts.settings
  * @param {(patch: object) => Promise<object|null>} opts.onSave
  * @param {() => Promise<object|null>} opts.onReset
+ * @param {(onProgress: (msg: string) => void) => Promise<void>} [opts.onBackup]
+ * @param {(file: File, onProgress: (msg: string) => void) => Promise<{cancelled?: boolean}|void>} [opts.onRestore]
+ * @param {() => Promise<void>} [opts.onAfterRestore]
  */
-export function renderSettings({ root, progressEl, emptyEl, settings, onSave, onReset }) {
+export function renderSettings({
+  root,
+  progressEl,
+  emptyEl,
+  settings,
+  onSave,
+  onReset,
+  onBackup,
+  onRestore,
+  onAfterRestore
+}) {
   progressEl.textContent = "全局设置";
   emptyEl.classList.add("hidden");
   root.classList.remove("hidden");
@@ -68,6 +81,20 @@ export function renderSettings({ root, progressEl, emptyEl, settings, onSave, on
           <span class="rv-settings-toast" id="rv-set-toast" hidden></span>
         </div>
       </section>
+
+      <section class="rv-settings-section">
+        <h2 class="rv-settings-title">数据备份</h2>
+        <p class="rv-settings-desc">
+          卸载扩展或清除站点数据会丢掉本地记录；同一扩展 ID 下重新加载通常不会。
+          定期下载 ZIP 备份（含感触、截图、单词与设置）。恢复将清空当前本地数据并以备份为准。
+        </p>
+        <div class="rv-settings-actions">
+          <button type="button" class="btn btn-primary" id="rv-set-backup">下载备份</button>
+          <button type="button" class="btn" id="rv-set-restore">从备份恢复</button>
+          <input type="file" id="rv-set-restore-file" accept=".zip,application/zip" hidden>
+          <span class="rv-settings-toast" id="rv-set-backup-toast" hidden></span>
+        </div>
+      </section>
     </div>
   `;
 
@@ -78,6 +105,10 @@ export function renderSettings({ root, progressEl, emptyEl, settings, onSave, on
   const ideaSwatch = root.querySelector(".rv-settings-swatch-idea");
   const wordSwatch = root.querySelector(".rv-settings-swatch-word");
   const toast = root.querySelector("#rv-set-toast");
+  const backupToast = root.querySelector("#rv-set-backup-toast");
+  const backupBtn = root.querySelector("#rv-set-backup");
+  const restoreBtn = root.querySelector("#rv-set-restore");
+  const restoreFile = root.querySelector("#rv-set-restore-file");
 
   function syncSwatches() {
     if (ideaSwatch) ideaSwatch.style.setProperty("--swatch", ideaColor.value);
@@ -98,13 +129,18 @@ export function renderSettings({ root, progressEl, emptyEl, settings, onSave, on
     syncSwatches();
   }
 
-  function showToast(msg) {
-    toast.hidden = false;
-    toast.textContent = msg;
-    clearTimeout(showToast._t);
-    showToast._t = setTimeout(() => {
-      toast.hidden = true;
-    }, 1600);
+  function showToast(el, msg) {
+    el.hidden = false;
+    el.textContent = msg;
+    clearTimeout(el._toastT);
+    el._toastT = setTimeout(() => {
+      el.hidden = true;
+    }, 2200);
+  }
+
+  function setBusy(busy) {
+    backupBtn.disabled = busy;
+    restoreBtn.disabled = busy;
   }
 
   ideaColor.addEventListener("input", () => {
@@ -133,9 +169,9 @@ export function renderSettings({ root, progressEl, emptyEl, settings, onSave, on
     if (next) {
       setIdea(next.ideaHighlightColor);
       setWord(next.wordHighlightColor);
-      showToast("✓ 已保存");
+      showToast(toast, "✓ 已保存");
     } else {
-      showToast("保存失败");
+      showToast(toast, "保存失败");
     }
   });
 
@@ -144,7 +180,56 @@ export function renderSettings({ root, progressEl, emptyEl, settings, onSave, on
     if (next) {
       setIdea(next.ideaHighlightColor);
       setWord(next.wordHighlightColor);
-      showToast("✓ 已恢复默认");
+      showToast(toast, "✓ 已恢复默认");
+    }
+  });
+
+  backupBtn.addEventListener("click", async () => {
+    if (!onBackup) return;
+    setBusy(true);
+    try {
+      await onBackup((msg) => {
+        backupToast.hidden = false;
+        backupToast.textContent = msg;
+      });
+      showToast(backupToast, backupToast.textContent || "✓ 备份已下载");
+    } catch (e) {
+      showToast(backupToast, `备份失败：${e && e.message ? e.message : e}`);
+    } finally {
+      setBusy(false);
+    }
+  });
+
+  restoreBtn.addEventListener("click", () => {
+    if (!onRestore) return;
+    restoreFile.value = "";
+    restoreFile.click();
+  });
+
+  restoreFile.addEventListener("change", async () => {
+    const file = restoreFile.files && restoreFile.files[0];
+    if (!file || !onRestore) return;
+    setBusy(true);
+    try {
+      const result = await onRestore(file, (msg) => {
+        backupToast.hidden = false;
+        backupToast.textContent = msg;
+      });
+      if (result && result.cancelled) {
+        backupToast.hidden = true;
+        return;
+      }
+      showToast(backupToast, backupToast.textContent || "✓ 已恢复");
+      if (onAfterRestore) {
+        setTimeout(() => {
+          onAfterRestore().catch(() => {});
+        }, 600);
+      }
+    } catch (e) {
+      showToast(backupToast, `恢复失败：${e && e.message ? e.message : e}`);
+    } finally {
+      setBusy(false);
+      restoreFile.value = "";
     }
   });
 }

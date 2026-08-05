@@ -8,13 +8,17 @@ import {
   deleteCapture as dbDeleteCapture,
   deleteWord as dbDeleteWord,
   getAllCaptures as dbGetAllCaptures,
+  getAllFavicons as dbGetAllFavicons,
+  getAllScreenshots as dbGetAllScreenshots,
   getAllWords as dbGetAllWords,
   getCapture as dbGetCapture,
   getFavicon as dbGetFavicon,
   getScreenshot as dbGetScreenshot,
   getWord as dbGetWord,
+  importAllData as dbImportAllData,
   migrateFromStorage,
   putFavicon as dbPutFavicon,
+  putScreenshot as dbPutScreenshot,
   saveCapture as dbSaveCapture,
   saveScreenshotCapture as dbSaveScreenshotCapture,
   saveWord as dbSaveWord,
@@ -140,6 +144,118 @@ async function deleteCapture(id) {
   const existing = await dbGetCapture(id);
   await dbDeleteCapture(id);
   await notifyCapturesChanged(existing && existing.pageUrl);
+}
+
+function mimeToExt(mime) {
+  const m = String(mime || "").toLowerCase();
+  if (m.includes("png")) return "png";
+  if (m.includes("webp")) return "webp";
+  if (m.includes("gif")) return "gif";
+  return "jpg";
+}
+
+async function exportBackupMeta() {
+  await ensureMigrated();
+  const [captures, words, favicons, screenshots, settings] = await Promise.all([
+    dbGetAllCaptures(),
+    dbGetAllWords(),
+    dbGetAllFavicons(),
+    dbGetAllScreenshots(),
+    getSettings()
+  ]);
+  const shotIndex = (screenshots || [])
+    .filter((s) => s && s.captureId)
+    .map((s) => {
+      const mime = s.mime || (s.blob && s.blob.type) || "image/jpeg";
+      const ext = mimeToExt(mime);
+      return {
+        captureId: s.captureId,
+        mime,
+        w: typeof s.w === "number" ? s.w : 0,
+        h: typeof s.h === "number" ? s.h : 0,
+        file: `screenshots/${s.captureId}.${ext}`
+      };
+    });
+  return {
+    format: "recordu-backup",
+    version: 1,
+    exportedAt: Date.now(),
+    settings,
+    captures: captures || [],
+    words: words || [],
+    favicons: (favicons || []).map((f) => ({
+      host: f.host,
+      dataUrl: f.dataUrl,
+      updatedAt: f.updatedAt || 0
+    })),
+    screenshots: shotIndex
+  };
+}
+
+async function getScreenshotBuffer(captureId) {
+  await ensureMigrated();
+  const row = await dbGetScreenshot(captureId);
+  if (!row || !row.blob) return null;
+  // Prefer base64 over ArrayBuffer — some Chromium forks drop binary in messages.
+  const dataUrl = await blobToDataUrl(row.blob);
+  const comma = dataUrl.indexOf(",");
+  const base64 = comma >= 0 ? dataUrl.slice(comma + 1) : "";
+  return {
+    captureId: row.captureId,
+    mime: row.mime || row.blob.type || "image/jpeg",
+    w: typeof row.w === "number" ? row.w : 0,
+    h: typeof row.h === "number" ? row.h : 0,
+    base64
+  };
+}
+
+async function importBackupBegin(payload) {
+  await ensureMigrated();
+  if (!payload || payload.format !== "recordu-backup") {
+    throw new Error("invalid backup format");
+  }
+  const settings = normalizeSettings(payload.settings);
+  await chrome.storage.local.set({ [SETTINGS_KEY]: settings });
+  const counts = await dbImportAllData({
+    captures: payload.captures,
+    words: payload.words,
+    favicons: payload.favicons,
+    screenshots: []
+  });
+  faviconMem.clear();
+  await notifySettingsChanged(settings);
+  await notifyCapturesChanged(null);
+  await notifyWordsChanged();
+  return { ...counts, settings };
+}
+
+async function importScreenshotRow(msg) {
+  await ensureMigrated();
+  const captureId = msg.captureId;
+  if (!captureId) throw new Error("captureId required");
+  let blob = null;
+  const mime = typeof msg.mime === "string" && msg.mime ? msg.mime : "image/jpeg";
+  // Prefer base64 — ArrayBuffer is dropped by some Chromium forks (e.g. Quark).
+  if (typeof msg.base64 === "string" && msg.base64.length > 0) {
+    blob = base64ToBlob(msg.base64, mime);
+  } else if (msg.buffer && typeof msg.buffer.byteLength === "number" && msg.buffer.byteLength > 0) {
+    blob = new Blob([msg.buffer], { type: mime });
+  } else if (typeof msg.dataUrl === "string" && msg.dataUrl.startsWith("data:image/")) {
+    blob = dataUrlToBlob(msg.dataUrl);
+  } else {
+    throw new Error("missing screenshot payload");
+  }
+  if (!blob || blob.size < 32) {
+    throw new Error("empty screenshot payload");
+  }
+  await dbPutScreenshot({
+    captureId,
+    blob,
+    mime: blob.type || mime,
+    w: typeof msg.w === "number" ? msg.w : 0,
+    h: typeof msg.h === "number" ? msg.h : 0
+  });
+  return { captureId };
 }
 
 async function blobToDataUrl(blob) {
@@ -486,6 +602,47 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         sendResponse({ ok: true, dataUrl, w: row.w, h: row.h });
       })
       .catch((e) => sendResponse({ ok: false, dataUrl: null, error: String(e) }));
+    return true;
+  }
+
+  if (msg.type === "rc-export-backup-meta") {
+    exportBackupMeta()
+      .then((meta) => sendResponse({ ok: true, meta }))
+      .catch((e) => sendResponse({ ok: false, error: String(e) }));
+    return true;
+  }
+
+  if (msg.type === "rc-get-screenshot-buffer") {
+    getScreenshotBuffer(msg.captureId || msg.id)
+      .then((row) => {
+        if (!row) {
+          sendResponse({ ok: true, shot: null });
+          return;
+        }
+        sendResponse({ ok: true, shot: row });
+      })
+      .catch((e) => sendResponse({ ok: false, shot: null, error: String(e) }));
+    return true;
+  }
+
+  if (msg.type === "rc-import-backup-begin") {
+    importBackupBegin(msg.payload || msg.meta || {})
+      .then((result) => sendResponse({ ok: true, ...result }))
+      .catch((e) => sendResponse({ ok: false, error: String(e) }));
+    return true;
+  }
+
+  if (msg.type === "rc-import-screenshot") {
+    importScreenshotRow(msg)
+      .then((result) => sendResponse({ ok: true, ...result }))
+      .catch((e) => sendResponse({ ok: false, error: String(e) }));
+    return true;
+  }
+
+  if (msg.type === "rc-import-backup-finish") {
+    Promise.all([notifyCapturesChanged(null), notifyWordsChanged()])
+      .then(() => sendResponse({ ok: true }))
+      .catch((e) => sendResponse({ ok: false, error: String(e) }));
     return true;
   }
 

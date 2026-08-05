@@ -312,6 +312,90 @@ export async function deleteWord(id) {
   await txDone(tx);
 }
 
+/** Clear all RecordU object stores (captures, screenshots, words, favicons). */
+export async function clearAllStores() {
+  const db = await openDB();
+  const tx = db.transaction(["captures", "screenshots", "words", "favicons"], "readwrite");
+  tx.objectStore("captures").clear();
+  tx.objectStore("screenshots").clear();
+  tx.objectStore("words").clear();
+  tx.objectStore("favicons").clear();
+  await txDone(tx);
+}
+
+/** All screenshot rows (blobs included). */
+export async function getAllScreenshots() {
+  const db = await openDB();
+  const tx = db.transaction("screenshots", "readonly");
+  const all = await reqToPromise(tx.objectStore("screenshots").getAll());
+  await txDone(tx);
+  return all || [];
+}
+
+/**
+ * Replace local data with backup payload.
+ * @param {{ captures?: object[], words?: object[], favicons?: object[], screenshots?: object[] }} payload
+ *   screenshots entries: { captureId, blob, mime?, w?, h? }
+ */
+export async function importAllData(payload) {
+  const captures = Array.isArray(payload.captures) ? payload.captures : [];
+  const words = Array.isArray(payload.words) ? payload.words : [];
+  const favicons = Array.isArray(payload.favicons) ? payload.favicons : [];
+  const screenshots = Array.isArray(payload.screenshots) ? payload.screenshots : [];
+
+  await clearAllStores();
+
+  const db = await openDB();
+  const tx = db.transaction(["captures", "screenshots", "words", "favicons"], "readwrite");
+  const captureStore = tx.objectStore("captures");
+  const shotStore = tx.objectStore("screenshots");
+  const wordStore = tx.objectStore("words");
+  const favStore = tx.objectStore("favicons");
+
+  for (const c of captures) {
+    if (!c || !c.id) continue;
+    captureStore.put(normalizeCapture(c));
+  }
+  for (const w of words) {
+    if (!w || !w.id) continue;
+    const word = String(w.word || "").replace(/\s+/g, " ").trim();
+    if (!word) continue;
+    wordStore.put(
+      normalizeWordRecord({
+        ...w,
+        word,
+        wordKey: w.wordKey || normalizeWordKey(word)
+      })
+    );
+  }
+  for (const f of favicons) {
+    if (!f || !f.host || !f.dataUrl) continue;
+    favStore.put({
+      host: f.host,
+      dataUrl: f.dataUrl,
+      updatedAt: typeof f.updatedAt === "number" ? f.updatedAt : Date.now()
+    });
+  }
+  for (const s of screenshots) {
+    if (!s || !s.captureId || !s.blob) continue;
+    shotStore.put({
+      captureId: s.captureId,
+      blob: s.blob,
+      mime: s.mime || s.blob.type || "image/jpeg",
+      w: typeof s.w === "number" ? s.w : 0,
+      h: typeof s.h === "number" ? s.h : 0
+    });
+  }
+
+  await txDone(tx);
+  return {
+    captures: captures.length,
+    words: words.length,
+    favicons: favicons.length,
+    screenshots: screenshots.length
+  };
+}
+
 /** One-time migrate from chrome.storage.local into IndexedDB. */
 export async function migrateFromStorage() {
   const flag = await chrome.storage.local.get(MIGRATE_FLAG);

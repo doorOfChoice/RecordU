@@ -551,10 +551,21 @@ body.review-page {
   flex-wrap: wrap;
 }
 
+.rv-settings-actions .btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .rv-settings-toast {
   font-size: 12px;
   letter-spacing: 0.06em;
   color: var(--rv-sumi);
+}
+
+.rv-settings-section + .rv-settings-section {
+  border-top: 1px solid var(--rv-line);
+  padding-top: 28px;
+  margin-top: 8px;
 }
 
 .rv-content {

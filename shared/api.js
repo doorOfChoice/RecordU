@@ -84,3 +84,42 @@ export async function saveSettings(patch) {
 export async function resetSettings() {
   return chrome.runtime.sendMessage({ type: "rc-reset-settings" });
 }
+
+export async function exportBackupMeta() {
+  const res = await chrome.runtime.sendMessage({ type: "rc-export-backup-meta" });
+  if (!res || !res.ok) throw new Error((res && res.error) || "export backup meta failed");
+  return res.meta;
+}
+
+export async function getScreenshotBuffer(captureId) {
+  const res = await chrome.runtime.sendMessage({
+    type: "rc-get-screenshot-buffer",
+    captureId
+  });
+  if (!res || !res.ok) throw new Error((res && res.error) || "get screenshot buffer failed");
+  return res.shot || null;
+}
+
+export async function importBackupBegin(payload) {
+  const res = await chrome.runtime.sendMessage({
+    type: "rc-import-backup-begin",
+    payload
+  });
+  if (!res || !res.ok) throw new Error((res && res.error) || "import backup begin failed");
+  return res;
+}
+
+export async function importScreenshot(payload) {
+  const res = await chrome.runtime.sendMessage({
+    type: "rc-import-screenshot",
+    ...payload
+  });
+  if (!res || !res.ok) throw new Error((res && res.error) || "import screenshot failed");
+  return res;
+}
+
+export async function importBackupFinish() {
+  const res = await chrome.runtime.sendMessage({ type: "rc-import-backup-finish" });
+  if (!res || !res.ok) throw new Error((res && res.error) || "import backup finish failed");
+  return res;
+}

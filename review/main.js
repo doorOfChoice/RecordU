@@ -12,6 +12,7 @@ import {
 import { exactOf, isScreenshot } from "../shared/captures.js";
 import { DEFAULT_SETTINGS } from "../shared/settings.js";
 import { confirm as modalConfirm, promptEdit } from "../modal.js";
+import { downloadBackup, restoreBackupFromFile } from "./backup.js";
 import { renderBrowse } from "./browse-view.js";
 import { exportMarkdown } from "./export-md.js";
 import { bindKeys } from "./keys.js";
@@ -58,7 +59,24 @@ function render() {
         if (!res || !res.ok) return null;
         state.settings = res.settings;
         return res.settings;
-      }
+      },
+      onBackup: async (onProgress) => {
+        await downloadBackup(onProgress);
+      },
+      onRestore: async (file, onProgress) => {
+        const ok = await modalConfirm({
+          title: "从备份恢复？",
+          message:
+            "将清空当前本地的感触、截图、单词与站点图标，并以备份文件为准。此操作不可撤销。",
+          confirmText: "清空并恢复",
+          cancelText: "取消",
+          danger: true
+        });
+        if (!ok) return { cancelled: true };
+        await restoreBackupFromFile(file, onProgress);
+        return { cancelled: false };
+      },
+      onAfterRestore: load
     });
   } else if (state.mode === "words") {
     renderWords({
