@@ -13,8 +13,12 @@ export const DEFAULT_LLM_LOOKUP_PROMPT = `你是英语词典助手。请为单�
 export const DEFAULT_SETTINGS = {
   /** 感触高亮色 */
   ideaHighlightColor: "#c4a35a",
+  /** 感触高亮风格：fill = 背景填充；underline = 下划线 */
+  ideaHighlightStyle: "fill",
   /** 单词高亮色 */
   wordHighlightColor: "#3d5a80",
+  /** 单词高亮风格：fill = 背景填充；underline = 下划线 */
+  wordHighlightStyle: "fill",
   /** 单词高亮匹配：exact = 整词精确；variant = 双向词形变体 */
   wordMatchMode: "variant",
   /** LLM provider id */
@@ -40,6 +44,11 @@ export function normalizeHexColor(value, fallback) {
 
 export function normalizeWordMatchMode(value) {
   return value === "exact" ? "exact" : "variant";
+}
+
+/** Highlight visual style: fill | underline */
+export function normalizeHighlightStyle(value) {
+  return value === "underline" ? "underline" : "fill";
 }
 
 /** Per-word match: inherit | exact | variant */
@@ -85,10 +94,12 @@ export function normalizeSettings(input) {
       src.ideaHighlightColor,
       DEFAULT_SETTINGS.ideaHighlightColor
     ),
+    ideaHighlightStyle: normalizeHighlightStyle(src.ideaHighlightStyle),
     wordHighlightColor: normalizeHexColor(
       src.wordHighlightColor,
       DEFAULT_SETTINGS.wordHighlightColor
     ),
+    wordHighlightStyle: normalizeHighlightStyle(src.wordHighlightStyle),
     wordMatchMode: normalizeWordMatchMode(src.wordMatchMode),
     llmProvider: normalizeLlmProvider(src.llmProvider),
     llmApiKey: typeof src.llmApiKey === "string" ? src.llmApiKey : "",
@@ -112,7 +123,9 @@ export function settingsForContent(settings) {
 export function generalSettingsDefaults() {
   return {
     ideaHighlightColor: DEFAULT_SETTINGS.ideaHighlightColor,
+    ideaHighlightStyle: DEFAULT_SETTINGS.ideaHighlightStyle,
     wordHighlightColor: DEFAULT_SETTINGS.wordHighlightColor,
+    wordHighlightStyle: DEFAULT_SETTINGS.wordHighlightStyle,
     wordMatchMode: DEFAULT_SETTINGS.wordMatchMode
   };
 }
@@ -147,7 +160,11 @@ export function buildHighlightCss(settings) {
   const s = normalizeSettings(settings);
   const idea = hexToRgb(s.ideaHighlightColor);
   const word = hexToRgb(s.wordHighlightColor);
-  return `
+  const ideaFill = s.ideaHighlightStyle !== "underline";
+  const wordFill = s.wordHighlightStyle !== "underline";
+
+  const ideaRules = ideaFill
+    ? `
     .rc-highlight {
       background: rgba(${idea.r}, ${idea.g}, ${idea.b}, 0.28);
       border-radius: 2px;
@@ -156,7 +173,22 @@ export function buildHighlightCss(settings) {
     }
     .rc-highlight:hover {
       background: rgba(${idea.r}, ${idea.g}, ${idea.b}, 0.42);
+    }`
+    : `
+    .rc-highlight {
+      background: transparent;
+      border-radius: 0;
+      cursor: pointer;
+      box-shadow: none;
+      border-bottom: 2px solid rgba(${idea.r}, ${idea.g}, ${idea.b}, 0.9);
+      padding-bottom: 1px;
     }
+    .rc-highlight:hover {
+      border-bottom-color: rgba(${idea.r}, ${idea.g}, ${idea.b}, 1);
+    }`;
+
+  const wordRules = wordFill
+    ? `
     .rc-word-highlight {
       background: rgba(${word.r}, ${word.g}, ${word.b}, 0.22);
       border-radius: 2px;
@@ -165,6 +197,19 @@ export function buildHighlightCss(settings) {
     }
     .rc-word-highlight:hover {
       background: rgba(${word.r}, ${word.g}, ${word.b}, 0.36);
+    }`
+    : `
+    .rc-word-highlight {
+      background: transparent;
+      border-radius: 0;
+      cursor: pointer;
+      box-shadow: none;
+      border-bottom: 2px solid rgba(${word.r}, ${word.g}, ${word.b}, 0.9);
+      padding-bottom: 1px;
     }
-  `;
+    .rc-word-highlight:hover {
+      border-bottom-color: rgba(${word.r}, ${word.g}, ${word.b}, 1);
+    }`;
+
+  return `${ideaRules}${wordRules}`;
 }

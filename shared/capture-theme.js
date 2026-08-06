@@ -28,6 +28,17 @@
     .rc-highlight:hover {
       background: color-mix(in srgb, var(--rc-idea-hl, ${warm}) 42%, transparent);
     }
+    html[data-rc-idea-style="underline"] .rc-highlight {
+      background: transparent;
+      border-radius: 0;
+      box-shadow: none;
+      border-bottom: 2px solid color-mix(in srgb, var(--rc-idea-hl, ${warm}) 90%, transparent);
+      padding-bottom: 1px;
+    }
+    html[data-rc-idea-style="underline"] .rc-highlight:hover {
+      background: transparent;
+      border-bottom-color: var(--rc-idea-hl, ${warm});
+    }
     .rc-word-highlight {
       background: color-mix(in srgb, var(--rc-word-hl, ${accent}) 22%, transparent);
       border-radius: 2px;
@@ -36,6 +47,17 @@
     }
     .rc-word-highlight:hover {
       background: color-mix(in srgb, var(--rc-word-hl, ${accent}) 36%, transparent);
+    }
+    html[data-rc-word-style="underline"] .rc-word-highlight {
+      background: transparent;
+      border-radius: 0;
+      box-shadow: none;
+      border-bottom: 2px solid color-mix(in srgb, var(--rc-word-hl, ${accent}) 90%, transparent);
+      padding-bottom: 1px;
+    }
+    html[data-rc-word-style="underline"] .rc-word-highlight:hover {
+      background: transparent;
+      border-bottom-color: var(--rc-word-hl, ${accent});
     }
   `,
 

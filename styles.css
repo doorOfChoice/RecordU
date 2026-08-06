@@ -667,6 +667,30 @@ body.review-page {
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--swatch, var(--ru-warm)) 28%, transparent);
 }
 
+.rv-settings-swatch.is-underline {
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+  border-bottom: 2px solid color-mix(in srgb, var(--swatch, var(--ru-warm)) 90%, transparent);
+  padding-bottom: 2px;
+}
+
+.rv-settings-hl-block {
+  margin: 0 0 20px;
+}
+
+.rv-settings-hl-title {
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  color: var(--rv-ink);
+  margin: 0 0 10px;
+  font-weight: 500;
+}
+
+.rv-settings-hl-block .rv-settings-modes {
+  margin: 0 0 4px 0;
+}
+
 .rv-settings-presets {
   display: flex;
   flex-wrap: wrap;

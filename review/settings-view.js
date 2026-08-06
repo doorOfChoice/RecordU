@@ -42,6 +42,10 @@ export function renderSettings({
   const tab = state.settingsTab === "llm" ? "llm" : "general";
   const idea = settings.ideaHighlightColor || DEFAULT_SETTINGS.ideaHighlightColor;
   const word = settings.wordHighlightColor || DEFAULT_SETTINGS.wordHighlightColor;
+  const ideaStyle =
+    settings.ideaHighlightStyle === "underline" ? "underline" : "fill";
+  const wordStyle =
+    settings.wordHighlightStyle === "underline" ? "underline" : "fill";
   const matchMode =
     settings.wordMatchMode === "exact" ? "exact" : DEFAULT_SETTINGS.wordMatchMode;
   const llmProvider = settings.llmProvider || DEFAULT_SETTINGS.llmProvider;
@@ -62,24 +66,50 @@ export function renderSettings({
 
       <div class="rv-settings-panel" data-spanel="general" ${tab === "general" ? "" : "hidden"}>
         <section class="rv-settings-section">
-          <h2 class="rv-settings-title">高亮颜色</h2>
-          <p class="rv-settings-desc">感触与单词在网页上的高亮底色。保存后立即对所有标签页生效。</p>
+          <h2 class="rv-settings-title">高亮</h2>
+          <p class="rv-settings-desc">感触与单词可分别选择颜色与风格（背景填充或下划线）。保存后立即对所有标签页生效。</p>
 
-          <div class="rv-settings-row">
-            <label class="rv-settings-label" for="rv-set-idea">感触高亮</label>
-            <div class="rv-settings-color">
-              <input type="color" id="rv-set-idea" value="${escapeHtml(idea)}" aria-label="感触高亮色">
-              <input type="text" id="rv-set-idea-hex" class="rv-settings-hex" value="${escapeHtml(idea)}" maxlength="7" spellcheck="false">
-              <span class="rv-settings-swatch rv-settings-swatch-idea" style="--swatch:${escapeHtml(idea)}" aria-hidden="true">示例</span>
+          <div class="rv-settings-hl-block">
+            <div class="rv-settings-hl-title">感触高亮</div>
+            <div class="rv-settings-row">
+              <label class="rv-settings-label" for="rv-set-idea">颜色</label>
+              <div class="rv-settings-color">
+                <input type="color" id="rv-set-idea" value="${escapeHtml(idea)}" aria-label="感触高亮色">
+                <input type="text" id="rv-set-idea-hex" class="rv-settings-hex" value="${escapeHtml(idea)}" maxlength="7" spellcheck="false">
+                <span class="rv-settings-swatch rv-settings-swatch-idea${ideaStyle === "underline" ? " is-underline" : ""}" style="--swatch:${escapeHtml(idea)}" aria-hidden="true">示例</span>
+              </div>
+            </div>
+            <div class="rv-settings-modes" role="radiogroup" aria-label="感触高亮风格">
+              <label class="rv-settings-mode">
+                <input type="radio" name="rv-idea-style" value="fill" ${ideaStyle === "fill" ? "checked" : ""}>
+                <span>背景填充</span>
+              </label>
+              <label class="rv-settings-mode">
+                <input type="radio" name="rv-idea-style" value="underline" ${ideaStyle === "underline" ? "checked" : ""}>
+                <span>下划线</span>
+              </label>
             </div>
           </div>
 
-          <div class="rv-settings-row">
-            <label class="rv-settings-label" for="rv-set-word">单词高亮</label>
-            <div class="rv-settings-color">
-              <input type="color" id="rv-set-word" value="${escapeHtml(word)}" aria-label="单词高亮色">
-              <input type="text" id="rv-set-word-hex" class="rv-settings-hex" value="${escapeHtml(word)}" maxlength="7" spellcheck="false">
-              <span class="rv-settings-swatch rv-settings-swatch-word" style="--swatch:${escapeHtml(word)}" aria-hidden="true">示例</span>
+          <div class="rv-settings-hl-block">
+            <div class="rv-settings-hl-title">单词高亮</div>
+            <div class="rv-settings-row">
+              <label class="rv-settings-label" for="rv-set-word">颜色</label>
+              <div class="rv-settings-color">
+                <input type="color" id="rv-set-word" value="${escapeHtml(word)}" aria-label="单词高亮色">
+                <input type="text" id="rv-set-word-hex" class="rv-settings-hex" value="${escapeHtml(word)}" maxlength="7" spellcheck="false">
+                <span class="rv-settings-swatch rv-settings-swatch-word${wordStyle === "underline" ? " is-underline" : ""}" style="--swatch:${escapeHtml(word)}" aria-hidden="true">示例</span>
+              </div>
+            </div>
+            <div class="rv-settings-modes" role="radiogroup" aria-label="单词高亮风格">
+              <label class="rv-settings-mode">
+                <input type="radio" name="rv-word-style" value="fill" ${wordStyle === "fill" ? "checked" : ""}>
+                <span>背景填充</span>
+              </label>
+              <label class="rv-settings-mode">
+                <input type="radio" name="rv-word-style" value="underline" ${wordStyle === "underline" ? "checked" : ""}>
+                <span>下划线</span>
+              </label>
             </div>
           </div>
 
@@ -227,9 +257,25 @@ function bindGeneralPanel({ root, onSave, onBackup, onRestore, onAfterRestore })
   const restoreBtn = root.querySelector("#rv-set-restore");
   const restoreFile = root.querySelector("#rv-set-restore-file");
 
+  function selectedIdeaStyle() {
+    const checked = root.querySelector('input[name="rv-idea-style"]:checked');
+    return checked && checked.value === "underline" ? "underline" : "fill";
+  }
+
+  function selectedWordStyle() {
+    const checked = root.querySelector('input[name="rv-word-style"]:checked');
+    return checked && checked.value === "underline" ? "underline" : "fill";
+  }
+
   function syncSwatches() {
-    if (ideaSwatch) ideaSwatch.style.setProperty("--swatch", ideaColor.value);
-    if (wordSwatch) wordSwatch.style.setProperty("--swatch", wordColor.value);
+    if (ideaSwatch) {
+      ideaSwatch.style.setProperty("--swatch", ideaColor.value);
+      ideaSwatch.classList.toggle("is-underline", selectedIdeaStyle() === "underline");
+    }
+    if (wordSwatch) {
+      wordSwatch.style.setProperty("--swatch", wordColor.value);
+      wordSwatch.classList.toggle("is-underline", selectedWordStyle() === "underline");
+    }
   }
 
   function setIdea(hex) {
@@ -258,6 +304,22 @@ function bindGeneralPanel({ root, onSave, onBackup, onRestore, onAfterRestore })
     });
   }
 
+  function setIdeaStyle(style) {
+    const value = style === "underline" ? "underline" : "fill";
+    root.querySelectorAll('input[name="rv-idea-style"]').forEach((el) => {
+      el.checked = el.value === value;
+    });
+    syncSwatches();
+  }
+
+  function setWordStyle(style) {
+    const value = style === "underline" ? "underline" : "fill";
+    root.querySelectorAll('input[name="rv-word-style"]').forEach((el) => {
+      el.checked = el.value === value;
+    });
+    syncSwatches();
+  }
+
   ideaColor.addEventListener("input", () => {
     ideaHex.value = ideaColor.value;
     syncSwatches();
@@ -269,6 +331,13 @@ function bindGeneralPanel({ root, onSave, onBackup, onRestore, onAfterRestore })
   ideaHex.addEventListener("change", () => setIdea(ideaHex.value));
   wordHex.addEventListener("change", () => setWord(wordHex.value));
 
+  root.querySelectorAll('input[name="rv-idea-style"]').forEach((el) => {
+    el.addEventListener("change", syncSwatches);
+  });
+  root.querySelectorAll('input[name="rv-word-style"]').forEach((el) => {
+    el.addEventListener("change", syncSwatches);
+  });
+
   root.querySelectorAll(".rv-settings-preset").forEach((btn) => {
     btn.addEventListener("click", () => {
       setIdea(btn.dataset.idea);
@@ -279,12 +348,16 @@ function bindGeneralPanel({ root, onSave, onBackup, onRestore, onAfterRestore })
   root.querySelector("#rv-set-save-general").addEventListener("click", async () => {
     const next = await onSave({
       ideaHighlightColor: ideaColor.value,
+      ideaHighlightStyle: selectedIdeaStyle(),
       wordHighlightColor: wordColor.value,
+      wordHighlightStyle: selectedWordStyle(),
       wordMatchMode: selectedMatchMode()
     });
     if (next) {
       setIdea(next.ideaHighlightColor);
       setWord(next.wordHighlightColor);
+      setIdeaStyle(next.ideaHighlightStyle);
+      setWordStyle(next.wordHighlightStyle);
       setMatchMode(next.wordMatchMode);
       showToast(toast, "✓ 已保存");
     } else {
@@ -297,6 +370,8 @@ function bindGeneralPanel({ root, onSave, onBackup, onRestore, onAfterRestore })
     if (next) {
       setIdea(next.ideaHighlightColor);
       setWord(next.wordHighlightColor);
+      setIdeaStyle(next.ideaHighlightStyle);
+      setWordStyle(next.wordHighlightStyle);
       setMatchMode(next.wordMatchMode);
       showToast(toast, "✓ 已恢复默认");
     }
