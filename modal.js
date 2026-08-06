@@ -261,16 +261,35 @@ export function promptWordEdit(opts = {}) {
  * @returns {Promise<{ count: number, promptLang: "en"|"zh" }|null>}
  */
 export function promptQuizGenerate(opts = {}) {
-  const maxCount = Math.max(1, Number(opts.maxCount) || 1);
-  const defaultCount = Math.min(maxCount, Math.max(1, Number(opts.defaultCount) || Math.min(10, maxCount)));
+  const dayOptions = Array.isArray(opts.dayOptions) && opts.dayOptions.length
+    ? opts.dayOptions
+    : [{ key: "all", label: "全部", count: Math.max(1, Number(opts.maxCount) || 1) }];
+  const countByKey = new Map(dayOptions.map((o) => [String(o.key), Math.max(1, Number(o.count) || 1)]));
+  let activeMax = Math.min(50, countByKey.get("all") || Math.max(1, Number(opts.maxCount) || 1));
+  const defaultCount = Math.min(activeMax, Math.max(1, Number(opts.defaultCount) || Math.min(10, activeMax)));
+
+  const daySelectHtml = dayOptions
+    .map((o, i) => {
+      const key = String(o.key);
+      const count = Math.max(0, Number(o.count) || 0);
+      const label =
+        key === "all" ? String(o.label || "全部") : `${o.label || key}（${count}）`;
+      return `<option value="${escapeHtml(key)}"${i === 0 ? " selected" : ""}>${escapeHtml(label)}</option>`;
+    })
+    .join("");
+
   const overlay = document.createElement("div");
   overlay.className = "rc-modal-overlay";
   overlay.innerHTML = `
     <div class="rc-modal rc-modal-edit rc-modal-edit-quiz" role="dialog" aria-modal="true">
       <div class="rc-modal-title">${escapeHtml(opts.title || "生成试卷")}</div>
       <div class="rc-modal-field">
-        <label for="rc-modal-quiz-count">练习几个未学完的单词（1–${maxCount}）</label>
-        <input type="number" id="rc-modal-quiz-count" min="1" max="${maxCount}" value="${defaultCount}">
+        <label for="rc-modal-quiz-day">时间</label>
+        <select id="rc-modal-quiz-day">${daySelectHtml}</select>
+      </div>
+      <div class="rc-modal-field">
+        <label for="rc-modal-quiz-count" id="rc-modal-quiz-count-label">练习几个未学完的单词（1–${activeMax}）</label>
+        <input type="number" id="rc-modal-quiz-count" min="1" max="${activeMax}" value="${defaultCount}">
       </div>
       <div class="rc-modal-field">
         <span class="rc-modal-field-label">出题方向</span>
@@ -285,6 +304,19 @@ export function promptQuizGenerate(opts = {}) {
           </label>
         </div>
       </div>
+      <div class="rc-modal-field">
+        <span class="rc-modal-field-label">是否展示考点词</span>
+        <div class="rc-modal-radios" role="radiogroup" aria-label="是否展示考点词">
+          <label class="rc-modal-radio">
+            <input type="radio" name="rc-modal-quiz-show-words" value="0" checked>
+            <span>不展示</span>
+          </label>
+          <label class="rc-modal-radio">
+            <input type="radio" name="rc-modal-quiz-show-words" value="1">
+            <span>展示</span>
+          </label>
+        </div>
+      </div>
       <div class="rc-modal-actions">
         <button type="button" class="btn rc-modal-cancel">${escapeHtml(opts.cancelText || "取消")}</button>
         <button type="button" class="btn btn-primary">${escapeHtml(opts.confirmText || "生成")}</button>
@@ -293,6 +325,21 @@ export function promptQuizGenerate(opts = {}) {
   `;
 
   const countEl = overlay.querySelector("#rc-modal-quiz-count");
+  const countLabel = overlay.querySelector("#rc-modal-quiz-count-label");
+  const dayEl = overlay.querySelector("#rc-modal-quiz-day");
+
+  function syncCountLimit() {
+    const key = dayEl.value || "all";
+    const raw = countByKey.get(key) || 1;
+    activeMax = Math.min(50, Math.max(1, raw));
+    countLabel.textContent = `练习几个未学完的单词（1–${activeMax}）`;
+    countEl.max = String(activeMax);
+    let n = Math.round(Number(countEl.value));
+    if (!Number.isFinite(n)) n = Math.min(10, activeMax);
+    countEl.value = String(Math.min(activeMax, Math.max(1, n)));
+  }
+
+  dayEl.addEventListener("change", syncCountLimit);
 
   if (current) current.resolve("cancel");
   document.body.appendChild(overlay);
@@ -307,12 +354,16 @@ export function promptQuizGenerate(opts = {}) {
 
     function collect() {
       let count = Math.round(Number(countEl.value));
-      if (!Number.isFinite(count)) count = defaultCount;
-      count = Math.min(maxCount, Math.max(1, count));
+      if (!Number.isFinite(count)) count = Math.min(10, activeMax);
+      count = Math.min(activeMax, Math.max(1, count));
       const langEl = overlay.querySelector('input[name="rc-modal-quiz-lang"]:checked');
+      const showWordsEl = overlay.querySelector('input[name="rc-modal-quiz-show-words"]:checked');
+      const dayKeyVal = String(dayEl.value || "all");
       return {
         count,
-        promptLang: langEl && langEl.value === "zh" ? "zh" : "en"
+        promptLang: langEl && langEl.value === "zh" ? "zh" : "en",
+        dayKey: dayKeyVal === "all" ? "all" : dayKeyVal,
+        showSourceWords: !!(showWordsEl && showWordsEl.value === "1")
       };
     }
 

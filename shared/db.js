@@ -390,6 +390,7 @@ export function normalizeQuizRecord(input) {
     count: typeof src.count === "number" ? src.count : sourceWords.length,
     promptLang: normalizePromptLang(src.promptLang),
     status: normalizeQuizStatus(src.status),
+    showSourceWords: !!src.showSourceWords,
     sourceWords: sourceWords.map((w) => ({
       id: w && w.id ? String(w.id) : "",
       word: w && w.word ? String(w.word) : "",

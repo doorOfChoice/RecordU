@@ -1,5 +1,6 @@
 import { normalizeWordKey } from "./db.js";
 import { DEFAULT_LLM_QUIZ_PROMPT } from "./settings.js";
+import { dayKey, formatDayLabel } from "./time.js";
 
 export const DEFAULT_QUIZ_PROMPT = DEFAULT_LLM_QUIZ_PROMPT;
 /**
@@ -13,6 +14,35 @@ export function quizWordPool(words) {
     const translation = String(w.translation || "").trim();
     return !!(word && translation);
   });
+}
+
+/**
+ * Distinct local days in the quiz pool, newest first.
+ * @param {object[]} pool
+ * @returns {{ key: string, label: string, count: number }[]}
+ */
+export function quizDayOptions(pool) {
+  const byKey = new Map();
+  for (const w of Array.isArray(pool) ? pool : []) {
+    if (!w) continue;
+    const key = dayKey(new Date(w.createdAt || Date.now()));
+    const prev = byKey.get(key);
+    if (prev) prev.count += 1;
+    else byKey.set(key, { key, label: formatDayLabel(key), count: 1 });
+  }
+  return [...byKey.values()].sort((a, b) => (a.key < b.key ? 1 : a.key > b.key ? -1 : 0));
+}
+
+/**
+ * @param {object[]} pool
+ * @param {string} [day]
+ * @returns {object[]}
+ */
+export function filterQuizPoolByDay(pool, day) {
+  const list = Array.isArray(pool) ? pool : [];
+  const key = String(day || "").trim();
+  if (!key || key === "all") return list;
+  return list.filter((w) => w && dayKey(new Date(w.createdAt || Date.now())) === key);
 }
 
 const CONTEXT_MAX_LEN = 160;

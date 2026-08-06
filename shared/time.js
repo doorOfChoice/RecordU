@@ -12,6 +12,20 @@ export function dayStr(offset) {
   return dayKey(d);
 }
 
+/** Human label for a local YYYY-MM-DD key (今天 / 昨天 / M月D日 / Y年M月D日). */
+export function formatDayLabel(key) {
+  const s = String(key || "");
+  const today = dayStr(0);
+  const yesterday = dayStr(1);
+  if (s === today) return "今天";
+  if (s === yesterday) return "昨天";
+  const parts = s.split("-").map((x) => Number(x));
+  if (parts.length !== 3 || parts.some((n) => !Number.isFinite(n))) return s;
+  const [y, m, d] = parts;
+  if (y === new Date().getFullYear()) return `${m}月${d}日`;
+  return `${y}年${m}月${d}日`;
+}
+
 export function weekStart(ts = Date.now()) {
   const d = new Date(ts);
   const day = (d.getDay() + 6) % 7;

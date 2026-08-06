@@ -2,7 +2,9 @@ import { escapeHtml } from "../shared/dom.js";
 import {
   blankItemsForGrading,
   enrichWordsForQuiz,
+  filterQuizPoolByDay,
   pickRandomWords,
+  quizDayOptions,
   quizWordPool,
   scoreQuiz
 } from "../shared/quiz.js";
@@ -92,18 +94,29 @@ export function renderQuizList({ root, progressEl, onRefresh, onOpen }) {
       });
       return;
     }
+    const dayOptions = [{ key: "all", label: "全部", count: pool.length }, ...quizDayOptions(pool)];
     const maxCount = Math.min(50, pool.length);
     const choice = await promptQuizGenerate({
       maxCount,
-      defaultCount: Math.min(10, maxCount)
+      defaultCount: Math.min(10, maxCount),
+      dayOptions
     });
     if (!choice) return;
+
+    const scoped = filterQuizPoolByDay(pool, choice.dayKey);
+    if (!scoped.length) {
+      await modalAlert({
+        title: "无法生成",
+        message: "所选日期没有可练习的单词。"
+      });
+      return;
+    }
 
     genBtn.disabled = true;
     const prev = genBtn.textContent;
     genBtn.textContent = "生成中…";
     try {
-      const picked = pickRandomWords(pool, choice.count);
+      const picked = pickRandomWords(scoped, choice.count);
       let captures = [];
       try {
         captures = (await getAllCaptures()) || [];
@@ -122,6 +135,7 @@ export function renderQuizList({ root, progressEl, onRefresh, onOpen }) {
       const saveRes = await saveQuiz({
         count: enriched.length,
         promptLang: choice.promptLang,
+        showSourceWords: !!choice.showSourceWords,
         status: "ready",
         sourceWords: enriched,
         items: res.items,
@@ -191,6 +205,26 @@ export function renderQuizTake({ root, progressEl, quiz, onBack, onUpdated }) {
   }
 
   const items = Array.isArray(quiz.items) ? quiz.items : [];
+  const sourceWords = Array.isArray(quiz.sourceWords) ? quiz.sourceWords : [];
+  const sourceWordTags =
+    quiz.showSourceWords && sourceWords.length
+      ? `<div class="rv-quiz-source-words" aria-label="考点词">
+          <div class="rv-quiz-source-words-label">考点词</div>
+          <div class="rv-quiz-source-words-list">
+            ${sourceWords
+              .map((w) => {
+                const word = String((w && w.word) || "").trim();
+                if (!word) return "";
+                const tip = String((w && w.translation) || "").trim();
+                return `<span class="rv-quiz-source-word"${
+                  tip ? ` title="${escapeHtml(tip)}"` : ""
+                }>${escapeHtml(word)}</span>`;
+              })
+              .filter(Boolean)
+              .join("")}
+          </div>
+        </div>`
+      : "";
 
   root.innerHTML = `
     <div class="rv-quiz-take">
@@ -204,6 +238,7 @@ export function renderQuizTake({ root, progressEl, quiz, onBack, onUpdated }) {
             : `<button type="button" class="btn btn-primary rv-quiz-submit-btn" id="rv-quiz-submit">交卷</button>`
         }
       </div>
+      ${sourceWordTags}
       <ol class="rv-quiz-questions">
         ${items.map((item, i) => questionHtml(item, i, readonly)).join("")}
       </ol>

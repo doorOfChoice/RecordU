@@ -1,5 +1,5 @@
 import { escapeHtml } from "../shared/dom.js";
-import { dayKey, dayStr } from "../shared/time.js";
+import { dayKey, formatDayLabel } from "../shared/time.js";
 import { wordActionsHtml } from "./action-icons.js";
 import { renderQuizList, renderQuizTake } from "./quiz-view.js";
 import { clampFocus, focusedWord, wordsList, state } from "./state.js";
@@ -14,9 +14,6 @@ const NAV_ITEMS = [
  * @returns {{ key: string, label: string, items: Array<{ word: object, index: number }> }[]}
  */
 function groupWordsByDay(list) {
-  const today = dayStr(0);
-  const yesterday = dayStr(1);
-  const thisYear = new Date().getFullYear();
   const groups = [];
   const byKey = new Map();
 
@@ -25,12 +22,7 @@ function groupWordsByDay(list) {
     const key = dayKey(d);
     let group = byKey.get(key);
     if (!group) {
-      let label;
-      if (key === today) label = "今天";
-      else if (key === yesterday) label = "昨天";
-      else if (d.getFullYear() === thisYear) label = `${d.getMonth() + 1}月${d.getDate()}日`;
-      else label = `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
-      group = { key, label, items: [] };
+      group = { key, label: formatDayLabel(key), items: [] };
       byKey.set(key, group);
       groups.push(group);
     }
