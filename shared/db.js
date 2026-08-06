@@ -229,9 +229,15 @@ function normalizeEntryMatchMode(value) {
   return "inherit";
 }
 
+function normalizeLearnedAt(value) {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
 function normalizeWordRecord(input) {
   const word = String(input.word || "").replace(/\s+/g, " ").trim();
   const wordKey = input.wordKey || normalizeWordKey(word);
+  const learned = !!input.learned;
   return {
     id: input.id || newId(),
     word,
@@ -240,6 +246,8 @@ function normalizeWordRecord(input) {
     phonetic: typeof input.phonetic === "string" ? input.phonetic : "",
     translation: typeof input.translation === "string" ? input.translation : "",
     matchMode: normalizeEntryMatchMode(input.matchMode),
+    learned,
+    learnedAt: learned ? normalizeLearnedAt(input.learnedAt) || null : null,
     pageTitle: input.pageTitle || "",
     pageUrl: input.pageUrl || "",
     createdAt: input.createdAt || Date.now()
@@ -299,6 +307,13 @@ export async function saveWord(input) {
         : existing
           ? existing.matchMode
           : "inherit",
+    learned: input.learned != null ? input.learned : existing ? existing.learned : false,
+    learnedAt:
+      input.learnedAt != null
+        ? input.learnedAt
+        : existing
+          ? existing.learnedAt
+          : null,
     pageTitle: input.pageTitle != null ? input.pageTitle : existing ? existing.pageTitle : "",
     pageUrl: input.pageUrl != null ? input.pageUrl : existing ? existing.pageUrl : "",
     createdAt: existing ? existing.createdAt : input.createdAt
@@ -326,6 +341,14 @@ export async function updateWord(id, patch) {
     next.translation = typeof patch.translation === "string" ? patch.translation : "";
   }
   if ("matchMode" in patch) next.matchMode = normalizeEntryMatchMode(patch.matchMode);
+  if ("learned" in patch) {
+    next.learned = !!patch.learned;
+    if (next.learned) {
+      next.learnedAt = existing.learnedAt || Date.now();
+    } else {
+      next.learnedAt = null;
+    }
+  }
   const db = await openDB();
   const tx = db.transaction("words", "readwrite");
   tx.objectStore("words").put(normalizeWordRecord(next));

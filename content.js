@@ -192,7 +192,8 @@
                 note: existing.note || "",
                 phonetic: existing.phonetic || "",
                 translation: existing.translation || "",
-                matchMode: existing.matchMode || "inherit"
+                matchMode: existing.matchMode || "inherit",
+                learned: !!existing.learned
               }
             : {}
         );
@@ -649,6 +650,7 @@
     let initialTranslation = typeof opts.translation === "string" ? opts.translation : "";
     let matchMode =
       opts.matchMode === "exact" || opts.matchMode === "variant" ? opts.matchMode : "inherit";
+    let learned = !!opts.learned;
     let isEdit = !!wordId;
     let lookupGen = 0;
 
@@ -691,6 +693,7 @@
       </div>
       <div class="rc-actions">
         <button type="button" class="rc-save">保存</button>
+        <button type="button" class="rc-learn" hidden>学会了</button>
         <button type="button" class="rc-delete" hidden>取消标记</button>
       </div>
       <div class="rc-toast">✓ 已标记</div>
@@ -711,6 +714,7 @@
     const errorTextEl = overlay.querySelector(".rc-lookup-error-text");
     const retryBtn = overlay.querySelector(".rc-lookup-retry");
     const delBtn = overlay.querySelector(".rc-delete");
+    const learnBtn = overlay.querySelector(".rc-learn");
     const toast = overlay.querySelector(".rc-toast");
 
     phoneticEl.value = initialPhonetic;
@@ -720,7 +724,15 @@
     if (initialPhonetic.trim() && initialTranslation.trim()) {
       statusEl.hidden = true;
     }
+
+    function syncLearnUi() {
+      learnBtn.hidden = !isEdit;
+      learnBtn.textContent = learned ? "还在学" : "学会了";
+      learnBtn.classList.toggle("is-learned", learned);
+    }
+
     if (isEdit) delBtn.hidden = false;
+    syncLearnUi();
 
     const snap = {
       phonetic: initialPhonetic,
@@ -740,8 +752,10 @@
       if (!stored) return;
       wordId = stored.id || wordId;
       isEdit = !!wordId;
+      learned = !!stored.learned;
       if (headTitle) headTitle.textContent = isEdit ? "编辑单词" : "标记单词";
       delBtn.hidden = !isEdit;
+      syncLearnUi();
       if (!phoneticEl.value.trim() && stored.phonetic) {
         phoneticEl.value = stored.phonetic;
         snap.phonetic = stored.phonetic;
@@ -860,6 +874,33 @@
       setTimeout(close, 650);
     }
 
+    async function toggleLearned() {
+      if (!wordId || !isEdit) return;
+      const next = !learned;
+      const res = await chrome.runtime.sendMessage({
+        type: "rc-update-word",
+        id: wordId,
+        patch: { learned: next }
+      });
+      if (chrome.runtime.lastError || !res || !res.ok) {
+        toast.textContent = "更新失败";
+        toast.classList.add("show");
+        setTimeout(() => toast.classList.remove("show"), 900);
+        return;
+      }
+      if (res.word) {
+        upsertCachedWord(res.word);
+        learned = !!res.word.learned;
+      } else {
+        learned = next;
+      }
+      syncLearnUi();
+      toast.textContent = learned ? "✓ 已学会" : "✓ 还在学";
+      toast.classList.add("show");
+      scheduleWordReconcile(50);
+      setTimeout(() => toast.classList.remove("show"), 900);
+    }
+
     async function save() {
       if (!word) {
         close();
@@ -914,6 +955,7 @@
     overlay.querySelector(".rc-save").addEventListener("click", save);
     overlay.querySelector(".rc-close").addEventListener("click", close);
     delBtn.addEventListener("click", removeWord);
+    learnBtn.addEventListener("click", toggleLearned);
     retryBtn.addEventListener("click", () => runLookup({ force: true }));
     textarea.focus();
     bootstrap();
@@ -1249,6 +1291,7 @@
           phonetic: (existing && existing.phonetic) || "",
           translation: (existing && existing.translation) || "",
           matchMode: (existing && existing.matchMode) || "inherit",
+          learned: !!(existing && existing.learned),
           anchorRect: wordEl.getBoundingClientRect()
         });
         return;
@@ -1684,6 +1727,7 @@
         unwrapWordHighlight(el);
       });
       for (const w of words) {
+        if (w.learned) continue;
         try {
           applyWordHighlightsForWord(w);
         } catch (e) {

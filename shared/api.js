@@ -68,6 +68,10 @@ export async function updateWord(id, patch) {
   return chrome.runtime.sendMessage({ type: "rc-update-word", id, patch });
 }
 
+export async function setWordLearned(id, learned) {
+  return updateWord(id, { learned: !!learned });
+}
+
 export async function deleteWord(id) {
   return chrome.runtime.sendMessage({ type: "rc-delete-word", id });
 }

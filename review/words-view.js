@@ -1,6 +1,6 @@
 import { escapeHtml } from "../shared/dom.js";
 import { dayKey, dayStr } from "../shared/time.js";
-import { entryActionsHtml } from "./action-icons.js";
+import { wordActionsHtml } from "./action-icons.js";
 import { clampFocus, focusedWord, wordsList, state } from "./state.js";
 
 /**
@@ -45,6 +45,7 @@ function wordCardHtml(w, i, focused) {
   const translation = (w.translation || "").trim();
   const phonetic = (w.phonetic || "").trim();
   const body = note || translation;
+  const learned = !!w.learned;
   const source =
     focused && w.pageUrl
       ? `<a class="rv-source" href="${escapeHtml(w.pageUrl)}" target="_blank" rel="noopener">${escapeHtml(
@@ -55,13 +56,16 @@ function wordCardHtml(w, i, focused) {
   if (phonetic) {
     metaBits.push(`<span class="rv-word-phonetic">${escapeHtml(phonetic)}</span>`);
   }
+  if (learned) {
+    metaBits.push(`<span class="rv-word-learned-tag">已学会</span>`);
+  }
   if (w.matchMode && w.matchMode !== "inherit") {
     metaBits.push(
       `<span class="rv-word-match-tag">${escapeHtml(matchModeLabel(w.matchMode))}</span>`
     );
   }
   return `
-    <article class="rv-word-entry${focused ? " is-on" : ""}" data-id="${escapeHtml(w.id)}" data-index="${i}">
+    <article class="rv-word-entry${focused ? " is-on" : ""}${learned ? " is-learned" : ""}" data-id="${escapeHtml(w.id)}" data-index="${i}">
       <p class="rv-word-term">${escapeHtml(w.word)}</p>
       ${metaBits.length ? `<div class="rv-word-meta">${metaBits.join("")}</div>` : ""}
       ${
@@ -71,7 +75,7 @@ function wordCardHtml(w, i, focused) {
       }
       <div class="rv-word-foot">
         ${source ? `<span class="rv-word-source">${source}</span>` : `<span class="rv-word-source"></span>`}
-        <span class="rv-meta-actions">${entryActionsHtml(w.id)}</span>
+        <span class="rv-meta-actions">${wordActionsHtml(w.id, learned)}</span>
       </div>
     </article>`;
 }
@@ -83,8 +87,9 @@ function wordCardHtml(w, i, focused) {
  * @param {HTMLElement} opts.emptyEl
  * @param {(id: string) => Promise<void>} opts.onDrop
  * @param {(id: string) => Promise<void>} [opts.onEdit]
+ * @param {(id: string) => Promise<void>} [opts.onLearn]
  */
-export function renderWords({ root, progressEl, emptyEl, onDrop, onEdit }) {
+export function renderWords({ root, progressEl, emptyEl, onDrop, onEdit, onLearn }) {
   clampFocus();
   const list = wordsList();
 
@@ -125,7 +130,7 @@ export function renderWords({ root, progressEl, emptyEl, onDrop, onEdit }) {
       const idx = Number(el.dataset.index);
       if (!Number.isFinite(idx)) return;
       state.focusIndex = idx;
-      renderWords({ root, progressEl, emptyEl, onDrop, onEdit });
+      renderWords({ root, progressEl, emptyEl, onDrop, onEdit, onLearn });
     });
   });
 
@@ -137,6 +142,7 @@ export function renderWords({ root, progressEl, emptyEl, onDrop, onEdit }) {
       if (!id) return;
       if (btn.dataset.act === "drop") await onDrop(id);
       if (btn.dataset.act === "edit" && onEdit) await onEdit(id);
+      if (btn.dataset.act === "learn" && onLearn) await onLearn(id);
     });
   });
 

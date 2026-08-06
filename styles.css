@@ -432,6 +432,21 @@ body.review-page {
   box-shadow: 0 0 0 1px color-mix(in srgb, #3d5a80 12%, transparent);
 }
 
+.rv-word-entry.is-learned {
+  border-color: color-mix(in srgb, #4a8f5c 40%, var(--rv-line));
+  background: color-mix(in srgb, #4a8f5c 8%, rgba(255, 255, 255, 0.35));
+}
+
+.rv-word-entry.is-learned.is-on {
+  border-color: color-mix(in srgb, #4a8f5c 55%, var(--rv-line));
+  background: color-mix(in srgb, #4a8f5c 12%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, #4a8f5c 16%, transparent);
+}
+
+.rv-word-entry.is-learned .rv-word-term {
+  color: #2f6b3c;
+}
+
 .rv-word-term {
   font-family: var(--rv-serif);
   font-size: 17px;
@@ -852,6 +867,15 @@ body.review-page {
 
 .rv-word-match-tag {
   letter-spacing: 0.04em;
+}
+
+.rv-word-learned-tag {
+  letter-spacing: 0.04em;
+  color: #2f6b3c;
+  background: rgba(74, 143, 92, 0.18);
+  padding: 1px 6px;
+  border-radius: 2px;
+  border: 1px solid rgba(74, 143, 92, 0.35);
 }
 
 .rv-content {
@@ -1283,6 +1307,26 @@ body.review-page {
 .rv-icon-act.rv-icon-edit:hover {
   color: var(--rv-accent);
   background: rgba(61, 90, 128, 0.1);
+}
+
+.rv-icon-act.rv-icon-learn {
+  color: #4a8f5c;
+  background: rgba(74, 143, 92, 0.1);
+}
+
+.rv-icon-act.rv-icon-learn:hover {
+  color: #2f6b3c;
+  background: rgba(74, 143, 92, 0.18);
+}
+
+.rv-icon-act.rv-icon-learn.is-learned {
+  color: #fff;
+  background: #4a8f5c;
+}
+
+.rv-icon-act.rv-icon-learn.is-learned:hover {
+  color: #fff;
+  background: #3d7a4d;
 }
 
 .rv-icon-act.rv-icon-drop {

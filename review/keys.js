@@ -5,8 +5,9 @@ import { clampFocus, focusedCapture, focusedWord, state } from "./state.js";
  * @param {() => void} handlers.onNavigate
  * @param {(id: string) => Promise<void>} handlers.onDrop
  * @param {(id: string) => Promise<void>} [handlers.onEdit]
+ * @param {(id: string) => Promise<void>|null} [handlers.onLearn]
  */
-export function bindKeys({ onNavigate, onDrop, onEdit }) {
+export function bindKeys({ onNavigate, onDrop, onEdit, onLearn }) {
   document.addEventListener("keydown", (e) => {
     const tag = (e.target && e.target.tagName) || "";
     if (tag === "INPUT" || tag === "TEXTAREA" || e.target.isContentEditable) return;
@@ -40,6 +41,13 @@ export function bindKeys({ onNavigate, onDrop, onEdit }) {
       if (onEdit) {
         e.preventDefault();
         onEdit(focus.id);
+      }
+      return;
+    }
+    if ((key === "l" || key === "L") && state.mode === "words") {
+      if (onLearn) {
+        e.preventDefault();
+        onLearn(focus.id);
       }
       return;
     }

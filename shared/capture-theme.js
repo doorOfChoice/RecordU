@@ -380,6 +380,27 @@
       background: #2a2a2a;
       border-color: #2a2a2a;
     }
+    #rc-overlay .rc-actions button.rc-learn {
+      flex: 0 0 auto;
+      min-width: 64px;
+      color: #2f6b3c;
+      border-color: rgba(74, 143, 92, 0.4);
+    }
+    #rc-overlay .rc-actions button.rc-learn:hover {
+      color: #fff;
+      background: #4a8f5c;
+      border-color: #4a8f5c;
+    }
+    #rc-overlay .rc-actions button.rc-learn.is-learned {
+      color: #fff;
+      border-color: #4a8f5c;
+      background: #4a8f5c;
+    }
+    #rc-overlay .rc-actions button.rc-learn.is-learned:hover {
+      color: #fff;
+      background: #3d7a4d;
+      border-color: #3d7a4d;
+    }
     #rc-overlay .rc-actions button.rc-delete {
       flex: 0 0 auto;
       min-width: 64px;

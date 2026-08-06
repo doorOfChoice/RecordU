@@ -86,7 +86,8 @@ function render() {
       progressEl,
       emptyEl,
       onDrop: dropWord,
-      onEdit: editWord
+      onEdit: editWord,
+      onLearn: toggleWordLearned
     });
   } else if (state.captureView === "site") {
     renderBrowse({
@@ -213,6 +214,13 @@ async function dropWord(id) {
   await load();
 }
 
+async function toggleWordLearned(id) {
+  const w = state.words.find((x) => x.id === id);
+  if (!w) return;
+  await updateWord(id, { learned: !w.learned });
+  await load();
+}
+
 document.querySelectorAll("[data-mode]").forEach((el) => {
   el.addEventListener("click", (e) => {
     e.preventDefault();
@@ -252,7 +260,8 @@ document.getElementById("rv-export").addEventListener("click", (e) => {
 bindKeys({
   onNavigate: render,
   onDrop: (id) => (state.mode === "words" ? dropWord(id) : drop(id)),
-  onEdit: (id) => (state.mode === "words" ? editWord(id) : edit(id))
+  onEdit: (id) => (state.mode === "words" ? editWord(id) : edit(id)),
+  onLearn: (id) => (state.mode === "words" ? toggleWordLearned(id) : null)
 });
 
 load();
