@@ -1,6 +1,7 @@
 import { escapeHtml } from "../shared/dom.js";
 import {
   DEFAULT_LLM_LOOKUP_PROMPT,
+  DEFAULT_LLM_QUIZ_PROMPT,
   DEFAULT_SETTINGS,
   generalSettingsDefaults,
   llmSettingsDefaults
@@ -244,11 +245,15 @@ function renderLlmPanel(settings) {
     typeof settings.llmLookupPrompt === "string" && settings.llmLookupPrompt.trim()
       ? settings.llmLookupPrompt
       : DEFAULT_LLM_LOOKUP_PROMPT;
+  const llmQuizPrompt =
+    typeof settings.llmQuizPrompt === "string" && settings.llmQuizPrompt.trim()
+      ? settings.llmQuizPrompt
+      : DEFAULT_LLM_QUIZ_PROMPT;
 
   return `
     <header class="rv-settings-header">
       <h2 class="rv-settings-title">大模型</h2>
-      <p class="rv-settings-desc">用于划词查音标与释义。API Key 仅保存在本机。提示词须含 <code>{{word}}</code>，并返回 JSON：<code>{"phonetic":"…","translation":"…"}</code>。</p>
+      <p class="rv-settings-desc">用于划词查词与试卷出题。API Key 仅保存在本机。</p>
     </header>
 
     <div class="rv-settings-field">
@@ -268,9 +273,19 @@ function renderLlmPanel(settings) {
 
     <div class="rv-settings-field">
       <label class="rv-settings-label" for="rv-set-llm-prompt">翻译提示词</label>
-      <textarea id="rv-set-llm-prompt" class="rv-settings-prompt" rows="10" spellcheck="false">${escapeHtml(llmLookupPrompt)}</textarea>
+      <p class="rv-settings-desc rv-settings-desc-tight">须含 <code>{{word}}</code>；返回 JSON：<code>{"phonetic":"…","translation":"…"}</code>。</p>
+      <textarea id="rv-set-llm-prompt" class="rv-settings-prompt" rows="8" spellcheck="false">${escapeHtml(llmLookupPrompt)}</textarea>
       <div class="rv-settings-actions rv-settings-actions-tight">
-        <button type="button" class="btn" id="rv-set-prompt-reset">恢复默认提示词</button>
+        <button type="button" class="btn" id="rv-set-prompt-reset">恢复默认翻译提示词</button>
+      </div>
+    </div>
+
+    <div class="rv-settings-field">
+      <label class="rv-settings-label" for="rv-set-llm-quiz-prompt">出题提示词</label>
+      <p class="rv-settings-desc rv-settings-desc-tight">须含 <code>{{words}}</code>（词表 JSON）与 <code>{{promptLang}}</code>（en / zh）；返回约定题型 JSON。</p>
+      <textarea id="rv-set-llm-quiz-prompt" class="rv-settings-prompt" rows="12" spellcheck="false">${escapeHtml(llmQuizPrompt)}</textarea>
+      <div class="rv-settings-actions rv-settings-actions-tight">
+        <button type="button" class="btn" id="rv-set-quiz-prompt-reset">恢复默认出题提示词</button>
       </div>
     </div>
 
@@ -500,6 +515,7 @@ function bindLlmPanel({ root, onSave }) {
   const model = root.querySelector("#rv-set-llm-model");
   const apiKey = root.querySelector("#rv-set-llm-key");
   const prompt = root.querySelector("#rv-set-llm-prompt");
+  const quizPrompt = root.querySelector("#rv-set-llm-quiz-prompt");
   const toast = root.querySelector("#rv-set-toast-llm");
 
   function applyLlmFields(s) {
@@ -511,11 +527,20 @@ function bindLlmPanel({ root, onSave }) {
       typeof s.llmLookupPrompt === "string" && s.llmLookupPrompt.trim()
         ? s.llmLookupPrompt
         : DEFAULT_LLM_LOOKUP_PROMPT;
+    quizPrompt.value =
+      typeof s.llmQuizPrompt === "string" && s.llmQuizPrompt.trim()
+        ? s.llmQuizPrompt
+        : DEFAULT_LLM_QUIZ_PROMPT;
   }
 
   root.querySelector("#rv-set-prompt-reset").addEventListener("click", () => {
     prompt.value = DEFAULT_LLM_LOOKUP_PROMPT;
-    showToast(toast, "已填入默认提示词（未保存）");
+    showToast(toast, "已填入默认翻译提示词（未保存）");
+  });
+
+  root.querySelector("#rv-set-quiz-prompt-reset").addEventListener("click", () => {
+    quizPrompt.value = DEFAULT_LLM_QUIZ_PROMPT;
+    showToast(toast, "已填入默认出题提示词（未保存）");
   });
 
   root.querySelector("#rv-set-save-llm").addEventListener("click", async () => {
@@ -523,7 +548,8 @@ function bindLlmPanel({ root, onSave }) {
       llmBaseUrl: baseUrl.value.trim(),
       llmModel: model.value.trim(),
       llmApiKey: apiKey.value,
-      llmLookupPrompt: prompt.value
+      llmLookupPrompt: prompt.value,
+      llmQuizPrompt: quizPrompt.value
     });
     if (next) {
       applyLlmFields(next);

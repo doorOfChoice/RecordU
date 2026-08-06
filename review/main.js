@@ -2,6 +2,7 @@ import {
   deleteCapture,
   deleteWord,
   getAllCaptures,
+  getAllQuizzes,
   getAllWords,
   getSettings,
   saveSettings,
@@ -36,13 +37,15 @@ const rangeNav = document.querySelector(".rv-range");
 const exportLink = document.getElementById("rv-export");
 
 async function load() {
-  const [captures, words, settings] = await Promise.all([
+  const [captures, words, settings, quizzes] = await Promise.all([
     getAllCaptures(),
     getAllWords(),
-    getSettings()
+    getSettings(),
+    getAllQuizzes()
   ]);
   state.captures = captures;
   state.words = words;
+  state.quizzes = quizzes;
   state.settings = settings || { ...DEFAULT_SETTINGS };
   clampFocus();
   render();
@@ -69,7 +72,7 @@ function render() {
         const ok = await modalConfirm({
           title: "从备份恢复？",
           message:
-            "将清空当前本地的感触、截图、单词与站点图标，并以备份文件为准。此操作不可撤销。",
+            "将清空当前本地的感触、截图、单词、试卷与站点图标，并以备份文件为准。此操作不可撤销。",
           confirmText: "清空并恢复",
           cancelText: "取消",
           danger: true

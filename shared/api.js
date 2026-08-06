@@ -88,6 +88,45 @@ export async function lookupWord(word) {
   return chrome.runtime.sendMessage({ type: "rc-lookup-word", word });
 }
 
+export async function generateQuiz(words, promptLang) {
+  return chrome.runtime.sendMessage({
+    type: "rc-generate-quiz",
+    words,
+    promptLang
+  });
+}
+
+export async function gradeQuizBlanks(blanks, promptLang) {
+  return chrome.runtime.sendMessage({
+    type: "rc-grade-quiz-blanks",
+    blanks,
+    promptLang
+  });
+}
+
+export async function getAllQuizzes() {
+  const res = await chrome.runtime.sendMessage({ type: "rc-get-all-quizzes" });
+  const list = (res && res.quizzes) || [];
+  return list.slice().sort((a, b) => b.createdAt - a.createdAt);
+}
+
+export async function getQuiz(id) {
+  const res = await chrome.runtime.sendMessage({ type: "rc-get-quiz", id });
+  return (res && res.quiz) || null;
+}
+
+export async function saveQuiz(quiz) {
+  return chrome.runtime.sendMessage({ type: "rc-save-quiz", quiz });
+}
+
+export async function updateQuiz(id, patch) {
+  return chrome.runtime.sendMessage({ type: "rc-update-quiz", id, patch });
+}
+
+export async function deleteQuiz(id) {
+  return chrome.runtime.sendMessage({ type: "rc-delete-quiz", id });
+}
+
 export async function saveSettings(patch) {
   return chrome.runtime.sendMessage({ type: "rc-save-settings", patch });
 }

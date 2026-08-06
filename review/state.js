@@ -4,6 +4,7 @@ import { inEarlierThanThisWeek, inThisWeek } from "../shared/time.js";
 export const state = {
   captures: [],
   words: [],
+  quizzes: [],
   settings: null,
   /** @type {"queue"|"words"|"settings"} */
   mode: "queue",
@@ -13,6 +14,11 @@ export const state = {
   /** Settings sub-tab when mode is settings. */
   /** @type {"highlight"|"backup"|"llm"} */
   settingsTab: "highlight",
+  /** Words sub-tab when mode is words. */
+  /** @type {"list"|"quizzes"} */
+  wordsTab: "list",
+  /** Open quiz id when taking/reviewing a paper; null = list. */
+  activeQuizId: null,
   /** @type {"week"|"earlier"|"all"} */
   dateRange: "week",
   focusIndex: 0

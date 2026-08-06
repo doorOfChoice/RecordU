@@ -1,7 +1,13 @@
 import { escapeHtml } from "../shared/dom.js";
 import { dayKey, dayStr } from "../shared/time.js";
 import { wordActionsHtml } from "./action-icons.js";
+import { renderQuizList, renderQuizTake } from "./quiz-view.js";
 import { clampFocus, focusedWord, wordsList, state } from "./state.js";
+
+const NAV_ITEMS = [
+  { id: "list", label: "单词列表" },
+  { id: "quizzes", label: "试题列表" }
+];
 
 /**
  * @param {Array<{id: string, createdAt?: number}>} list
@@ -80,35 +86,13 @@ function wordCardHtml(w, i, focused) {
     </article>`;
 }
 
-/**
- * @param {object} opts
- * @param {HTMLElement} opts.root
- * @param {HTMLElement} opts.progressEl
- * @param {HTMLElement} opts.emptyEl
- * @param {(id: string) => Promise<void>} opts.onDrop
- * @param {(id: string) => Promise<void>} [opts.onEdit]
- * @param {(id: string) => Promise<void>} [opts.onLearn]
- */
-export function renderWords({ root, progressEl, emptyEl, onDrop, onEdit, onLearn }) {
-  clampFocus();
+function listPanelHtml() {
   const list = wordsList();
-
   if (!list.length) {
-    progressEl.textContent = "单词 · 0 个";
-    emptyEl.classList.remove("hidden");
-    root.classList.add("hidden");
-    root.innerHTML = "";
-    emptyEl.querySelector(".rv-empty-text").textContent =
-      "还没有标记单词。在网页上划词后点「标记单词」即可。";
-    return null;
+    return `<p class="rv-words-panel-empty">还没有标记单词。在网页上划词后点「标记单词」即可。</p>`;
   }
-
-  progressEl.textContent = `单词 · ${list.length} 个 · 第 ${state.focusIndex + 1} 个`;
-  emptyEl.classList.add("hidden");
-  root.classList.remove("hidden");
-
   const groups = groupWordsByDay(list);
-  root.innerHTML = `
+  return `
     <div class="rv-words-timeline">
       ${groups
         .map(
@@ -123,8 +107,103 @@ export function renderWords({ root, progressEl, emptyEl, onDrop, onEdit, onLearn
         .join("")}
     </div>
   `;
+}
 
-  root.querySelectorAll(".rv-word-entry").forEach((el) => {
+/**
+ * @param {object} opts
+ * @param {HTMLElement} opts.root
+ * @param {HTMLElement} opts.progressEl
+ * @param {HTMLElement} opts.emptyEl
+ * @param {(id: string) => Promise<void>} opts.onDrop
+ * @param {(id: string) => Promise<void>} [opts.onEdit]
+ * @param {(id: string) => Promise<void>} [opts.onLearn]
+ */
+export function renderWords({ root, progressEl, emptyEl, onDrop, onEdit, onLearn }) {
+  clampFocus();
+  emptyEl.classList.add("hidden");
+  root.classList.remove("hidden");
+
+  const tab = state.wordsTab === "quizzes" ? "quizzes" : "list";
+  state.wordsTab = tab;
+
+  root.innerHTML = `
+    <div class="rv-words-shell">
+      <nav class="rv-words-nav" role="tablist" aria-label="单词分类" aria-orientation="vertical">
+        ${NAV_ITEMS.map(
+          (item) => `
+          <button type="button"
+            class="rv-words-nav-item${tab === item.id ? " is-on" : ""}"
+            data-wtab="${item.id}"
+            role="tab"
+            aria-selected="${tab === item.id}">
+            ${escapeHtml(item.label)}
+          </button>`
+        ).join("")}
+      </nav>
+      <div class="rv-words-main" role="tabpanel" id="rv-words-main"></div>
+    </div>
+  `;
+
+  root.querySelectorAll("[data-wtab]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const next = btn.dataset.wtab === "quizzes" ? "quizzes" : "list";
+      if (next === state.wordsTab && !state.activeQuizId) return;
+      state.wordsTab = next;
+      state.activeQuizId = null;
+      renderWords({ root, progressEl, emptyEl, onDrop, onEdit, onLearn });
+    });
+  });
+
+  const main = root.querySelector("#rv-words-main");
+
+  if (tab === "quizzes") {
+    const activeId = state.activeQuizId;
+    const quiz =
+      activeId && Array.isArray(state.quizzes)
+        ? state.quizzes.find((q) => q.id === activeId)
+        : null;
+    if (activeId && quiz) {
+      renderQuizTake({
+        root: main,
+        progressEl,
+        quiz,
+        onBack: () => {
+          state.activeQuizId = null;
+          renderWords({ root, progressEl, emptyEl, onDrop, onEdit, onLearn });
+        },
+        onUpdated: (updated) => {
+          state.quizzes = (state.quizzes || []).map((q) =>
+            q.id === updated.id ? updated : q
+          );
+          state.activeQuizId = updated.id;
+          renderWords({ root, progressEl, emptyEl, onDrop, onEdit, onLearn });
+        }
+      });
+    } else {
+      state.activeQuizId = null;
+      renderQuizList({
+        root: main,
+        progressEl,
+        onRefresh: () => renderWords({ root, progressEl, emptyEl, onDrop, onEdit, onLearn }),
+        onOpen: (id) => {
+          state.activeQuizId = id;
+          renderWords({ root, progressEl, emptyEl, onDrop, onEdit, onLearn });
+        }
+      });
+    }
+    return null;
+  }
+
+  const list = wordsList();
+  if (!list.length) {
+    progressEl.textContent = "单词 · 0 个";
+  } else {
+    progressEl.textContent = `单词 · ${list.length} 个 · 第 ${state.focusIndex + 1} 个`;
+  }
+
+  main.innerHTML = listPanelHtml();
+
+  main.querySelectorAll(".rv-word-entry").forEach((el) => {
     el.addEventListener("click", (e) => {
       if (e.target.closest && e.target.closest("[data-act], a.rv-source")) return;
       const idx = Number(el.dataset.index);
@@ -134,7 +213,7 @@ export function renderWords({ root, progressEl, emptyEl, onDrop, onEdit, onLearn
     });
   });
 
-  root.querySelectorAll("[data-act]").forEach((btn) => {
+  main.querySelectorAll("[data-act]").forEach((btn) => {
     btn.addEventListener("click", async (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -146,7 +225,7 @@ export function renderWords({ root, progressEl, emptyEl, onDrop, onEdit, onLearn
     });
   });
 
-  const onEl = root.querySelector(".rv-word-entry.is-on");
+  const onEl = main.querySelector(".rv-word-entry.is-on");
   if (onEl && typeof onEl.scrollIntoView === "function") {
     onEl.scrollIntoView({ block: "nearest" });
   }

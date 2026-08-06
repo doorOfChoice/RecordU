@@ -5,16 +5,19 @@ import {
   normalizeSettings,
   settingsForContent
 } from "./shared/settings.js";
-import { lookupWordWithLlm } from "./shared/llm.js";
+import { lookupWordWithLlm, generateQuizWithLlm, gradeBlankAnswersWithLlm } from "./shared/llm.js";
 import {
   deleteCapture as dbDeleteCapture,
+  deleteQuiz as dbDeleteQuiz,
   deleteWord as dbDeleteWord,
   getAllCaptures as dbGetAllCaptures,
   getAllFavicons as dbGetAllFavicons,
+  getAllQuizzes as dbGetAllQuizzes,
   getAllScreenshots as dbGetAllScreenshots,
   getAllWords as dbGetAllWords,
   getCapture as dbGetCapture,
   getFavicon as dbGetFavicon,
+  getQuiz as dbGetQuiz,
   getScreenshot as dbGetScreenshot,
   getWord as dbGetWord,
   findWordByNormalized as dbFindWordByNormalized,
@@ -23,9 +26,11 @@ import {
   putFavicon as dbPutFavicon,
   putScreenshot as dbPutScreenshot,
   saveCapture as dbSaveCapture,
+  saveQuiz as dbSaveQuiz,
   saveScreenshotCapture as dbSaveScreenshotCapture,
   saveWord as dbSaveWord,
   updateCapture as dbUpdateCapture,
+  updateQuiz as dbUpdateQuiz,
   updateWord as dbUpdateWord
 } from "./shared/db.js";
 
@@ -184,12 +189,13 @@ function sanitizeHostForFile(host) {
 
 async function exportBackupMeta() {
   await ensureMigrated();
-  const [captures, words, favicons, screenshots, settings] = await Promise.all([
+  const [captures, words, favicons, screenshots, settings, quizzes] = await Promise.all([
     dbGetAllCaptures(),
     dbGetAllWords(),
     dbGetAllFavicons(),
     dbGetAllScreenshots(),
-    getSettings()
+    getSettings(),
+    dbGetAllQuizzes()
   ]);
   const shotIndex = (screenshots || [])
     .filter((s) => s && s.captureId)
@@ -232,6 +238,7 @@ async function exportBackupMeta() {
     settings,
     captures: captures || [],
     words: words || [],
+    quizzes: quizzes || [],
     favicons: favIndex,
     screenshots: shotIndex
   };
@@ -286,6 +293,7 @@ async function importBackupBegin(payload) {
   const counts = await dbImportAllData({
     captures: payload.captures,
     words: payload.words,
+    quizzes: payload.quizzes,
     favicons: legacyFavs,
     screenshots: []
   });
@@ -700,6 +708,85 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           code: (e && e.code) || "error"
         })
       );
+    return true;
+  }
+
+  if (msg.type === "rc-generate-quiz") {
+    ensureMigrated()
+      .then(() => getSettings())
+      .then((settings) =>
+        generateQuizWithLlm(msg.words || [], msg.promptLang === "zh" ? "zh" : "en", settings)
+      )
+      .then((items) => sendResponse({ ok: true, items }))
+      .catch((e) =>
+        sendResponse({
+          ok: false,
+          error: String(e && e.message ? e.message : e),
+          code: (e && e.code) || "error"
+        })
+      );
+    return true;
+  }
+
+  if (msg.type === "rc-grade-quiz-blanks") {
+    ensureMigrated()
+      .then(() => getSettings())
+      .then((settings) =>
+        gradeBlankAnswersWithLlm(
+          msg.blanks || [],
+          msg.promptLang === "zh" ? "zh" : "en",
+          settings
+        )
+      )
+      .then((grades) => sendResponse({ ok: true, grades: grades || {} }))
+      .catch((e) =>
+        sendResponse({
+          ok: false,
+          error: String(e && e.message ? e.message : e),
+          code: (e && e.code) || "error",
+          grades: {}
+        })
+      );
+    return true;
+  }
+
+  if (msg.type === "rc-get-all-quizzes") {
+    ensureMigrated()
+      .then(() => dbGetAllQuizzes())
+      .then((all) => sendResponse({ ok: true, quizzes: all || [] }))
+      .catch((e) => sendResponse({ ok: false, quizzes: [], error: String(e) }));
+    return true;
+  }
+
+  if (msg.type === "rc-get-quiz") {
+    ensureMigrated()
+      .then(() => dbGetQuiz(msg.id))
+      .then((quiz) => sendResponse({ ok: true, quiz }))
+      .catch((e) => sendResponse({ ok: false, quiz: null, error: String(e) }));
+    return true;
+  }
+
+  if (msg.type === "rc-save-quiz") {
+    ensureMigrated()
+      .then(() => dbSaveQuiz(msg.quiz || msg))
+      .then((quiz) => sendResponse({ ok: true, quiz }))
+      .catch((e) => sendResponse({ ok: false, error: String(e) }));
+    return true;
+  }
+
+  if (msg.type === "rc-update-quiz") {
+    ensureMigrated()
+      .then(() => dbUpdateQuiz(msg.id, msg.patch || {}))
+      .then((quiz) => sendResponse({ ok: !!quiz, quiz }))
+      .catch((e) => sendResponse({ ok: false, error: String(e) }));
+    return true;
+  }
+
+  if (msg.type === "rc-delete-quiz") {
+    ensureMigrated()
+      .then(() => dbDeleteQuiz(msg.id))
+      .then(() => sendResponse({ ok: true }))
+      .catch((e) => sendResponse({ ok: false, error: String(e) }));
     return true;
   }
 

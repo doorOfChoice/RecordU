@@ -255,8 +255,101 @@ export function promptWordEdit(opts = {}) {
   });
 }
 
+/**
+ * Quiz generate dialog.
+ * @param {{ maxCount: number, defaultCount?: number, title?: string, confirmText?: string, cancelText?: string }} opts
+ * @returns {Promise<{ count: number, promptLang: "en"|"zh" }|null>}
+ */
+export function promptQuizGenerate(opts = {}) {
+  const maxCount = Math.max(1, Number(opts.maxCount) || 1);
+  const defaultCount = Math.min(maxCount, Math.max(1, Number(opts.defaultCount) || Math.min(10, maxCount)));
+  const overlay = document.createElement("div");
+  overlay.className = "rc-modal-overlay";
+  overlay.innerHTML = `
+    <div class="rc-modal rc-modal-edit rc-modal-edit-quiz" role="dialog" aria-modal="true">
+      <div class="rc-modal-title">${escapeHtml(opts.title || "生成试卷")}</div>
+      <div class="rc-modal-field">
+        <label for="rc-modal-quiz-count">练习几个未学完的单词（1–${maxCount}）</label>
+        <input type="number" id="rc-modal-quiz-count" min="1" max="${maxCount}" value="${defaultCount}">
+      </div>
+      <div class="rc-modal-field">
+        <span class="rc-modal-field-label">出题方向</span>
+        <div class="rc-modal-radios" role="radiogroup" aria-label="出题方向">
+          <label class="rc-modal-radio">
+            <input type="radio" name="rc-modal-quiz-lang" value="en" checked>
+            <span>以英文出题</span>
+          </label>
+          <label class="rc-modal-radio">
+            <input type="radio" name="rc-modal-quiz-lang" value="zh">
+            <span>以中文出题</span>
+          </label>
+        </div>
+      </div>
+      <div class="rc-modal-actions">
+        <button type="button" class="btn rc-modal-cancel">${escapeHtml(opts.cancelText || "取消")}</button>
+        <button type="button" class="btn btn-primary">${escapeHtml(opts.confirmText || "生成")}</button>
+      </div>
+    </div>
+  `;
+
+  const countEl = overlay.querySelector("#rc-modal-quiz-count");
+
+  if (current) current.resolve("cancel");
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => {
+    overlay.classList.add("show");
+    countEl.focus();
+    countEl.select();
+  });
+
+  return new Promise((resolve) => {
+    current = { overlay, resolve };
+
+    function collect() {
+      let count = Math.round(Number(countEl.value));
+      if (!Number.isFinite(count)) count = defaultCount;
+      count = Math.min(maxCount, Math.max(1, count));
+      const langEl = overlay.querySelector('input[name="rc-modal-quiz-lang"]:checked');
+      return {
+        count,
+        promptLang: langEl && langEl.value === "zh" ? "zh" : "en"
+      };
+    }
+
+    function done(result) {
+      if (current && current.overlay === overlay) current = null;
+      overlay.classList.remove("show");
+      overlay.addEventListener("transitionend", () => overlay.remove(), { once: true });
+      setTimeout(() => overlay.remove(), 250);
+      document.removeEventListener("keydown", onKeydown);
+      resolve(result);
+    }
+
+    function onKeydown(e) {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        done(null);
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+        e.preventDefault();
+        done(collect());
+      }
+    }
+
+    overlay.querySelector(".btn-primary").addEventListener("click", () => done(collect()));
+    overlay.querySelector(".rc-modal-cancel").addEventListener("click", () => done(null));
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) done(null);
+    });
+    document.addEventListener("keydown", onKeydown);
+  }).then((value) => {
+    if (value == null || value === "cancel") return null;
+    return value;
+  });
+}
+
 export function close() {
   if (current) current.resolve("cancel");
 }
 
-window.RcModal = { confirm, alert, promptEdit, promptWordEdit, close };
+window.RcModal = { confirm, alert, promptEdit, promptWordEdit, promptQuizGenerate, close };

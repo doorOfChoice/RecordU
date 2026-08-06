@@ -10,6 +10,26 @@ export const DEFAULT_LLM_LOOKUP_PROMPT = `你是英语词典助手。请为单�
 3. phonetic 使用 IPA，两侧可带斜杠，如 /ˈwɜːrd/；若无法确定则用空字符串。
 4. translation 为简洁中文释义（可含词性），多个义项用分号分隔。`;
 
+export const DEFAULT_LLM_QUIZ_PROMPT = `你是英语词汇练习出题助手。根据给定词表出一套练习题。
+
+要求：
+1. 只输出一个 JSON 对象，不要 markdown 代码块，不要其它说明。
+2. JSON 格式：{"items":[...]}
+3. items 中每题 type 只能是 "choice" | "blank" | "match"：
+   - choice: {"type":"choice","prompt":"题干","options":["选项1","选项2","选项3","选项4"],"answerIndex":0}
+     options 必须恰好 4 个；answerIndex 为正确选项下标（0-3）。
+   - blank: {"type":"blank","prompt":"题干","answer":"标准答案"}
+   - match: {"type":"match","left":["左1","左2",...],"right":["右1","右2",...],"links":[2,0,1]}
+     left 与 right 长度相同（3～5）；links[i] 表示 left[i] 对应的 right 下标。
+4. 三种题型都要覆盖（词量允许时约均分）；仅使用词表中的词与释义，可改写问法、打乱干扰项。
+5. 出题方向：{{promptLang}}
+   - en：题干为英文（词/短语），答案侧为中文释义
+   - zh：题干为中文释义，答案侧为英文词
+6. 干扰项要合理，不要出现词表外的正确对应。
+
+词表（JSON）：
+{{words}}`;
+
 export const DEFAULT_SETTINGS = {
   /** 感触高亮色 */
   ideaHighlightColor: "#c4a35a",
@@ -30,7 +50,9 @@ export const DEFAULT_SETTINGS = {
   /** OpenAI-compatible base URL */
   llmBaseUrl: "https://api.deepseek.com",
   /** Lookup prompt template; must contain {{word}} */
-  llmLookupPrompt: DEFAULT_LLM_LOOKUP_PROMPT
+  llmLookupPrompt: DEFAULT_LLM_LOOKUP_PROMPT,
+  /** Quiz generation prompt; should contain {{words}} and {{promptLang}} */
+  llmQuizPrompt: DEFAULT_LLM_QUIZ_PROMPT
 };
 
 const HEX_RE = /^#([0-9a-fA-F]{6})$/;
@@ -79,6 +101,12 @@ export function normalizeLlmBaseUrl(value) {
 export function normalizeLlmLookupPrompt(value) {
   const raw = String(value == null ? "" : value);
   if (!raw.trim()) return DEFAULT_LLM_LOOKUP_PROMPT;
+  return raw;
+}
+
+export function normalizeLlmQuizPrompt(value) {
+  const raw = String(value == null ? "" : value);
+  if (!raw.trim()) return DEFAULT_LLM_QUIZ_PROMPT;
   return raw;
 }
 
@@ -165,7 +193,8 @@ export function normalizeSettings(input) {
     llmApiKey: typeof src.llmApiKey === "string" ? src.llmApiKey : "",
     llmModel: normalizeLlmModel(src.llmModel),
     llmBaseUrl: normalizeLlmBaseUrl(src.llmBaseUrl),
-    llmLookupPrompt: normalizeLlmLookupPrompt(src.llmLookupPrompt)
+    llmLookupPrompt: normalizeLlmLookupPrompt(src.llmLookupPrompt),
+    llmQuizPrompt: normalizeLlmQuizPrompt(src.llmQuizPrompt)
   };
 }
 
@@ -197,7 +226,8 @@ export function llmSettingsDefaults() {
     llmApiKey: DEFAULT_SETTINGS.llmApiKey,
     llmModel: DEFAULT_SETTINGS.llmModel,
     llmBaseUrl: DEFAULT_SETTINGS.llmBaseUrl,
-    llmLookupPrompt: DEFAULT_SETTINGS.llmLookupPrompt
+    llmLookupPrompt: DEFAULT_SETTINGS.llmLookupPrompt,
+    llmQuizPrompt: DEFAULT_SETTINGS.llmQuizPrompt
   };
 }
 

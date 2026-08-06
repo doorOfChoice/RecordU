@@ -1,5 +1,5 @@
 const DB_NAME = "recordu";
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const MIGRATE_FLAG = "rc_migrated_v1";
 const OLD_CAPTURES_KEY = "rc_captures";
 const OLD_FAVICON_KEY = "rc_favicon_cache";
@@ -10,6 +10,12 @@ function ensureWordsStore(db) {
   if (db.objectStoreNames.contains("words")) return;
   const store = db.createObjectStore("words", { keyPath: "id" });
   store.createIndex("by_word", "wordKey", { unique: true });
+  store.createIndex("by_createdAt", "createdAt", { unique: false });
+}
+
+function ensureQuizzesStore(db) {
+  if (db.objectStoreNames.contains("quizzes")) return;
+  const store = db.createObjectStore("quizzes", { keyPath: "id" });
   store.createIndex("by_createdAt", "createdAt", { unique: false });
 }
 
@@ -32,6 +38,7 @@ function openDB() {
         db.createObjectStore("favicons", { keyPath: "host" });
       }
       ensureWordsStore(db);
+      ensureQuizzesStore(db);
     };
     req.onsuccess = () => resolve(req.result);
   });
@@ -364,14 +371,96 @@ export async function deleteWord(id) {
   await txDone(tx);
 }
 
-/** Clear all RecordU object stores (captures, screenshots, words, favicons). */
+function normalizeQuizStatus(value) {
+  if (value === "in_progress" || value === "done") return value;
+  return "ready";
+}
+
+function normalizePromptLang(value) {
+  return value === "zh" ? "zh" : "en";
+}
+
+export function normalizeQuizRecord(input) {
+  const src = input && typeof input === "object" ? input : {};
+  const items = Array.isArray(src.items) ? src.items : [];
+  const sourceWords = Array.isArray(src.sourceWords) ? src.sourceWords : [];
+  return {
+    id: src.id || newId(),
+    createdAt: typeof src.createdAt === "number" ? src.createdAt : Date.now(),
+    count: typeof src.count === "number" ? src.count : sourceWords.length,
+    promptLang: normalizePromptLang(src.promptLang),
+    status: normalizeQuizStatus(src.status),
+    sourceWords: sourceWords.map((w) => ({
+      id: w && w.id ? String(w.id) : "",
+      word: w && w.word ? String(w.word) : "",
+      translation: w && w.translation ? String(w.translation) : "",
+      phonetic: w && w.phonetic ? String(w.phonetic) : ""
+    })),
+    items,
+    score:
+      src.score && typeof src.score === "object"
+        ? {
+            correct: Number(src.score.correct) || 0,
+            total: Number(src.score.total) || 0
+          }
+        : null,
+    finishedAt: typeof src.finishedAt === "number" ? src.finishedAt : null
+  };
+}
+
+export async function getAllQuizzes() {
+  const db = await openDB();
+  const tx = db.transaction("quizzes", "readonly");
+  const all = await reqToPromise(tx.objectStore("quizzes").getAll());
+  await txDone(tx);
+  return (all || []).map((row) => normalizeQuizRecord(row));
+}
+
+export async function getQuiz(id) {
+  if (!id) return null;
+  const db = await openDB();
+  const tx = db.transaction("quizzes", "readonly");
+  const row = await reqToPromise(tx.objectStore("quizzes").get(id));
+  await txDone(tx);
+  return row ? normalizeQuizRecord(row) : null;
+}
+
+export async function saveQuiz(input) {
+  const record = normalizeQuizRecord(input);
+  const db = await openDB();
+  const tx = db.transaction("quizzes", "readwrite");
+  tx.objectStore("quizzes").put(record);
+  await txDone(tx);
+  return record;
+}
+
+export async function updateQuiz(id, patch) {
+  const existing = await getQuiz(id);
+  if (!existing) return null;
+  const next = normalizeQuizRecord({ ...existing, ...patch, id: existing.id });
+  const db = await openDB();
+  const tx = db.transaction("quizzes", "readwrite");
+  tx.objectStore("quizzes").put(next);
+  await txDone(tx);
+  return next;
+}
+
+export async function deleteQuiz(id) {
+  if (!id) return;
+  const db = await openDB();
+  const tx = db.transaction("quizzes", "readwrite");
+  tx.objectStore("quizzes").delete(id);
+  await txDone(tx);
+}
+
+/** Clear all RecordU object stores. */
 export async function clearAllStores() {
   const db = await openDB();
-  const tx = db.transaction(["captures", "screenshots", "words", "favicons"], "readwrite");
-  tx.objectStore("captures").clear();
-  tx.objectStore("screenshots").clear();
-  tx.objectStore("words").clear();
-  tx.objectStore("favicons").clear();
+  const names = ["captures", "screenshots", "words", "favicons", "quizzes"].filter((n) =>
+    db.objectStoreNames.contains(n)
+  );
+  const tx = db.transaction(names, "readwrite");
+  for (const n of names) tx.objectStore(n).clear();
   await txDone(tx);
 }
 
@@ -386,23 +475,27 @@ export async function getAllScreenshots() {
 
 /**
  * Replace local data with backup payload.
- * @param {{ captures?: object[], words?: object[], favicons?: object[], screenshots?: object[] }} payload
- *   screenshots entries: { captureId, blob, mime?, w?, h? }
+ * @param {{ captures?: object[], words?: object[], favicons?: object[], screenshots?: object[], quizzes?: object[] }} payload
  */
 export async function importAllData(payload) {
   const captures = Array.isArray(payload.captures) ? payload.captures : [];
   const words = Array.isArray(payload.words) ? payload.words : [];
   const favicons = Array.isArray(payload.favicons) ? payload.favicons : [];
   const screenshots = Array.isArray(payload.screenshots) ? payload.screenshots : [];
+  const quizzes = Array.isArray(payload.quizzes) ? payload.quizzes : [];
 
   await clearAllStores();
 
   const db = await openDB();
-  const tx = db.transaction(["captures", "screenshots", "words", "favicons"], "readwrite");
+  const storeNames = ["captures", "screenshots", "words", "favicons", "quizzes"].filter((n) =>
+    db.objectStoreNames.contains(n)
+  );
+  const tx = db.transaction(storeNames, "readwrite");
   const captureStore = tx.objectStore("captures");
   const shotStore = tx.objectStore("screenshots");
   const wordStore = tx.objectStore("words");
   const favStore = tx.objectStore("favicons");
+  const quizStore = db.objectStoreNames.contains("quizzes") ? tx.objectStore("quizzes") : null;
 
   for (const c of captures) {
     if (!c || !c.id) continue;
@@ -438,13 +531,20 @@ export async function importAllData(payload) {
       h: typeof s.h === "number" ? s.h : 0
     });
   }
+  if (quizStore) {
+    for (const q of quizzes) {
+      if (!q || !q.id) continue;
+      quizStore.put(normalizeQuizRecord(q));
+    }
+  }
 
   await txDone(tx);
   return {
     captures: captures.length,
     words: words.length,
     favicons: favicons.length,
-    screenshots: screenshots.length
+    screenshots: screenshots.length,
+    quizzes: quizzes.length
   };
 }
 
