@@ -11,8 +11,8 @@ export const state = {
   /** @type {"queue"|"site"} */
   captureView: "queue",
   /** Settings sub-tab when mode is settings. */
-  /** @type {"general"|"llm"} */
-  settingsTab: "general",
+  /** @type {"highlight"|"backup"|"llm"} */
+  settingsTab: "highlight",
   /** @type {"week"|"earlier"|"all"} */
   dateRange: "week",
   focusIndex: 0

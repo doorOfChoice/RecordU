@@ -23,8 +23,6 @@ export const DEFAULT_SETTINGS = {
   wordMatchMode: "variant",
   /** 高亮黑名单：这些 host（及子域）不渲染感触/单词高亮 */
   highlightHostBlacklist: [],
-  /** LLM provider id */
-  llmProvider: "deepseek",
   /** API key（仅本地） */
   llmApiKey: "",
   /** Chat model name */
@@ -57,11 +55,6 @@ export function normalizeHighlightStyle(value) {
 export function normalizeEntryMatchMode(value) {
   if (value === "exact" || value === "variant") return value;
   return "inherit";
-}
-
-export function normalizeLlmProvider(value) {
-  const v = String(value || "").trim().toLowerCase();
-  return v || DEFAULT_SETTINGS.llmProvider;
 }
 
 export function normalizeLlmModel(value) {
@@ -169,7 +162,6 @@ export function normalizeSettings(input) {
     wordHighlightStyle: normalizeHighlightStyle(src.wordHighlightStyle),
     wordMatchMode: normalizeWordMatchMode(src.wordMatchMode),
     highlightHostBlacklist: normalizeHighlightHostBlacklist(src.highlightHostBlacklist),
-    llmProvider: normalizeLlmProvider(src.llmProvider),
     llmApiKey: typeof src.llmApiKey === "string" ? src.llmApiKey : "",
     llmModel: normalizeLlmModel(src.llmModel),
     llmBaseUrl: normalizeLlmBaseUrl(src.llmBaseUrl),
@@ -202,7 +194,6 @@ export function generalSettingsDefaults() {
 /** Default values for LLM-related settings. */
 export function llmSettingsDefaults() {
   return {
-    llmProvider: DEFAULT_SETTINGS.llmProvider,
     llmApiKey: DEFAULT_SETTINGS.llmApiKey,
     llmModel: DEFAULT_SETTINGS.llmModel,
     llmBaseUrl: DEFAULT_SETTINGS.llmBaseUrl,
