@@ -54,6 +54,11 @@ export const DEFAULT_SETTINGS = {
   llmModel: "deepseek-chat",
   /** OpenAI-compatible base URL */
   llmBaseUrl: "https://api.deepseek.com",
+  /**
+   * DeepSeek thinking / reasoning_effort.
+   * off = thinking disabled; low | high | max = enabled with that effort.
+   */
+  llmReasoningEffort: "off",
   /** Lookup prompt template; must contain {{word}} */
   llmLookupPrompt: DEFAULT_LLM_LOOKUP_PROMPT,
   /** Quiz generation prompt; should contain {{words}} and {{promptLang}} */
@@ -101,6 +106,16 @@ export function normalizeLlmBaseUrl(value) {
   } catch (e) {
     return DEFAULT_SETTINGS.llmBaseUrl;
   }
+}
+
+/** DeepSeek reasoning: off | low | high | max */
+export function normalizeLlmReasoningEffort(value) {
+  const v = String(value || "").trim().toLowerCase();
+  if (v === "low" || v === "high" || v === "max") return v;
+  if (v === "off" || v === "disabled" || v === "none") return "off";
+  // legacy / aliases
+  if (v === "medium" || v === "xhigh") return "high";
+  return DEFAULT_SETTINGS.llmReasoningEffort;
 }
 
 export function normalizeLlmLookupPrompt(value) {
@@ -198,6 +213,7 @@ export function normalizeSettings(input) {
     llmApiKey: typeof src.llmApiKey === "string" ? src.llmApiKey : "",
     llmModel: normalizeLlmModel(src.llmModel),
     llmBaseUrl: normalizeLlmBaseUrl(src.llmBaseUrl),
+    llmReasoningEffort: normalizeLlmReasoningEffort(src.llmReasoningEffort),
     llmLookupPrompt: normalizeLlmLookupPrompt(src.llmLookupPrompt),
     llmQuizPrompt: normalizeLlmQuizPrompt(src.llmQuizPrompt)
   };
@@ -225,12 +241,19 @@ export function generalSettingsDefaults() {
   };
 }
 
-/** Default values for LLM-related settings. */
+/** Default values for LLM connection settings (no prompts). */
 export function llmSettingsDefaults() {
   return {
     llmApiKey: DEFAULT_SETTINGS.llmApiKey,
     llmModel: DEFAULT_SETTINGS.llmModel,
     llmBaseUrl: DEFAULT_SETTINGS.llmBaseUrl,
+    llmReasoningEffort: DEFAULT_SETTINGS.llmReasoningEffort
+  };
+}
+
+/** Default values for lookup / quiz prompt settings. */
+export function promptSettingsDefaults() {
+  return {
     llmLookupPrompt: DEFAULT_SETTINGS.llmLookupPrompt,
     llmQuizPrompt: DEFAULT_SETTINGS.llmQuizPrompt
   };

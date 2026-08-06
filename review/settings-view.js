@@ -4,7 +4,8 @@ import {
   DEFAULT_LLM_QUIZ_PROMPT,
   DEFAULT_SETTINGS,
   generalSettingsDefaults,
-  llmSettingsDefaults
+  llmSettingsDefaults,
+  promptSettingsDefaults
 } from "../shared/settings.js";
 import { state } from "./state.js";
 
@@ -18,6 +19,7 @@ const PRESETS = [
 const NAV_ITEMS = [
   { id: "highlight", label: "高亮" },
   { id: "llm", label: "大模型" },
+  { id: "prompts", label: "提示词" },
   { id: "backup", label: "数据备份" }
 ];
 
@@ -101,12 +103,14 @@ export function renderSettings({
   else if (tab === "backup") {
     bindBackupPanel({ root, onBackup, onRestore, onAfterRestore });
   } else if (tab === "llm") bindLlmPanel({ root, onSave });
+  else if (tab === "prompts") bindPromptsPanel({ root, onSave });
 }
 
 /** @param {string} tab @param {object} settings */
 function renderPanel(tab, settings) {
   if (tab === "highlight") return renderHighlightPanel(settings);
   if (tab === "backup") return renderBackupPanel();
+  if (tab === "prompts") return renderPromptsPanel(settings);
   return renderLlmPanel(settings);
 }
 
@@ -241,19 +245,14 @@ function renderLlmPanel(settings) {
   const llmModel = settings.llmModel || DEFAULT_SETTINGS.llmModel;
   const llmBaseUrl = settings.llmBaseUrl || DEFAULT_SETTINGS.llmBaseUrl;
   const llmApiKey = typeof settings.llmApiKey === "string" ? settings.llmApiKey : "";
-  const llmLookupPrompt =
-    typeof settings.llmLookupPrompt === "string" && settings.llmLookupPrompt.trim()
-      ? settings.llmLookupPrompt
-      : DEFAULT_LLM_LOOKUP_PROMPT;
-  const llmQuizPrompt =
-    typeof settings.llmQuizPrompt === "string" && settings.llmQuizPrompt.trim()
-      ? settings.llmQuizPrompt
-      : DEFAULT_LLM_QUIZ_PROMPT;
+  const effortRaw = settings.llmReasoningEffort;
+  const effort =
+    effortRaw === "low" || effortRaw === "high" || effortRaw === "max" ? effortRaw : "off";
 
   return `
     <header class="rv-settings-header">
       <h2 class="rv-settings-title">大模型</h2>
-      <p class="rv-settings-desc">用于划词查词与试卷出题。API Key 仅保存在本机。</p>
+      <p class="rv-settings-desc">用于划词查词与试卷出题。API Key 仅保存在本机。提示词见左侧「提示词」。</p>
     </header>
 
     <div class="rv-settings-field">
@@ -270,6 +269,49 @@ function renderLlmPanel(settings) {
       <label class="rv-settings-label" for="rv-set-llm-key">API Key</label>
       <input type="password" id="rv-set-llm-key" class="rv-settings-text" value="${escapeHtml(llmApiKey)}" spellcheck="false" autocomplete="off" placeholder="sk-…">
     </div>
+
+    <div class="rv-settings-field">
+      <div class="rv-settings-label" id="rv-set-llm-effort-label">思考程度</div>
+      <p class="rv-settings-desc rv-settings-desc-tight">对应 DeepSeek <code>thinking</code> / <code>reasoning_effort</code>。关闭更快更省；开启后出题质量可能更好但更慢更贵。</p>
+      <div class="rv-settings-modes" role="radiogroup" aria-labelledby="rv-set-llm-effort-label">
+        <label class="rv-settings-mode">
+          <input type="radio" name="rv-set-llm-effort" value="off" ${effort === "off" ? "checked" : ""}>
+          <span>关闭</span>
+        </label>
+        <label class="rv-settings-mode">
+          <input type="radio" name="rv-set-llm-effort" value="low" ${effort === "low" ? "checked" : ""}>
+          <span>低</span>
+        </label>
+        <label class="rv-settings-mode">
+          <input type="radio" name="rv-set-llm-effort" value="high" ${effort === "high" ? "checked" : ""}>
+          <span>高</span>
+        </label>
+        <label class="rv-settings-mode">
+          <input type="radio" name="rv-set-llm-effort" value="max" ${effort === "max" ? "checked" : ""}>
+          <span>最大</span>
+        </label>
+      </div>
+    </div>
+
+    ${renderFooter("llm")}
+  `;
+}
+
+function renderPromptsPanel(settings) {
+  const llmLookupPrompt =
+    typeof settings.llmLookupPrompt === "string" && settings.llmLookupPrompt.trim()
+      ? settings.llmLookupPrompt
+      : DEFAULT_LLM_LOOKUP_PROMPT;
+  const llmQuizPrompt =
+    typeof settings.llmQuizPrompt === "string" && settings.llmQuizPrompt.trim()
+      ? settings.llmQuizPrompt
+      : DEFAULT_LLM_QUIZ_PROMPT;
+
+  return `
+    <header class="rv-settings-header">
+      <h2 class="rv-settings-title">提示词</h2>
+      <p class="rv-settings-desc">自定义查词与出题所用提示词；端点与 API Key 在「大模型」中配置。</p>
+    </header>
 
     <div class="rv-settings-field">
       <label class="rv-settings-label" for="rv-set-llm-prompt">翻译提示词</label>
@@ -289,15 +331,30 @@ function renderLlmPanel(settings) {
       </div>
     </div>
 
-    ${renderFooter("llm")}
+    ${renderFooter("prompts")}
   `;
 }
 
-/** @param {"highlight"|"llm"} kind */
+/** @param {"highlight"|"llm"|"prompts"} kind */
 function renderFooter(kind) {
-  const saveId = kind === "llm" ? "rv-set-save-llm" : "rv-set-save-highlight";
-  const resetId = kind === "llm" ? "rv-set-reset-llm" : "rv-set-reset-highlight";
-  const toastId = kind === "llm" ? "rv-set-toast-llm" : "rv-set-toast-highlight";
+  const saveId =
+    kind === "llm"
+      ? "rv-set-save-llm"
+      : kind === "prompts"
+        ? "rv-set-save-prompts"
+        : "rv-set-save-highlight";
+  const resetId =
+    kind === "llm"
+      ? "rv-set-reset-llm"
+      : kind === "prompts"
+        ? "rv-set-reset-prompts"
+        : "rv-set-reset-highlight";
+  const toastId =
+    kind === "llm"
+      ? "rv-set-toast-llm"
+      : kind === "prompts"
+        ? "rv-set-toast-prompts"
+        : "rv-set-toast-highlight";
 
   return `
     <div class="rv-settings-footer">
@@ -514,15 +571,61 @@ function bindLlmPanel({ root, onSave }) {
   const baseUrl = root.querySelector("#rv-set-llm-base");
   const model = root.querySelector("#rv-set-llm-model");
   const apiKey = root.querySelector("#rv-set-llm-key");
-  const prompt = root.querySelector("#rv-set-llm-prompt");
-  const quizPrompt = root.querySelector("#rv-set-llm-quiz-prompt");
   const toast = root.querySelector("#rv-set-toast-llm");
+
+  function selectedEffort() {
+    const el = root.querySelector('input[name="rv-set-llm-effort"]:checked');
+    const v = el && el.value;
+    return v === "low" || v === "high" || v === "max" ? v : "off";
+  }
 
   function applyLlmFields(s) {
     if (!s) return;
     baseUrl.value = s.llmBaseUrl || DEFAULT_SETTINGS.llmBaseUrl;
     model.value = s.llmModel || DEFAULT_SETTINGS.llmModel;
     apiKey.value = typeof s.llmApiKey === "string" ? s.llmApiKey : "";
+    const effort =
+      s.llmReasoningEffort === "low" ||
+      s.llmReasoningEffort === "high" ||
+      s.llmReasoningEffort === "max"
+        ? s.llmReasoningEffort
+        : "off";
+    root.querySelectorAll('input[name="rv-set-llm-effort"]').forEach((input) => {
+      input.checked = input.value === effort;
+    });
+  }
+
+  root.querySelector("#rv-set-save-llm").addEventListener("click", async () => {
+    const next = await onSave({
+      llmBaseUrl: baseUrl.value.trim(),
+      llmModel: model.value.trim(),
+      llmApiKey: apiKey.value,
+      llmReasoningEffort: selectedEffort()
+    });
+    if (next) {
+      applyLlmFields(next);
+      showToast(toast, "✓ 已保存");
+    } else {
+      showToast(toast, "保存失败");
+    }
+  });
+
+  root.querySelector("#rv-set-reset-llm").addEventListener("click", async () => {
+    const next = await onSave(llmSettingsDefaults());
+    if (next) {
+      applyLlmFields(next);
+      showToast(toast, "✓ 已恢复默认");
+    }
+  });
+}
+
+function bindPromptsPanel({ root, onSave }) {
+  const prompt = root.querySelector("#rv-set-llm-prompt");
+  const quizPrompt = root.querySelector("#rv-set-llm-quiz-prompt");
+  const toast = root.querySelector("#rv-set-toast-prompts");
+
+  function applyPromptFields(s) {
+    if (!s) return;
     prompt.value =
       typeof s.llmLookupPrompt === "string" && s.llmLookupPrompt.trim()
         ? s.llmLookupPrompt
@@ -543,26 +646,23 @@ function bindLlmPanel({ root, onSave }) {
     showToast(toast, "已填入默认出题提示词（未保存）");
   });
 
-  root.querySelector("#rv-set-save-llm").addEventListener("click", async () => {
+  root.querySelector("#rv-set-save-prompts").addEventListener("click", async () => {
     const next = await onSave({
-      llmBaseUrl: baseUrl.value.trim(),
-      llmModel: model.value.trim(),
-      llmApiKey: apiKey.value,
       llmLookupPrompt: prompt.value,
       llmQuizPrompt: quizPrompt.value
     });
     if (next) {
-      applyLlmFields(next);
+      applyPromptFields(next);
       showToast(toast, "✓ 已保存");
     } else {
       showToast(toast, "保存失败");
     }
   });
 
-  root.querySelector("#rv-set-reset-llm").addEventListener("click", async () => {
-    const next = await onSave(llmSettingsDefaults());
+  root.querySelector("#rv-set-reset-prompts").addEventListener("click", async () => {
+    const next = await onSave(promptSettingsDefaults());
     if (next) {
-      applyLlmFields(next);
+      applyPromptFields(next);
       showToast(toast, "✓ 已恢复默认");
     }
   });

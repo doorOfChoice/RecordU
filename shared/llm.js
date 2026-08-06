@@ -9,6 +9,7 @@ import {
   normalizeLlmLookupPrompt,
   normalizeLlmModel,
   normalizeLlmQuizPrompt,
+  normalizeLlmReasoningEffort,
   normalizeSettings
 } from "./settings.js";
 import { normalizeQuizItems, renderQuizPrompt } from "./quiz.js";
@@ -44,6 +45,18 @@ export function renderLookupPrompt(template, word) {
   return prompt.split("{{word}}").join(w);
 }
 
+/** Build DeepSeek thinking / reasoning_effort fields for chat body. */
+function thinkingBodyFields(settings) {
+  const effort = normalizeLlmReasoningEffort(settings && settings.llmReasoningEffort);
+  if (effort === "off") {
+    return { thinking: { type: "disabled" } };
+  }
+  return {
+    thinking: { type: "enabled" },
+    reasoning_effort: effort
+  };
+}
+
 async function chatCompletions({ settings, userContent, systemContent, temperature }) {
   const s = normalizeSettings(settings);
   if (!s.llmApiKey.trim()) {
@@ -55,6 +68,7 @@ async function chatCompletions({ settings, userContent, systemContent, temperatu
   const base = normalizeLlmBaseUrl(s.llmBaseUrl);
   const url = `${base}/v1/chat/completions`;
   const model = normalizeLlmModel(s.llmModel);
+  const thinking = thinkingBodyFields(s);
 
   let res;
   try {
@@ -70,7 +84,8 @@ async function chatCompletions({ settings, userContent, systemContent, temperatu
         messages: [
           { role: "system", content: systemContent },
           { role: "user", content: userContent }
-        ]
+        ],
+        ...thinking
       })
     });
   } catch (e) {

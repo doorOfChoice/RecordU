@@ -43,6 +43,11 @@ export function inDay(ts, offset, exact) {
   return dayKey(d) === dayStr(offset);
 }
 
+/** Count items whose createdAt falls on local today. */
+export function countCreatedToday(items) {
+  return (Array.isArray(items) ? items : []).filter((x) => x && inDay(x.createdAt, 0)).length;
+}
+
 export function fmtTime(ts, short) {
   const d = new Date(ts);
   if (short) {

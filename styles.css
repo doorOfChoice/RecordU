@@ -347,11 +347,14 @@ body.review-page {
 .rv-nav {
   display: flex;
   flex-wrap: wrap;
-  gap: 14px 18px;
+  gap: 14px 22px;
   font-size: 13px;
 }
 
 .rv-nav-link {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 4px;
   color: var(--rv-thin);
   text-decoration: none;
   letter-spacing: 0.06em;
@@ -367,6 +370,29 @@ body.review-page {
 .rv-nav-link.is-active {
   color: var(--rv-ink);
   border-bottom-color: var(--rv-ink);
+}
+
+.rv-nav-badge {
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  min-width: 16px;
+  height: 16px;
+  margin-top: -2px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #c43c3c;
+  color: #fff;
+  font-family: var(--rv-sans, system-ui, sans-serif);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 16px;
+  text-align: center;
+  pointer-events: none;
+}
+
+.rv-nav-badge[hidden] {
+  display: none !important;
 }
 
 .rv-progress {

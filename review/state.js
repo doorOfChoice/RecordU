@@ -12,7 +12,7 @@ export const state = {
   /** @type {"queue"|"site"} */
   captureView: "queue",
   /** Settings sub-tab when mode is settings. */
-  /** @type {"highlight"|"backup"|"llm"} */
+  /** @type {"highlight"|"backup"|"llm"|"prompts"} */
   settingsTab: "highlight",
   /** Words sub-tab when mode is words. */
   /** @type {"list"|"quizzes"} */

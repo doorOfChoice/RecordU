@@ -11,6 +11,7 @@ import {
 } from "../shared/api.js";
 import { exactOf, isScreenshot } from "../shared/captures.js";
 import { DEFAULT_SETTINGS } from "../shared/settings.js";
+import { countCreatedToday } from "../shared/time.js";
 import { confirm as modalConfirm, promptEdit, promptWordEdit } from "../modal.js";
 import { downloadBackup, restoreBackupFromFile } from "./backup.js";
 import { renderBrowse } from "./browse-view.js";
@@ -111,6 +112,34 @@ function render() {
   }
 }
 
+function syncNavBadges() {
+  const ideaCount = countCreatedToday(state.captures);
+  const wordCount = countCreatedToday(state.words);
+  const ideaBadge = document.querySelector('[data-badge="ideas"]');
+  const wordBadge = document.querySelector('[data-badge="words"]');
+  const ideaLink = document.querySelector('[data-mode="queue"]');
+  const wordLink = document.querySelector('[data-mode="words"]');
+
+  function apply(badge, link, count, label) {
+    if (!badge || !link) return;
+    if (count > 0) {
+      const text = count > 99 ? "99+" : String(count);
+      badge.hidden = false;
+      badge.textContent = text;
+      badge.setAttribute("aria-hidden", "false");
+      link.setAttribute("aria-label", `${label}，今日 ${count}`);
+    } else {
+      badge.hidden = true;
+      badge.textContent = "";
+      badge.setAttribute("aria-hidden", "true");
+      link.removeAttribute("aria-label");
+    }
+  }
+
+  apply(ideaBadge, ideaLink, ideaCount, "待回顾");
+  apply(wordBadge, wordLink, wordCount, "单词");
+}
+
 function syncChrome() {
   document.querySelectorAll("[data-mode]").forEach((el) => {
     el.classList.toggle("is-active", el.dataset.mode === state.mode);
@@ -126,6 +155,7 @@ function syncChrome() {
   if (viewNav) viewNav.classList.toggle("hidden", hideChrome);
   if (rangeNav) rangeNav.classList.toggle("hidden", hideChrome);
   if (exportLink) exportLink.classList.toggle("hidden", hideChrome);
+  syncNavBadges();
 }
 
 async function edit(id) {
