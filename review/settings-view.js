@@ -48,6 +48,10 @@ export function renderSettings({
     settings.wordHighlightStyle === "underline" ? "underline" : "fill";
   const matchMode =
     settings.wordMatchMode === "exact" ? "exact" : DEFAULT_SETTINGS.wordMatchMode;
+  const highlightHostBlacklist = Array.isArray(settings.highlightHostBlacklist)
+    ? settings.highlightHostBlacklist
+    : [];
+  const blacklistText = highlightHostBlacklist.join("\n");
   const llmProvider = settings.llmProvider || DEFAULT_SETTINGS.llmProvider;
   const llmModel = settings.llmModel || DEFAULT_SETTINGS.llmModel;
   const llmBaseUrl = settings.llmBaseUrl || DEFAULT_SETTINGS.llmBaseUrl;
@@ -140,6 +144,13 @@ export function renderSettings({
               <span>精准匹配</span>
             </label>
           </div>
+        </section>
+
+        <section class="rv-settings-section">
+          <h2 class="rv-settings-title">高亮黑名单</h2>
+          <p class="rv-settings-desc">一行一个域名（也可粘贴完整 URL）。名单内站点及其子域不显示感触与单词高亮；划词与捕获仍可用。以 <code>#</code> 开头的行为注释。</p>
+          <label class="rv-settings-label" for="rv-set-hl-blacklist">域名列表</label>
+          <textarea id="rv-set-hl-blacklist" class="rv-settings-textarea" rows="4" spellcheck="false" placeholder="example.com&#10;https://news.ycombinator.com">${escapeHtml(blacklistText)}</textarea>
         </section>
 
         <section class="rv-settings-section">
@@ -304,6 +315,17 @@ function bindGeneralPanel({ root, onSave, onBackup, onRestore, onAfterRestore })
     });
   }
 
+  const blacklistEl = root.querySelector("#rv-set-hl-blacklist");
+
+  function setBlacklist(list) {
+    if (!blacklistEl) return;
+    blacklistEl.value = Array.isArray(list) ? list.join("\n") : "";
+  }
+
+  function readBlacklistText() {
+    return blacklistEl ? blacklistEl.value : "";
+  }
+
   function setIdeaStyle(style) {
     const value = style === "underline" ? "underline" : "fill";
     root.querySelectorAll('input[name="rv-idea-style"]').forEach((el) => {
@@ -351,7 +373,8 @@ function bindGeneralPanel({ root, onSave, onBackup, onRestore, onAfterRestore })
       ideaHighlightStyle: selectedIdeaStyle(),
       wordHighlightColor: wordColor.value,
       wordHighlightStyle: selectedWordStyle(),
-      wordMatchMode: selectedMatchMode()
+      wordMatchMode: selectedMatchMode(),
+      highlightHostBlacklist: readBlacklistText()
     });
     if (next) {
       setIdea(next.ideaHighlightColor);
@@ -359,6 +382,7 @@ function bindGeneralPanel({ root, onSave, onBackup, onRestore, onAfterRestore })
       setIdeaStyle(next.ideaHighlightStyle);
       setWordStyle(next.wordHighlightStyle);
       setMatchMode(next.wordMatchMode);
+      setBlacklist(next.highlightHostBlacklist);
       showToast(toast, "✓ 已保存");
     } else {
       showToast(toast, "保存失败");
@@ -373,6 +397,7 @@ function bindGeneralPanel({ root, onSave, onBackup, onRestore, onAfterRestore })
       setIdeaStyle(next.ideaHighlightStyle);
       setWordStyle(next.wordHighlightStyle);
       setMatchMode(next.wordMatchMode);
+      setBlacklist(next.highlightHostBlacklist);
       showToast(toast, "✓ 已恢复默认");
     }
   });

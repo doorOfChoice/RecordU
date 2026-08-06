@@ -21,6 +21,8 @@ export const DEFAULT_SETTINGS = {
   wordHighlightStyle: "fill",
   /** 单词高亮匹配：exact = 整词精确；variant = 双向词形变体 */
   wordMatchMode: "variant",
+  /** 高亮黑名单：这些 host（及子域）不渲染感触/单词高亮 */
+  highlightHostBlacklist: [],
   /** LLM provider id */
   llmProvider: "deepseek",
   /** API key（仅本地） */
@@ -87,6 +89,71 @@ export function normalizeLlmLookupPrompt(value) {
   return raw;
 }
 
+/**
+ * Parse one blacklist line into a hostname, or null if empty/invalid/comment.
+ * Accepts bare hosts or full URLs.
+ */
+export function parseHighlightHostLine(line) {
+  let raw = String(line || "").trim();
+  if (!raw || raw.startsWith("#")) return null;
+  if (/^https?:\/\//i.test(raw) || raw.includes("/")) {
+    try {
+      const withProto = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+      raw = new URL(withProto).hostname;
+    } catch (e) {
+      return null;
+    }
+  }
+  raw = raw.replace(/:\d+$/, "").replace(/\.+$/, "").toLowerCase();
+  if (!raw || raw.includes(" ")) return null;
+  if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$/i.test(raw)) {
+    return null;
+  }
+  return raw;
+}
+
+/** Normalize blacklist from string[] or multiline text → deduped hostnames. */
+export function normalizeHighlightHostBlacklist(value) {
+  let lines;
+  if (Array.isArray(value)) {
+    lines = value.map((v) => String(v == null ? "" : v));
+  } else if (typeof value === "string") {
+    lines = value.split(/\r?\n/);
+  } else {
+    return [];
+  }
+  const seen = new Set();
+  const out = [];
+  for (const line of lines) {
+    const host = parseHighlightHostLine(line);
+    if (!host || seen.has(host)) continue;
+    seen.add(host);
+    out.push(host);
+  }
+  return out;
+}
+
+/**
+ * @param {string} hostname
+ * @param {string[]} list
+ */
+export function isHostInHighlightBlacklist(hostname, list) {
+  const host = String(hostname || "")
+    .replace(/:\d+$/, "")
+    .replace(/\.+$/, "")
+    .toLowerCase();
+  if (!host || !Array.isArray(list) || !list.length) return false;
+  for (const entry of list) {
+    const e = String(entry || "")
+      .replace(/:\d+$/, "")
+      .replace(/\.+$/, "")
+      .toLowerCase();
+    if (!e) continue;
+    if (host === e || host.endsWith(`.${e}`)) return true;
+  }
+  return false;
+}
+
 export function normalizeSettings(input) {
   const src = input && typeof input === "object" ? input : {};
   return {
@@ -101,6 +168,7 @@ export function normalizeSettings(input) {
     ),
     wordHighlightStyle: normalizeHighlightStyle(src.wordHighlightStyle),
     wordMatchMode: normalizeWordMatchMode(src.wordMatchMode),
+    highlightHostBlacklist: normalizeHighlightHostBlacklist(src.highlightHostBlacklist),
     llmProvider: normalizeLlmProvider(src.llmProvider),
     llmApiKey: typeof src.llmApiKey === "string" ? src.llmApiKey : "",
     llmModel: normalizeLlmModel(src.llmModel),
@@ -126,7 +194,8 @@ export function generalSettingsDefaults() {
     ideaHighlightStyle: DEFAULT_SETTINGS.ideaHighlightStyle,
     wordHighlightColor: DEFAULT_SETTINGS.wordHighlightColor,
     wordHighlightStyle: DEFAULT_SETTINGS.wordHighlightStyle,
-    wordMatchMode: DEFAULT_SETTINGS.wordMatchMode
+    wordMatchMode: DEFAULT_SETTINGS.wordMatchMode,
+    highlightHostBlacklist: [...DEFAULT_SETTINGS.highlightHostBlacklist]
   };
 }
 

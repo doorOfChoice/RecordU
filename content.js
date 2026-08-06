@@ -139,6 +139,48 @@
       settings.wordHighlightStyle === "underline" ? "underline" : "fill";
   }
 
+  function isHostInHighlightBlacklist(hostname, list) {
+    const host = String(hostname || "")
+      .replace(/:\d+$/, "")
+      .replace(/\.+$/, "")
+      .toLowerCase();
+    if (!host || !Array.isArray(list) || !list.length) return false;
+    for (const entry of list) {
+      const e = String(entry || "")
+        .replace(/:\d+$/, "")
+        .replace(/\.+$/, "")
+        .toLowerCase();
+      if (!e) continue;
+      if (host === e || host.endsWith(`.${e}`)) return true;
+    }
+    return false;
+  }
+
+  function isHighlightBlocked() {
+    const list =
+      cachedSettings && Array.isArray(cachedSettings.highlightHostBlacklist)
+        ? cachedSettings.highlightHostBlacklist
+        : [];
+    return isHostInHighlightBlacklist(location.hostname, list);
+  }
+
+  function clearAllPageHighlights() {
+    applyingHighlight = true;
+    applyingWordHighlight = true;
+    try {
+      document.querySelectorAll("span.rc-highlight").forEach((el) => {
+        unwrapHighlight(el);
+      });
+      document.querySelectorAll("span.rc-word-highlight").forEach((el) => {
+        unwrapWordHighlight(el);
+      });
+    } finally {
+      applyingHighlight = false;
+      applyingWordHighlight = false;
+      wordHlQuietUntil = Date.now() + 250;
+    }
+  }
+
   function currentWordMatchMode() {
     const mode = cachedSettings && cachedSettings.wordMatchMode;
     return mode === "exact" ? "exact" : "variant";
@@ -294,6 +336,7 @@
     }
     if (msg.type === "rc-settings-changed") {
       applyHighlightSettings(msg.settings);
+      scheduleReconcile(50);
       scheduleWordReconcile(50);
       sendResponse({ ok: true });
     }
@@ -612,6 +655,17 @@
     const key = normalizeWordKeyLocal(wordText);
     if (!key) return null;
     return cachedWords.find((w) => normalizeWordKeyLocal(w.word) === key) || null;
+  }
+
+  function captureIdFromSelection() {
+    const sel = window.getSelection();
+    if (!sel || !sel.anchorNode) return null;
+    const el =
+      sel.anchorNode.nodeType === Node.ELEMENT_NODE
+        ? sel.anchorNode
+        : sel.anchorNode.parentElement;
+    const h = el && el.closest && el.closest(".rc-highlight");
+    return h && h.dataset.rcId ? h.dataset.rcId : null;
   }
 
   function upsertCachedWord(record) {
@@ -1456,6 +1510,13 @@
   }
 
   async function reconcileHighlights() {
+    if (!cachedSettings) {
+      await loadHighlightSettings();
+    }
+    if (isHighlightBlocked()) {
+      clearAllPageHighlights();
+      return;
+    }
     let all = [];
     try {
       const res = await chrome.runtime.sendMessage({ type: "rc-get-page" });
@@ -1711,6 +1772,10 @@
   async function reconcileWordHighlights() {
     if (!cachedSettings) {
       await loadHighlightSettings();
+    }
+    if (isHighlightBlocked()) {
+      clearAllPageHighlights();
+      return;
     }
     let words = [];
     try {
