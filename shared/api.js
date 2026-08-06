@@ -73,8 +73,15 @@ export async function deleteWord(id) {
 }
 
 export async function getSettings() {
-  const res = await chrome.runtime.sendMessage({ type: "rc-get-settings" });
+  const res = await chrome.runtime.sendMessage({
+    type: "rc-get-settings",
+    source: "review"
+  });
   return (res && res.settings) || null;
+}
+
+export async function lookupWord(word) {
+  return chrome.runtime.sendMessage({ type: "rc-lookup-word", word });
 }
 
 export async function saveSettings(patch) {

@@ -160,8 +160,103 @@ export function promptEdit(opts = {}) {
   });
 }
 
+/**
+ * Word edit dialog. Resolves to { phonetic, translation, note, matchMode } or null.
+ * @param {object} opts
+ */
+export function promptWordEdit(opts = {}) {
+  const matchMode = opts.matchMode === "exact" || opts.matchMode === "variant" ? opts.matchMode : "inherit";
+  const overlay = document.createElement("div");
+  overlay.className = "rc-modal-overlay";
+  overlay.innerHTML = `
+    <div class="rc-modal rc-modal-edit rc-modal-edit-word" role="dialog" aria-modal="true">
+      <div class="rc-modal-title">${escapeHtml(opts.title || "编辑单词")}</div>
+      <div class="rc-modal-field">
+        <label for="rc-modal-phonetic">音标</label>
+        <input type="text" id="rc-modal-phonetic" value="${escapeHtml(opts.phonetic || "")}" placeholder="/ˈwɜːrd/">
+      </div>
+      <div class="rc-modal-field">
+        <label for="rc-modal-translation">翻译</label>
+        <input type="text" id="rc-modal-translation" value="${escapeHtml(opts.translation || "")}" placeholder="中文释义">
+      </div>
+      <div class="rc-modal-field">
+        <label for="rc-modal-note">备注</label>
+        <textarea id="rc-modal-note" rows="4" placeholder="释义或备注……">${escapeHtml(opts.note || "")}</textarea>
+      </div>
+      <div class="rc-modal-field">
+        <label for="rc-modal-match">匹配规则</label>
+        <select id="rc-modal-match">
+          <option value="inherit" ${matchMode === "inherit" ? "selected" : ""}>跟随全局</option>
+          <option value="variant" ${matchMode === "variant" ? "selected" : ""}>变体匹配</option>
+          <option value="exact" ${matchMode === "exact" ? "selected" : ""}>精准匹配</option>
+        </select>
+      </div>
+      <div class="rc-modal-actions">
+        <button type="button" class="btn rc-modal-cancel">${escapeHtml(opts.cancelText || "取消")}</button>
+        <button type="button" class="btn btn-primary">${escapeHtml(opts.confirmText || "保存")}</button>
+      </div>
+    </div>
+  `;
+
+  const phoneticEl = overlay.querySelector("#rc-modal-phonetic");
+  const translationEl = overlay.querySelector("#rc-modal-translation");
+  const noteEl = overlay.querySelector("#rc-modal-note");
+  const matchEl = overlay.querySelector("#rc-modal-match");
+
+  if (current) current.resolve("cancel");
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => {
+    overlay.classList.add("show");
+    phoneticEl.focus();
+  });
+
+  return new Promise((resolve) => {
+    current = { overlay, resolve };
+
+    function collect() {
+      const mode = matchEl.value;
+      return {
+        phonetic: phoneticEl.value.trim(),
+        translation: translationEl.value.trim(),
+        note: noteEl.value.trim(),
+        matchMode: mode === "exact" || mode === "variant" ? mode : "inherit"
+      };
+    }
+
+    function done(result) {
+      if (current && current.overlay === overlay) current = null;
+      overlay.classList.remove("show");
+      overlay.addEventListener("transitionend", () => overlay.remove(), { once: true });
+      setTimeout(() => overlay.remove(), 250);
+      document.removeEventListener("keydown", onKeydown);
+      resolve(result);
+    }
+
+    function onKeydown(e) {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        done(null);
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+        e.preventDefault();
+        done(collect());
+      }
+    }
+
+    overlay.querySelector(".btn-primary").addEventListener("click", () => done(collect()));
+    overlay.querySelector(".rc-modal-cancel").addEventListener("click", () => done(null));
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) done(null);
+    });
+    document.addEventListener("keydown", onKeydown);
+  }).then((value) => {
+    if (value == null || value === "cancel") return null;
+    return value;
+  });
+}
+
 export function close() {
   if (current) current.resolve("cancel");
 }
 
-window.RcModal = { confirm, alert, promptEdit, close };
+window.RcModal = { confirm, alert, promptEdit, promptWordEdit, close };

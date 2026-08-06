@@ -34,20 +34,39 @@ function groupWordsByDay(list) {
   return groups;
 }
 
+function matchModeLabel(mode) {
+  if (mode === "exact") return "精准";
+  if (mode === "variant") return "变体";
+  return "跟随全局";
+}
+
 function wordCardHtml(w, i, focused) {
   const note = (w.note || "").trim();
+  const translation = (w.translation || "").trim();
+  const phonetic = (w.phonetic || "").trim();
+  const body = note || translation;
   const source =
     focused && w.pageUrl
       ? `<a class="rv-source" href="${escapeHtml(w.pageUrl)}" target="_blank" rel="noopener">${escapeHtml(
           w.pageTitle || "来源"
         )}</a>`
       : "";
+  const metaBits = [];
+  if (phonetic) {
+    metaBits.push(`<span class="rv-word-phonetic">${escapeHtml(phonetic)}</span>`);
+  }
+  if (w.matchMode && w.matchMode !== "inherit") {
+    metaBits.push(
+      `<span class="rv-word-match-tag">${escapeHtml(matchModeLabel(w.matchMode))}</span>`
+    );
+  }
   return `
     <article class="rv-word-entry${focused ? " is-on" : ""}" data-id="${escapeHtml(w.id)}" data-index="${i}">
       <p class="rv-word-term">${escapeHtml(w.word)}</p>
+      ${metaBits.length ? `<div class="rv-word-meta">${metaBits.join("")}</div>` : ""}
       ${
-        note
-          ? `<p class="rv-word-note">${escapeHtml(note)}</p>`
+        body
+          ? `<p class="rv-word-note">${escapeHtml(body)}</p>`
           : `<p class="rv-word-note rv-word-note-empty">无释义</p>`
       }
       <div class="rv-word-foot">

@@ -118,6 +118,13 @@
     return mode === "exact" ? "exact" : "variant";
   }
 
+  /** Per-word matchMode overrides global; inherit/missing → global. */
+  function resolveWordMatchMode(entry) {
+    const m = entry && entry.matchMode;
+    if (m === "exact" || m === "variant") return m;
+    return currentWordMatchMode();
+  }
+
   async function loadHighlightSettings() {
     try {
       const res = await chrome.runtime.sendMessage({ type: "rc-get-settings" });
@@ -151,9 +158,18 @@
       hideFloatButton();
       if (btn.dataset.action === "word") {
         const existing = findCachedWord(text);
-        showWordOverlay(text, existing
-          ? { wordId: existing.id, note: existing.note || "" }
-          : {});
+        showWordOverlay(
+          text,
+          existing
+            ? {
+                wordId: existing.id,
+                note: existing.note || "",
+                phonetic: existing.phonetic || "",
+                translation: existing.translation || "",
+                matchMode: existing.matchMode || "inherit"
+              }
+            : {}
+        );
       } else {
         const existingId = captureIdFromSelection();
         if (existingId) {
@@ -571,15 +587,28 @@
     return cachedWords.find((w) => normalizeWordKeyLocal(w.word) === key) || null;
   }
 
-  function captureIdFromSelection() {
-    const sel = window.getSelection();
-    if (!sel || !sel.anchorNode) return null;
-    const el =
-      sel.anchorNode.nodeType === Node.ELEMENT_NODE
-        ? sel.anchorNode
-        : sel.anchorNode.parentElement;
-    const h = el && el.closest && el.closest(".rc-highlight");
-    return h && h.dataset.rcId ? h.dataset.rcId : null;
+  function upsertCachedWord(record) {
+    if (!record || !record.id) return;
+    const idx = cachedWords.findIndex((w) => w.id === record.id);
+    if (idx >= 0) cachedWords[idx] = record;
+    else cachedWords.push(record);
+  }
+
+  async function fetchStoredWord(wordText, wordId) {
+    try {
+      if (wordId) {
+        const byId = await chrome.runtime.sendMessage({ type: "rc-get-word", id: wordId });
+        if (byId && byId.ok && byId.word) return byId.word;
+      }
+      if (wordText) {
+        const byKey = await chrome.runtime.sendMessage({
+          type: "rc-find-word",
+          word: wordText
+        });
+        if (byKey && byKey.ok && byKey.word) return byKey.word;
+      }
+    } catch (e) {}
+    return findCachedWord(wordText);
   }
 
   function showWordOverlay(wordText, opts = {}) {
@@ -588,31 +617,55 @@
     if (old) old.remove();
 
     const word = String(wordText || "").replace(/\s+/g, " ").trim();
-    const wordId = opts.wordId || null;
-    const initialNote = typeof opts.note === "string" ? opts.note : "";
-    const isEdit = !!wordId;
+    let wordId = opts.wordId || null;
+    let initialNote = typeof opts.note === "string" ? opts.note : "";
+    let initialPhonetic = typeof opts.phonetic === "string" ? opts.phonetic : "";
+    let initialTranslation = typeof opts.translation === "string" ? opts.translation : "";
+    let matchMode =
+      opts.matchMode === "exact" || opts.matchMode === "variant" ? opts.matchMode : "inherit";
+    let isEdit = !!wordId;
+    let lookupGen = 0;
 
     const overlay = document.createElement("div");
     overlay.id = "rc-overlay";
     const ctx = word
       ? `<div class="rc-ctx"><span class="rc-q">单词</span>${escapeHtml(word)}</div>`
       : "";
-    const deleteBtn = isEdit
-      ? `<button type="button" class="rc-delete">取消标记</button>`
-      : "";
 
     overlay.innerHTML = `
       <style>${STYLE}</style>
       <div class="rc-head">
-        <span>${isEdit ? "编辑单词" : "标记单词"}</span>
+        <span class="rc-head-title">${isEdit ? "编辑单词" : "标记单词"}</span>
         <button type="button" class="rc-close" title="关闭" aria-label="关闭">×</button>
       </div>
       ${ctx}
-      <textarea class="rc-input" rows="4"
-        placeholder="释义或备注……"></textarea>
+      <div class="rc-lookup" aria-live="polite">
+        <div class="rc-lookup-status">正在查询…</div>
+        <div class="rc-lookup-fields" hidden>
+          <label class="rc-field">
+            <span>音标</span>
+            <input type="text" class="rc-phonetic" placeholder="/ˈwɜːrd/" spellcheck="false">
+          </label>
+          <label class="rc-field">
+            <span>翻译</span>
+            <input type="text" class="rc-translation" placeholder="中文释义">
+          </label>
+        </div>
+        <div class="rc-lookup-error" hidden>
+          <span class="rc-lookup-error-text"></span>
+          <button type="button" class="rc-lookup-retry">重试</button>
+        </div>
+      </div>
+      <textarea class="rc-input" rows="3" placeholder="释义或备注……"></textarea>
+      <div class="rc-match" role="radiogroup" aria-label="匹配规则">
+        <span class="rc-match-label">匹配</span>
+        <label class="rc-match-opt"><input type="radio" name="rc-word-match" value="inherit" ${matchMode === "inherit" ? "checked" : ""}><span>跟随全局</span></label>
+        <label class="rc-match-opt"><input type="radio" name="rc-word-match" value="variant" ${matchMode === "variant" ? "checked" : ""}><span>变体</span></label>
+        <label class="rc-match-opt"><input type="radio" name="rc-word-match" value="exact" ${matchMode === "exact" ? "checked" : ""}><span>精准</span></label>
+      </div>
       <div class="rc-actions">
         <button type="button" class="rc-save">保存</button>
-        ${deleteBtn}
+        <button type="button" class="rc-delete" hidden>取消标记</button>
       </div>
       <div class="rc-toast">✓ 已标记</div>
     `;
@@ -622,12 +675,147 @@
     bindOverlayDrag(overlay);
     requestAnimationFrame(() => overlay.classList.add("rc-show"));
 
+    const headTitle = overlay.querySelector(".rc-head-title");
     const textarea = overlay.querySelector(".rc-input");
+    const phoneticEl = overlay.querySelector(".rc-phonetic");
+    const translationEl = overlay.querySelector(".rc-translation");
+    const statusEl = overlay.querySelector(".rc-lookup-status");
+    const fieldsEl = overlay.querySelector(".rc-lookup-fields");
+    const errorEl = overlay.querySelector(".rc-lookup-error");
+    const errorTextEl = overlay.querySelector(".rc-lookup-error-text");
+    const retryBtn = overlay.querySelector(".rc-lookup-retry");
+    const delBtn = overlay.querySelector(".rc-delete");
     const toast = overlay.querySelector(".rc-toast");
+
+    phoneticEl.value = initialPhonetic;
+    translationEl.value = initialTranslation;
     textarea.value = initialNote;
+    fieldsEl.hidden = false;
+    if (initialPhonetic.trim() && initialTranslation.trim()) {
+      statusEl.hidden = true;
+    }
+    if (isEdit) delBtn.hidden = false;
+
+    const snap = {
+      phonetic: initialPhonetic,
+      translation: initialTranslation,
+      note: initialNote
+    };
+
+    function setMatchModeUi(mode) {
+      const value = mode === "exact" || mode === "variant" ? mode : "inherit";
+      overlay.querySelectorAll('input[name="rc-word-match"]').forEach((el) => {
+        el.checked = el.value === value;
+      });
+      matchMode = value;
+    }
+
+    function applyStoredWord(stored) {
+      if (!stored) return;
+      wordId = stored.id || wordId;
+      isEdit = !!wordId;
+      if (headTitle) headTitle.textContent = isEdit ? "编辑单词" : "标记单词";
+      delBtn.hidden = !isEdit;
+      if (!phoneticEl.value.trim() && stored.phonetic) {
+        phoneticEl.value = stored.phonetic;
+        snap.phonetic = stored.phonetic;
+      }
+      if (!translationEl.value.trim() && stored.translation) {
+        translationEl.value = stored.translation;
+        snap.translation = stored.translation;
+      }
+      if (!textarea.value.trim() && stored.note) {
+        textarea.value = stored.note;
+        snap.note = stored.note;
+      }
+      if (stored.matchMode) setMatchModeUi(stored.matchMode);
+      upsertCachedWord(stored);
+    }
+
+    function selectedMatchMode() {
+      const checked = overlay.querySelector('input[name="rc-word-match"]:checked');
+      const v = checked && checked.value;
+      return v === "exact" || v === "variant" ? v : "inherit";
+    }
 
     function close() {
+      lookupGen += 1;
       overlay.remove();
+    }
+
+    function showLookupLoading() {
+      statusEl.hidden = false;
+      statusEl.textContent = "正在查询…";
+      errorEl.hidden = true;
+    }
+
+    function showLookupError(msg) {
+      statusEl.hidden = true;
+      errorEl.hidden = false;
+      errorTextEl.textContent = msg;
+    }
+
+    function showLookupIdle() {
+      statusEl.hidden = true;
+      errorEl.hidden = true;
+    }
+
+    function applyLookupResult(phonetic, translation) {
+      const ph = String(phonetic || "").trim();
+      const tr = String(translation || "").trim();
+      if (phoneticEl.value === snap.phonetic) {
+        phoneticEl.value = ph;
+        snap.phonetic = ph;
+      }
+      if (translationEl.value === snap.translation) {
+        translationEl.value = tr;
+        snap.translation = tr;
+      }
+      if (!textarea.value.trim() && tr) {
+        textarea.value = tr;
+        snap.note = tr;
+      }
+      showLookupIdle();
+    }
+
+    async function runLookup(lookupOpts = {}) {
+      if (!word) {
+        showLookupIdle();
+        return;
+      }
+      const force = !!lookupOpts.force;
+      if (!force && phoneticEl.value.trim() && translationEl.value.trim()) {
+        showLookupIdle();
+        return;
+      }
+      const gen = ++lookupGen;
+      showLookupLoading();
+      snap.phonetic = phoneticEl.value;
+      snap.translation = translationEl.value;
+      snap.note = textarea.value;
+      let res;
+      try {
+        res = await chrome.runtime.sendMessage({ type: "rc-lookup-word", word });
+      } catch (e) {
+        if (gen !== lookupGen) return;
+        showLookupError("查询失败，请重试");
+        return;
+      }
+      if (gen !== lookupGen) return;
+      if (chrome.runtime.lastError || !res || !res.ok) {
+        const code = res && res.code;
+        if (code === "need_key") {
+          showLookupError("请到设置 → 大模型 填写 API Key");
+        } else if (code === "auth") {
+          showLookupError("API Key 无效或无权限");
+        } else if (code === "network") {
+          showLookupError("网络错误，请重试");
+        } else {
+          showLookupError((res && res.error) || "查询失败，请重试");
+        }
+        return;
+      }
+      applyLookupResult(res.phonetic, res.translation);
     }
 
     async function removeWord() {
@@ -639,6 +827,7 @@
         setTimeout(() => toast.classList.remove("show"), 900);
         return;
       }
+      cachedWords = cachedWords.filter((w) => w.id !== wordId);
       toast.textContent = "✓ 已取消标记";
       toast.classList.add("show");
       scheduleWordReconcile(50);
@@ -651,18 +840,24 @@
         return;
       }
       const note = textarea.value.trim();
+      const phonetic = phoneticEl.value.trim();
+      const translation = translationEl.value.trim();
+      matchMode = selectedMatchMode();
       let res;
-      if (isEdit) {
+      if (isEdit && wordId) {
         res = await chrome.runtime.sendMessage({
           type: "rc-update-word",
           id: wordId,
-          patch: { note }
+          patch: { note, phonetic, translation, matchMode }
         });
       } else {
         res = await chrome.runtime.sendMessage({
           type: "rc-save-word",
           word,
           note,
+          phonetic,
+          translation,
+          matchMode,
           pageTitle: document.title,
           pageUrl: location.href
         });
@@ -673,17 +868,29 @@
         setTimeout(close, 900);
         return;
       }
+      if (res.word) upsertCachedWord(res.word);
       toast.textContent = isEdit ? "✓ 已更新" : "✓ 已标记";
       toast.classList.add("show");
       scheduleWordReconcile(80);
       setTimeout(close, 650);
     }
 
+    async function bootstrap() {
+      const stored = await fetchStoredWord(word, wordId);
+      if (stored) applyStoredWord(stored);
+      if (phoneticEl.value.trim() && translationEl.value.trim()) {
+        showLookupIdle();
+        return;
+      }
+      await runLookup();
+    }
+
     overlay.querySelector(".rc-save").addEventListener("click", save);
     overlay.querySelector(".rc-close").addEventListener("click", close);
-    const delBtn = overlay.querySelector(".rc-delete");
-    if (delBtn) delBtn.addEventListener("click", removeWord);
+    delBtn.addEventListener("click", removeWord);
+    retryBtn.addEventListener("click", () => runLookup({ force: true }));
     textarea.focus();
+    bootstrap();
   }
 
   async function showEditOverlay(captureId, anchorRect) {
@@ -1013,6 +1220,9 @@
         showWordOverlay(word, {
           wordId: existing && existing.id,
           note: (existing && existing.note) || wordEl.dataset.rcNote || "",
+          phonetic: (existing && existing.phonetic) || "",
+          translation: (existing && existing.translation) || "",
+          matchMode: (existing && existing.matchMode) || "inherit",
           anchorRect: wordEl.getBoundingClientRect()
         });
         return;
@@ -1038,9 +1248,33 @@
     }
   }
 
+  function tipTextForWordEl(wordEl) {
+    let phonetic = (wordEl.dataset.rcPhonetic || "").trim();
+    let note = (wordEl.dataset.rcNote || "").trim();
+    let translation = (wordEl.dataset.rcTranslation || "").trim();
+
+    if (!phonetic || (!note && !translation)) {
+      const wordId = wordEl.dataset.rcWordId || null;
+      const word = wordEl.dataset.rcWord || wordEl.textContent || "";
+      const existing = wordId
+        ? cachedWords.find((w) => w.id === wordId)
+        : findCachedWord(word);
+      if (existing) {
+        if (!phonetic) phonetic = (existing.phonetic || "").trim();
+        if (!note) note = (existing.note || "").trim();
+        if (!translation) translation = (existing.translation || "").trim();
+      }
+    }
+
+    const meaning = note || translation;
+    if (phonetic && meaning) return `${phonetic}\n${meaning}`;
+    if (phonetic) return phonetic;
+    return meaning;
+  }
+
   function showWordTip(wordEl) {
-    const note = (wordEl.dataset.rcNote || "").trim();
-    if (!note) {
+    const tip = tipTextForWordEl(wordEl);
+    if (!tip) {
       hideWordTip();
       return;
     }
@@ -1064,7 +1298,7 @@
       "opacity:0",
       "transition:opacity 0.12s ease"
     ].join(";");
-    el.textContent = note;
+    el.textContent = tip;
     document.documentElement.appendChild(el);
 
     const rect = wordEl.getBoundingClientRect();
@@ -1305,7 +1539,7 @@
     el.replaceWith(...el.childNodes);
   }
 
-  function wrapWordRange(node, start, end, id, word, note) {
+  function wrapWordRange(node, start, end, id, word, tip) {
     if (!node || !node.parentNode || start >= end) return;
     if (node.parentElement && node.parentElement.closest(".rc-highlight, .rc-word-highlight")) return;
 
@@ -1326,7 +1560,9 @@
     span.className = "rc-word-highlight";
     span.dataset.rcWordId = id;
     span.dataset.rcWord = word;
-    if (note) span.dataset.rcNote = note;
+    if (tip.note) span.dataset.rcNote = tip.note;
+    if (tip.translation) span.dataset.rcTranslation = tip.translation;
+    if (tip.phonetic) span.dataset.rcPhonetic = tip.phonetic;
     target.parentNode.replaceChild(span, target);
     span.appendChild(target);
   }
@@ -1366,7 +1602,7 @@
     if (!entry || !entry.word || !document.body) return 0;
     const word = entry.word;
     const latin = isLatinWord(word);
-    const mode = currentWordMatchMode();
+    const mode = resolveWordMatchMode(entry);
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
       acceptNode(node) {
         return acceptTextNode(node, true);
@@ -1394,7 +1630,11 @@
 
     for (const frag of sorted) {
       if (!frag.node || !frag.node.isConnected) continue;
-      wrapWordRange(frag.node, frag.start, frag.end, entry.id, word, entry.note || "");
+      wrapWordRange(frag.node, frag.start, frag.end, entry.id, word, {
+        note: entry.note || "",
+        translation: entry.translation || "",
+        phonetic: entry.phonetic || ""
+      });
     }
     return sorted.length;
   }

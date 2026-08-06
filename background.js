@@ -2,8 +2,10 @@ import {
   DEFAULT_SETTINGS,
   SETTINGS_KEY,
   mergeSettings,
-  normalizeSettings
+  normalizeSettings,
+  settingsForContent
 } from "./shared/settings.js";
+import { lookupWordWithLlm } from "./shared/llm.js";
 import {
   deleteCapture as dbDeleteCapture,
   deleteWord as dbDeleteWord,
@@ -15,6 +17,7 @@ import {
   getFavicon as dbGetFavicon,
   getScreenshot as dbGetScreenshot,
   getWord as dbGetWord,
+  findWordByNormalized as dbFindWordByNormalized,
   importAllData as dbImportAllData,
   migrateFromStorage,
   putFavicon as dbPutFavicon,
@@ -80,7 +83,10 @@ async function notifyWordsChanged() {
 }
 
 async function notifySettingsChanged(settings) {
-  await broadcastToContentTabs({ type: "rc-settings-changed", settings });
+  await broadcastToContentTabs({
+    type: "rc-settings-changed",
+    settings: settingsForContent(settings)
+  });
 }
 
 async function getSettings() {
@@ -101,6 +107,11 @@ async function resetSettings() {
   await chrome.storage.local.set({ [SETTINGS_KEY]: next });
   await notifySettingsChanged(next);
   return next;
+}
+
+async function lookupWord(word) {
+  const settings = await getSettings();
+  return lookupWordWithLlm(word, settings);
 }
 
 async function saveWord(payload) {
@@ -605,6 +616,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     saveWord({
       word: msg.word,
       note: msg.note,
+      phonetic: msg.phonetic,
+      translation: msg.translation,
+      matchMode: msg.matchMode,
       pageTitle: msg.pageTitle,
       pageUrl: msg.pageUrl
     })
@@ -643,10 +657,49 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true;
   }
 
+  if (msg.type === "rc-find-word") {
+    ensureMigrated()
+      .then(() => dbFindWordByNormalized(msg.word))
+      .then((word) => sendResponse({ ok: true, word: word || null }))
+      .catch((e) => sendResponse({ ok: false, word: null, error: String(e) }));
+    return true;
+  }
+
   if (msg.type === "rc-get-settings") {
     getSettings()
-      .then((settings) => sendResponse({ ok: true, settings }))
-      .catch((e) => sendResponse({ ok: false, settings: DEFAULT_SETTINGS, error: String(e) }));
+      .then((settings) => {
+        const keepKey = msg.forContent === false || msg.source === "review";
+        sendResponse({
+          ok: true,
+          settings: keepKey ? settings : settingsForContent(settings)
+        });
+      })
+      .catch((e) =>
+        sendResponse({
+          ok: false,
+          settings: settingsForContent(DEFAULT_SETTINGS),
+          error: String(e)
+        })
+      );
+    return true;
+  }
+
+  if (msg.type === "rc-lookup-word") {
+    lookupWord(msg.word)
+      .then((result) =>
+        sendResponse({
+          ok: true,
+          phonetic: result.phonetic,
+          translation: result.translation
+        })
+      )
+      .catch((e) =>
+        sendResponse({
+          ok: false,
+          error: String(e && e.message ? e.message : e),
+          code: (e && e.code) || "error"
+        })
+      );
     return true;
   }
 

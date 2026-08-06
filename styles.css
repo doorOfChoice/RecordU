@@ -484,7 +484,43 @@ body.review-page {
 }
 
 .rv-settings {
-  max-width: 520px;
+  max-width: 560px;
+}
+
+.rv-settings-tabs {
+  display: flex;
+  gap: 4px;
+  margin: 0 0 28px;
+  padding: 0;
+  border-bottom: 1px solid var(--rv-line);
+}
+
+.rv-settings-tab {
+  appearance: none;
+  border: none;
+  background: transparent;
+  padding: 8px 14px 10px;
+  margin: 0 0 -1px;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  color: var(--rv-thin);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  font-family: inherit;
+}
+
+.rv-settings-tab:hover {
+  color: var(--rv-ink);
+}
+
+.rv-settings-tab.is-on {
+  color: var(--rv-ink);
+  border-bottom-color: var(--rv-ink);
+  font-weight: 500;
+}
+
+.rv-settings-panel[hidden] {
+  display: none;
 }
 
 .rv-settings-section {
@@ -507,12 +543,30 @@ body.review-page {
   margin: 0 0 22px;
 }
 
+.rv-settings-desc code {
+  font-size: 12px;
+  padding: 1px 5px;
+  border-radius: 2px;
+  background: rgba(26, 26, 26, 0.06);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
 .rv-settings-row {
   display: flex;
   align-items: center;
   gap: 16px;
   margin-bottom: 16px;
   flex-wrap: wrap;
+}
+
+.rv-settings-row-stack {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.rv-settings-row-stack .rv-settings-label {
+  flex: none;
 }
 
 .rv-settings-label {
@@ -552,6 +606,50 @@ body.review-page {
 }
 
 .rv-settings-hex:focus {
+  outline: none;
+  border-color: var(--rv-ink);
+}
+
+.rv-settings-text,
+.rv-settings-select {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--rv-line);
+  border-radius: 2px;
+  padding: 8px 10px;
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--rv-ink);
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.rv-settings-text-sm {
+  max-width: 240px;
+}
+
+.rv-settings-text:focus,
+.rv-settings-select:focus {
+  outline: none;
+  border-color: var(--rv-ink);
+}
+
+.rv-settings-prompt {
+  display: block;
+  width: 100%;
+  border: 1px solid var(--rv-line);
+  border-radius: 2px;
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.55;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: var(--rv-ink);
+  background: rgba(255, 255, 255, 0.45);
+  resize: vertical;
+  min-height: 160px;
+  box-sizing: border-box;
+}
+
+.rv-settings-prompt:focus {
   outline: none;
   border-color: var(--rv-ink);
 }
@@ -650,6 +748,10 @@ body.review-page {
   flex-wrap: wrap;
 }
 
+.rv-settings-actions-tight {
+  margin-top: 10px;
+}
+
 .rv-settings-actions .btn:disabled {
   opacity: 0.55;
   cursor: not-allowed;
@@ -665,6 +767,67 @@ body.review-page {
   border-top: 1px solid var(--rv-line);
   padding-top: 28px;
   margin-top: 8px;
+}
+
+.rc-modal-edit-word {
+  width: min(440px, calc(100vw - 32px));
+}
+
+.rc-modal-field {
+  margin: 0 0 12px;
+}
+
+.rc-modal-field label {
+  display: block;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--rv-thin);
+  margin: 0 0 6px;
+}
+
+.rc-modal-field input,
+.rc-modal-field textarea,
+.rc-modal-field select {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--rv-line);
+  border-radius: 2px;
+  padding: 8px 10px;
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--rv-ink);
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.rc-modal-field textarea {
+  min-height: 72px;
+  resize: vertical;
+  line-height: 1.55;
+}
+
+.rc-modal-field input:focus,
+.rc-modal-field textarea:focus,
+.rc-modal-field select:focus {
+  outline: none;
+  border-color: var(--rv-ink);
+}
+
+.rv-word-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 6px;
+  font-size: 12px;
+  color: var(--rv-thin);
+}
+
+.rv-word-phonetic {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  letter-spacing: 0.02em;
+}
+
+.rv-word-match-tag {
+  letter-spacing: 0.04em;
 }
 
 .rv-content {

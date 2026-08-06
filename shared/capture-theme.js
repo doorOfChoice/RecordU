@@ -225,12 +225,105 @@
       color: ${ink};
       background: rgba(255, 255, 255, 0.45);
       resize: vertical;
-      min-height: 120px;
+      min-height: 88px;
       outline: none;
       transition: border-color 0.15s;
     }
     #rc-overlay textarea.rc-input:focus {
       border-color: ${ink};
+    }
+    #rc-overlay .rc-lookup {
+      margin: 10px 14px 0;
+    }
+    #rc-overlay .rc-lookup-status {
+      font-size: 12px;
+      letter-spacing: 0.06em;
+      color: ${thin};
+      padding: 4px 0;
+    }
+    #rc-overlay .rc-lookup-fields {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    #rc-overlay .rc-field {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin: 0;
+    }
+    #rc-overlay .rc-field > span {
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      color: ${thin};
+    }
+    #rc-overlay .rc-field input {
+      width: 100%;
+      border: 1px solid ${line};
+      border-radius: 2px;
+      padding: 8px 10px;
+      font-size: 13px;
+      font-family: ${sans};
+      color: ${ink};
+      background: rgba(255, 255, 255, 0.45);
+      outline: none;
+    }
+    #rc-overlay .rc-field input:focus {
+      border-color: ${ink};
+    }
+    #rc-overlay .rc-lookup-error {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      font-size: 12px;
+      color: ${sumi};
+      padding: 4px 0;
+    }
+    #rc-overlay .rc-lookup-retry {
+      border: 1px solid ${line};
+      background: transparent;
+      color: ${ink};
+      border-radius: 2px;
+      padding: 3px 8px;
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    #rc-overlay .rc-lookup-retry:hover {
+      border-color: ${ink};
+    }
+    #rc-overlay .rc-match {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+      margin: 10px 14px 0;
+      font-size: 11px;
+      color: ${sumi};
+    }
+    #rc-overlay .rc-match-label {
+      letter-spacing: 0.08em;
+      color: ${thin};
+      margin-right: 2px;
+    }
+    #rc-overlay .rc-match-opt {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 8px;
+      border: 1px solid ${line};
+      border-radius: 2px;
+      cursor: pointer;
+      user-select: none;
+    }
+    #rc-overlay .rc-match-opt:has(input:checked) {
+      border-color: ${ink};
+      color: ${ink};
+    }
+    #rc-overlay .rc-match-opt input {
+      margin: 0;
     }
     #rc-overlay .rc-actions {
       display: flex;

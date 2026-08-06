@@ -10,6 +10,9 @@ export const state = {
   /** Capture layout when mode is queue: timeline list vs by-site. */
   /** @type {"queue"|"site"} */
   captureView: "queue",
+  /** Settings sub-tab when mode is settings. */
+  /** @type {"general"|"llm"} */
+  settingsTab: "general",
   /** @type {"week"|"earlier"|"all"} */
   dateRange: "week",
   focusIndex: 0

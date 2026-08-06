@@ -224,6 +224,11 @@ export async function getAllFavicons() {
   return all || [];
 }
 
+function normalizeEntryMatchMode(value) {
+  if (value === "exact" || value === "variant") return value;
+  return "inherit";
+}
+
 function normalizeWordRecord(input) {
   const word = String(input.word || "").replace(/\s+/g, " ").trim();
   const wordKey = input.wordKey || normalizeWordKey(word);
@@ -232,6 +237,9 @@ function normalizeWordRecord(input) {
     word,
     wordKey,
     note: typeof input.note === "string" ? input.note : "",
+    phonetic: typeof input.phonetic === "string" ? input.phonetic : "",
+    translation: typeof input.translation === "string" ? input.translation : "",
+    matchMode: normalizeEntryMatchMode(input.matchMode),
     pageTitle: input.pageTitle || "",
     pageUrl: input.pageUrl || "",
     createdAt: input.createdAt || Date.now()
@@ -243,7 +251,7 @@ export async function getAllWords() {
   const tx = db.transaction("words", "readonly");
   const all = await reqToPromise(tx.objectStore("words").getAll());
   await txDone(tx);
-  return all || [];
+  return (all || []).map((row) => normalizeWordRecord(row));
 }
 
 export async function getWord(id) {
@@ -252,7 +260,7 @@ export async function getWord(id) {
   const tx = db.transaction("words", "readonly");
   const row = await reqToPromise(tx.objectStore("words").get(id));
   await txDone(tx);
-  return row || null;
+  return row ? normalizeWordRecord(row) : null;
 }
 
 export async function findWordByNormalized(wordOrKey) {
@@ -262,7 +270,7 @@ export async function findWordByNormalized(wordOrKey) {
   const tx = db.transaction("words", "readonly");
   const row = await reqToPromise(tx.objectStore("words").index("by_word").get(key));
   await txDone(tx);
-  return row || null;
+  return row ? normalizeWordRecord(row) : null;
 }
 
 /** Insert or update by normalized word key (dedupe). */
@@ -277,6 +285,20 @@ export async function saveWord(input) {
     word,
     wordKey,
     note: input.note != null ? input.note : existing ? existing.note : "",
+    phonetic:
+      input.phonetic != null ? input.phonetic : existing ? existing.phonetic : "",
+    translation:
+      input.translation != null
+        ? input.translation
+        : existing
+          ? existing.translation
+          : "",
+    matchMode:
+      input.matchMode != null
+        ? input.matchMode
+        : existing
+          ? existing.matchMode
+          : "inherit",
     pageTitle: input.pageTitle != null ? input.pageTitle : existing ? existing.pageTitle : "",
     pageUrl: input.pageUrl != null ? input.pageUrl : existing ? existing.pageUrl : "",
     createdAt: existing ? existing.createdAt : input.createdAt
@@ -297,11 +319,18 @@ export async function updateWord(id, patch) {
     next.wordKey = normalizeWordKey(next.word);
   }
   if ("note" in patch) next.note = typeof patch.note === "string" ? patch.note : "";
+  if ("phonetic" in patch) {
+    next.phonetic = typeof patch.phonetic === "string" ? patch.phonetic : "";
+  }
+  if ("translation" in patch) {
+    next.translation = typeof patch.translation === "string" ? patch.translation : "";
+  }
+  if ("matchMode" in patch) next.matchMode = normalizeEntryMatchMode(patch.matchMode);
   const db = await openDB();
   const tx = db.transaction("words", "readwrite");
-  tx.objectStore("words").put(next);
+  tx.objectStore("words").put(normalizeWordRecord(next));
   await txDone(tx);
-  return next;
+  return normalizeWordRecord(next);
 }
 
 export async function deleteWord(id) {

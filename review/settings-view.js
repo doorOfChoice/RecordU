@@ -1,5 +1,11 @@
 import { escapeHtml } from "../shared/dom.js";
-import { DEFAULT_SETTINGS } from "../shared/settings.js";
+import {
+  DEFAULT_LLM_LOOKUP_PROMPT,
+  DEFAULT_SETTINGS,
+  generalSettingsDefaults,
+  llmSettingsDefaults
+} from "../shared/settings.js";
+import { state } from "./state.js";
 
 const PRESETS = [
   { id: "washi", label: "和紙", idea: "#c4a35a", word: "#3d5a80" },
@@ -15,7 +21,6 @@ const PRESETS = [
  * @param {HTMLElement} opts.emptyEl
  * @param {object} opts.settings
  * @param {(patch: object) => Promise<object|null>} opts.onSave
- * @param {() => Promise<object|null>} opts.onReset
  * @param {(onProgress: (msg: string) => void) => Promise<void>} [opts.onBackup]
  * @param {(file: File, onProgress: (msg: string) => void) => Promise<{cancelled?: boolean}|void>} [opts.onRestore]
  * @param {() => Promise<void>} [opts.onAfterRestore]
@@ -26,7 +31,6 @@ export function renderSettings({
   emptyEl,
   settings,
   onSave,
-  onReset,
   onBackup,
   onRestore,
   onAfterRestore
@@ -35,95 +39,189 @@ export function renderSettings({
   emptyEl.classList.add("hidden");
   root.classList.remove("hidden");
 
+  const tab = state.settingsTab === "llm" ? "llm" : "general";
   const idea = settings.ideaHighlightColor || DEFAULT_SETTINGS.ideaHighlightColor;
   const word = settings.wordHighlightColor || DEFAULT_SETTINGS.wordHighlightColor;
   const matchMode =
     settings.wordMatchMode === "exact" ? "exact" : DEFAULT_SETTINGS.wordMatchMode;
+  const llmProvider = settings.llmProvider || DEFAULT_SETTINGS.llmProvider;
+  const llmModel = settings.llmModel || DEFAULT_SETTINGS.llmModel;
+  const llmBaseUrl = settings.llmBaseUrl || DEFAULT_SETTINGS.llmBaseUrl;
+  const llmApiKey = typeof settings.llmApiKey === "string" ? settings.llmApiKey : "";
+  const llmLookupPrompt =
+    typeof settings.llmLookupPrompt === "string" && settings.llmLookupPrompt.trim()
+      ? settings.llmLookupPrompt
+      : DEFAULT_LLM_LOOKUP_PROMPT;
 
   root.innerHTML = `
     <div class="rv-settings">
-      <section class="rv-settings-section">
-        <h2 class="rv-settings-title">高亮颜色</h2>
-        <p class="rv-settings-desc">感触与单词在网页上的高亮底色。保存后立即对所有标签页生效。</p>
+      <nav class="rv-settings-tabs" role="tablist" aria-label="设置分类">
+        <button type="button" class="rv-settings-tab${tab === "general" ? " is-on" : ""}" data-stab="general" role="tab" aria-selected="${tab === "general"}">通用</button>
+        <button type="button" class="rv-settings-tab${tab === "llm" ? " is-on" : ""}" data-stab="llm" role="tab" aria-selected="${tab === "llm"}">大模型</button>
+      </nav>
 
-        <div class="rv-settings-row">
-          <label class="rv-settings-label" for="rv-set-idea">感触高亮</label>
-          <div class="rv-settings-color">
-            <input type="color" id="rv-set-idea" value="${escapeHtml(idea)}" aria-label="感触高亮色">
-            <input type="text" id="rv-set-idea-hex" class="rv-settings-hex" value="${escapeHtml(idea)}" maxlength="7" spellcheck="false">
-            <span class="rv-settings-swatch rv-settings-swatch-idea" style="--swatch:${escapeHtml(idea)}" aria-hidden="true">示例</span>
+      <div class="rv-settings-panel" data-spanel="general" ${tab === "general" ? "" : "hidden"}>
+        <section class="rv-settings-section">
+          <h2 class="rv-settings-title">高亮颜色</h2>
+          <p class="rv-settings-desc">感触与单词在网页上的高亮底色。保存后立即对所有标签页生效。</p>
+
+          <div class="rv-settings-row">
+            <label class="rv-settings-label" for="rv-set-idea">感触高亮</label>
+            <div class="rv-settings-color">
+              <input type="color" id="rv-set-idea" value="${escapeHtml(idea)}" aria-label="感触高亮色">
+              <input type="text" id="rv-set-idea-hex" class="rv-settings-hex" value="${escapeHtml(idea)}" maxlength="7" spellcheck="false">
+              <span class="rv-settings-swatch rv-settings-swatch-idea" style="--swatch:${escapeHtml(idea)}" aria-hidden="true">示例</span>
+            </div>
           </div>
-        </div>
 
-        <div class="rv-settings-row">
-          <label class="rv-settings-label" for="rv-set-word">单词高亮</label>
-          <div class="rv-settings-color">
-            <input type="color" id="rv-set-word" value="${escapeHtml(word)}" aria-label="单词高亮色">
-            <input type="text" id="rv-set-word-hex" class="rv-settings-hex" value="${escapeHtml(word)}" maxlength="7" spellcheck="false">
-            <span class="rv-settings-swatch rv-settings-swatch-word" style="--swatch:${escapeHtml(word)}" aria-hidden="true">示例</span>
+          <div class="rv-settings-row">
+            <label class="rv-settings-label" for="rv-set-word">单词高亮</label>
+            <div class="rv-settings-color">
+              <input type="color" id="rv-set-word" value="${escapeHtml(word)}" aria-label="单词高亮色">
+              <input type="text" id="rv-set-word-hex" class="rv-settings-hex" value="${escapeHtml(word)}" maxlength="7" spellcheck="false">
+              <span class="rv-settings-swatch rv-settings-swatch-word" style="--swatch:${escapeHtml(word)}" aria-hidden="true">示例</span>
+            </div>
           </div>
-        </div>
 
-        <div class="rv-settings-presets" role="group" aria-label="预设配色">
-          ${PRESETS.map(
-            (p) => `
-            <button type="button" class="rv-settings-preset" data-idea="${escapeHtml(p.idea)}" data-word="${escapeHtml(p.word)}">
-              <span class="rv-settings-preset-dots">
-                <i style="background:${escapeHtml(p.idea)}"></i>
-                <i style="background:${escapeHtml(p.word)}"></i>
-              </span>
-              ${escapeHtml(p.label)}
-            </button>`
-          ).join("")}
-        </div>
-      </section>
+          <div class="rv-settings-presets" role="group" aria-label="预设配色">
+            ${PRESETS.map(
+              (p) => `
+              <button type="button" class="rv-settings-preset" data-idea="${escapeHtml(p.idea)}" data-word="${escapeHtml(p.word)}">
+                <span class="rv-settings-preset-dots">
+                  <i style="background:${escapeHtml(p.idea)}"></i>
+                  <i style="background:${escapeHtml(p.word)}"></i>
+                </span>
+                ${escapeHtml(p.label)}
+              </button>`
+            ).join("")}
+          </div>
+        </section>
 
-      <section class="rv-settings-section">
-        <h2 class="rv-settings-title">单词匹配</h2>
-        <p class="rv-settings-desc">变体匹配会高亮常见英语词形（如 overwhelm ↔ overwhelmed）；精准匹配仅高亮与标记完全相同的词。</p>
-        <div class="rv-settings-modes" role="radiogroup" aria-label="单词匹配模式">
-          <label class="rv-settings-mode">
-            <input type="radio" name="rv-word-match" value="variant" ${matchMode === "variant" ? "checked" : ""}>
-            <span>变体匹配</span>
-          </label>
-          <label class="rv-settings-mode">
-            <input type="radio" name="rv-word-match" value="exact" ${matchMode === "exact" ? "checked" : ""}>
-            <span>精准匹配</span>
-          </label>
-        </div>
-      </section>
+        <section class="rv-settings-section">
+          <h2 class="rv-settings-title">单词匹配</h2>
+          <p class="rv-settings-desc">全局默认规则。变体匹配会高亮常见英语词形（如 overwhelm ↔ overwhelmed）；精准匹配仅高亮与标记完全相同的词。标记单词时可覆盖为单词级规则（优先级高于此处）。</p>
+          <div class="rv-settings-modes" role="radiogroup" aria-label="单词匹配模式">
+            <label class="rv-settings-mode">
+              <input type="radio" name="rv-word-match" value="variant" ${matchMode === "variant" ? "checked" : ""}>
+              <span>变体匹配</span>
+            </label>
+            <label class="rv-settings-mode">
+              <input type="radio" name="rv-word-match" value="exact" ${matchMode === "exact" ? "checked" : ""}>
+              <span>精准匹配</span>
+            </label>
+          </div>
+        </section>
 
-      <section class="rv-settings-section">
-        <div class="rv-settings-actions">
-          <button type="button" class="btn btn-primary" id="rv-set-save">保存</button>
-          <button type="button" class="btn" id="rv-set-reset">恢复默认</button>
-          <span class="rv-settings-toast" id="rv-set-toast" hidden></span>
-        </div>
-      </section>
+        <section class="rv-settings-section">
+          <div class="rv-settings-actions">
+            <button type="button" class="btn btn-primary" id="rv-set-save-general">保存</button>
+            <button type="button" class="btn" id="rv-set-reset-general">恢复默认</button>
+            <span class="rv-settings-toast" id="rv-set-toast-general" hidden></span>
+          </div>
+        </section>
 
-      <section class="rv-settings-section">
-        <h2 class="rv-settings-title">数据备份</h2>
-        <p class="rv-settings-desc">
-          卸载扩展或清除站点数据会丢掉本地记录；同一扩展 ID 下重新加载通常不会。
-          定期下载 ZIP 备份（含感触、截图、单词与设置）。恢复将清空当前本地数据并以备份为准。
-        </p>
-        <div class="rv-settings-actions">
-          <button type="button" class="btn btn-primary" id="rv-set-backup">下载备份</button>
-          <button type="button" class="btn" id="rv-set-restore">从备份恢复</button>
-          <input type="file" id="rv-set-restore-file" accept=".zip,application/zip" hidden>
-          <span class="rv-settings-toast" id="rv-set-backup-toast" hidden></span>
-        </div>
-      </section>
+        <section class="rv-settings-section">
+          <h2 class="rv-settings-title">数据备份</h2>
+          <p class="rv-settings-desc">
+            卸载扩展或清除站点数据会丢掉本地记录；同一扩展 ID 下重新加载通常不会。
+            定期下载 ZIP 备份（含感触、截图、单词与设置）。恢复将清空当前本地数据并以备份为准。
+          </p>
+          <div class="rv-settings-actions">
+            <button type="button" class="btn btn-primary" id="rv-set-backup">下载备份</button>
+            <button type="button" class="btn" id="rv-set-restore">从备份恢复</button>
+            <input type="file" id="rv-set-restore-file" accept=".zip,application/zip" hidden>
+            <span class="rv-settings-toast" id="rv-set-backup-toast" hidden></span>
+          </div>
+        </section>
+      </div>
+
+      <div class="rv-settings-panel" data-spanel="llm" ${tab === "llm" ? "" : "hidden"}>
+        <section class="rv-settings-section">
+          <h2 class="rv-settings-title">大模型配置</h2>
+          <p class="rv-settings-desc">用于划词标记时自动查询音标与中文释义。API Key 仅保存在本机，不会上传到 RecordU 服务器。</p>
+
+          <div class="rv-settings-row">
+            <label class="rv-settings-label" for="rv-set-llm-provider">Provider</label>
+            <select id="rv-set-llm-provider" class="rv-settings-select">
+              <option value="deepseek" ${llmProvider === "deepseek" ? "selected" : ""}>DeepSeek</option>
+            </select>
+          </div>
+
+          <div class="rv-settings-row rv-settings-row-stack">
+            <label class="rv-settings-label" for="rv-set-llm-base">Base URL</label>
+            <input type="url" id="rv-set-llm-base" class="rv-settings-text" value="${escapeHtml(llmBaseUrl)}" spellcheck="false" placeholder="https://api.deepseek.com">
+          </div>
+
+          <div class="rv-settings-row">
+            <label class="rv-settings-label" for="rv-set-llm-model">Model</label>
+            <input type="text" id="rv-set-llm-model" class="rv-settings-text rv-settings-text-sm" value="${escapeHtml(llmModel)}" spellcheck="false" placeholder="deepseek-chat">
+          </div>
+
+          <div class="rv-settings-row rv-settings-row-stack">
+            <label class="rv-settings-label" for="rv-set-llm-key">API Key</label>
+            <input type="password" id="rv-set-llm-key" class="rv-settings-text" value="${escapeHtml(llmApiKey)}" spellcheck="false" autocomplete="off" placeholder="sk-…">
+          </div>
+        </section>
+
+        <section class="rv-settings-section">
+          <h2 class="rv-settings-title">翻译提示词</h2>
+          <p class="rv-settings-desc">须包含 <code>{{word}}</code> 占位符；模型应返回 JSON：<code>{"phonetic":"…","translation":"…"}</code>。</p>
+          <textarea id="rv-set-llm-prompt" class="rv-settings-prompt" rows="10" spellcheck="false">${escapeHtml(llmLookupPrompt)}</textarea>
+          <div class="rv-settings-actions rv-settings-actions-tight">
+            <button type="button" class="btn" id="rv-set-prompt-reset">恢复默认提示词</button>
+          </div>
+        </section>
+
+        <section class="rv-settings-section">
+          <div class="rv-settings-actions">
+            <button type="button" class="btn btn-primary" id="rv-set-save-llm">保存</button>
+            <button type="button" class="btn" id="rv-set-reset-llm">恢复默认</button>
+            <span class="rv-settings-toast" id="rv-set-toast-llm" hidden></span>
+          </div>
+        </section>
+      </div>
     </div>
   `;
 
+  root.querySelectorAll("[data-stab]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const next = btn.dataset.stab === "llm" ? "llm" : "general";
+      if (next === state.settingsTab) return;
+      state.settingsTab = next;
+      renderSettings({
+        root,
+        progressEl,
+        emptyEl,
+        settings,
+        onSave,
+        onBackup,
+        onRestore,
+        onAfterRestore
+      });
+    });
+  });
+
+  if (tab === "general") {
+    bindGeneralPanel({
+      root,
+      onSave,
+      onBackup,
+      onRestore,
+      onAfterRestore
+    });
+  } else {
+    bindLlmPanel({ root, onSave });
+  }
+}
+
+function bindGeneralPanel({ root, onSave, onBackup, onRestore, onAfterRestore }) {
   const ideaColor = root.querySelector("#rv-set-idea");
   const ideaHex = root.querySelector("#rv-set-idea-hex");
   const wordColor = root.querySelector("#rv-set-word");
   const wordHex = root.querySelector("#rv-set-word-hex");
   const ideaSwatch = root.querySelector(".rv-settings-swatch-idea");
   const wordSwatch = root.querySelector(".rv-settings-swatch-word");
-  const toast = root.querySelector("#rv-set-toast");
+  const toast = root.querySelector("#rv-set-toast-general");
   const backupToast = root.querySelector("#rv-set-backup-toast");
   const backupBtn = root.querySelector("#rv-set-backup");
   const restoreBtn = root.querySelector("#rv-set-restore");
@@ -148,18 +246,16 @@ export function renderSettings({
     syncSwatches();
   }
 
-  function showToast(el, msg) {
-    el.hidden = false;
-    el.textContent = msg;
-    clearTimeout(el._toastT);
-    el._toastT = setTimeout(() => {
-      el.hidden = true;
-    }, 2200);
+  function selectedMatchMode() {
+    const checked = root.querySelector('input[name="rv-word-match"]:checked');
+    return checked && checked.value === "exact" ? "exact" : "variant";
   }
 
-  function setBusy(busy) {
-    backupBtn.disabled = busy;
-    restoreBtn.disabled = busy;
+  function setMatchMode(mode) {
+    const value = mode === "exact" ? "exact" : "variant";
+    root.querySelectorAll('input[name="rv-word-match"]').forEach((el) => {
+      el.checked = el.value === value;
+    });
   }
 
   ideaColor.addEventListener("input", () => {
@@ -180,19 +276,7 @@ export function renderSettings({
     });
   });
 
-  function selectedMatchMode() {
-    const checked = root.querySelector('input[name="rv-word-match"]:checked');
-    return checked && checked.value === "exact" ? "exact" : "variant";
-  }
-
-  function setMatchMode(mode) {
-    const value = mode === "exact" ? "exact" : "variant";
-    root.querySelectorAll('input[name="rv-word-match"]').forEach((el) => {
-      el.checked = el.value === value;
-    });
-  }
-
-  root.querySelector("#rv-set-save").addEventListener("click", async () => {
+  root.querySelector("#rv-set-save-general").addEventListener("click", async () => {
     const next = await onSave({
       ideaHighlightColor: ideaColor.value,
       wordHighlightColor: wordColor.value,
@@ -208,8 +292,8 @@ export function renderSettings({
     }
   });
 
-  root.querySelector("#rv-set-reset").addEventListener("click", async () => {
-    const next = await onReset();
+  root.querySelector("#rv-set-reset-general").addEventListener("click", async () => {
+    const next = await onSave(generalSettingsDefaults());
     if (next) {
       setIdea(next.ideaHighlightColor);
       setWord(next.wordHighlightColor);
@@ -217,6 +301,11 @@ export function renderSettings({
       showToast(toast, "✓ 已恢复默认");
     }
   });
+
+  function setBusy(busy) {
+    backupBtn.disabled = busy;
+    restoreBtn.disabled = busy;
+  }
 
   backupBtn.addEventListener("click", async () => {
     if (!onBackup) return;
@@ -266,6 +355,66 @@ export function renderSettings({
       restoreFile.value = "";
     }
   });
+}
+
+function bindLlmPanel({ root, onSave }) {
+  const provider = root.querySelector("#rv-set-llm-provider");
+  const baseUrl = root.querySelector("#rv-set-llm-base");
+  const model = root.querySelector("#rv-set-llm-model");
+  const apiKey = root.querySelector("#rv-set-llm-key");
+  const prompt = root.querySelector("#rv-set-llm-prompt");
+  const toast = root.querySelector("#rv-set-toast-llm");
+
+  function applyLlmFields(s) {
+    if (!s) return;
+    provider.value = s.llmProvider || DEFAULT_SETTINGS.llmProvider;
+    baseUrl.value = s.llmBaseUrl || DEFAULT_SETTINGS.llmBaseUrl;
+    model.value = s.llmModel || DEFAULT_SETTINGS.llmModel;
+    apiKey.value = typeof s.llmApiKey === "string" ? s.llmApiKey : "";
+    prompt.value =
+      typeof s.llmLookupPrompt === "string" && s.llmLookupPrompt.trim()
+        ? s.llmLookupPrompt
+        : DEFAULT_LLM_LOOKUP_PROMPT;
+  }
+
+  root.querySelector("#rv-set-prompt-reset").addEventListener("click", () => {
+    prompt.value = DEFAULT_LLM_LOOKUP_PROMPT;
+    showToast(toast, "已填入默认提示词（未保存）");
+  });
+
+  root.querySelector("#rv-set-save-llm").addEventListener("click", async () => {
+    const next = await onSave({
+      llmProvider: provider.value,
+      llmBaseUrl: baseUrl.value.trim(),
+      llmModel: model.value.trim(),
+      llmApiKey: apiKey.value,
+      llmLookupPrompt: prompt.value
+    });
+    if (next) {
+      applyLlmFields(next);
+      showToast(toast, "✓ 已保存");
+    } else {
+      showToast(toast, "保存失败");
+    }
+  });
+
+  root.querySelector("#rv-set-reset-llm").addEventListener("click", async () => {
+    const next = await onSave(llmSettingsDefaults());
+    if (next) {
+      applyLlmFields(next);
+      showToast(toast, "✓ 已恢复默认");
+    }
+  });
+}
+
+function showToast(el, msg) {
+  if (!el) return;
+  el.hidden = false;
+  el.textContent = msg;
+  clearTimeout(el._toastT);
+  el._toastT = setTimeout(() => {
+    el.hidden = true;
+  }, 2200);
 }
 
 function normalizeLocalHex(value) {
