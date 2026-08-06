@@ -1220,8 +1220,9 @@
     return /^[A-Za-z0-9][A-Za-z0-9'\-]*$/.test(word);
   }
 
+  /** Keep in sync with isLatinWord: hyphen/apostrophe stay inside one token (e.g. high-profile, don't). */
   function isWordChar(ch) {
-    return /[A-Za-z0-9]/.test(ch);
+    return /[A-Za-z0-9'\-]/.test(ch);
   }
 
   /** Longest-first English suffixes for stem derivation. */
