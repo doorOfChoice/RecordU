@@ -183,7 +183,7 @@ export async function gradeBlankAnswersWithLlm(blanks, promptLang, settings) {
   );
   if (!list.length) return {};
 
-  const lang = promptLang === "zh" ? "zh" : "en";
+  void promptLang;
   const payload = list.map((b) => ({
     id: b.id,
     prompt: String(b.prompt || ""),
@@ -195,9 +195,9 @@ export async function gradeBlankAnswersWithLlm(blanks, promptLang, settings) {
 
 规则：
 1. 只输出一个 JSON 对象：{"results":[{"id":"...","correct":true}]}
-2. 语义正确、同义/近义、词形轻微差异、大小写/空格差异可判 correct=true。
-3. 完全无关、反义、漏掉关键词义则 correct=false。
-4. 出题方向为 ${lang}（en=题干英文答中文；zh=题干中文答英文）；按该方向理解 expected 与 userAnswer。
+2. 以 expected 为准：英文词/短语允许合理词形变化、大小写与空格差异；中文允许同义/近义与轻微措辞差异。
+3. 语义正确可判 correct=true；完全无关、反义、漏掉关键词义则 correct=false。
+4. 不要根据题干语言硬性规定「必须答中文」或「必须答英文」——看 expected 与 userAnswer 是否等价。
 5. results 必须覆盖下列每一道题的 id，不要增加其它字段说明。
 
 题目：

@@ -282,7 +282,7 @@ function renderLlmPanel(settings) {
 
     <div class="rv-settings-field">
       <label class="rv-settings-label" for="rv-set-llm-quiz-prompt">出题提示词</label>
-      <p class="rv-settings-desc rv-settings-desc-tight">须含 <code>{{words}}</code>（词表 JSON）与 <code>{{promptLang}}</code>（en / zh）；返回约定题型 JSON。</p>
+      <p class="rv-settings-desc rv-settings-desc-tight">须含 <code>{{words}}</code>（词表 JSON，可含 note / context）与 <code>{{promptLang}}</code>（en / zh）；返回约定题型 JSON。清空或点「恢复默认」可换用新的语境/辨析出题默认。</p>
       <textarea id="rv-set-llm-quiz-prompt" class="rv-settings-prompt" rows="12" spellcheck="false">${escapeHtml(llmQuizPrompt)}</textarea>
       <div class="rv-settings-actions rv-settings-actions-tight">
         <button type="button" class="btn" id="rv-set-quiz-prompt-reset">恢复默认出题提示词</button>

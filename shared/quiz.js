@@ -15,6 +15,8 @@ export function quizWordPool(words) {
   });
 }
 
+const CONTEXT_MAX_LEN = 160;
+
 /**
  * @param {object[]} pool
  * @param {number} count
@@ -32,8 +34,84 @@ export function pickRandomWords(pool, count) {
     id: w.id || "",
     word: String(w.word || "").trim(),
     translation: String(w.translation || "").trim(),
-    phonetic: String(w.phonetic || "").trim()
+    phonetic: String(w.phonetic || "").trim(),
+    note: String(w.note || "").trim(),
+    pageTitle: String(w.pageTitle || "").trim(),
+    pageUrl: String(w.pageUrl || "").trim()
   }));
+}
+
+function clipContext(text) {
+  const s = String(text || "").replace(/\s+/g, " ").trim();
+  if (!s) return "";
+  if (s.length <= CONTEXT_MAX_LEN) return s;
+  return `${s.slice(0, CONTEXT_MAX_LEN - 1)}…`;
+}
+
+function captureSnippet(c) {
+  if (!c || typeof c !== "object") return "";
+  const a = c.anchor && typeof c.anchor === "object" ? c.anchor : null;
+  if (a) {
+    const joined = `${a.prefix || ""}${a.exact || ""}${a.suffix || ""}`.replace(/\s+/g, " ").trim();
+    if (joined) return joined;
+  }
+  return String(c.text || "").replace(/\s+/g, " ").trim();
+}
+
+function captureMentionsWord(snippet, word) {
+  const hay = String(snippet || "");
+  const needle = String(word || "").trim();
+  if (!hay || !needle) return false;
+  if (/[A-Za-z]/.test(needle)) {
+    try {
+      const re = new RegExp(`\\b${needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i");
+      return re.test(hay);
+    } catch (e) {
+      return hay.toLowerCase().includes(needle.toLowerCase());
+    }
+  }
+  return hay.includes(needle);
+}
+
+/**
+ * Attach optional reading context from captures (best-effort).
+ * Prefers same pageUrl; falls back to any capture mentioning the word.
+ * @param {object[]} words from pickRandomWords
+ * @param {object[]} captures
+ * @returns {object[]}
+ */
+export function enrichWordsForQuiz(words, captures) {
+  const list = Array.isArray(words) ? words : [];
+  const caps = Array.isArray(captures) ? captures : [];
+  return list.map((w) => {
+    const word = String(w.word || "").trim();
+    const pageUrl = String(w.pageUrl || "").trim();
+    let context = "";
+    let samePage = null;
+    let anyPage = null;
+    for (const c of caps) {
+      const snip = captureSnippet(c);
+      if (!snip || !captureMentionsWord(snip, word)) continue;
+      const cUrl = String(c.pageUrl || "").trim();
+      if (pageUrl && cUrl && cUrl === pageUrl) {
+        samePage = snip;
+        break;
+      }
+      if (!anyPage) anyPage = snip;
+    }
+    context = clipContext(samePage || anyPage || "");
+    const out = {
+      id: w.id || "",
+      word,
+      translation: String(w.translation || "").trim(),
+      phonetic: String(w.phonetic || "").trim(),
+      note: String(w.note || "").trim(),
+      pageTitle: String(w.pageTitle || "").trim(),
+      pageUrl
+    };
+    if (context) out.context = context;
+    return out;
+  });
 }
 
 function itemId() {
@@ -185,14 +263,11 @@ export function normalizeQuizItems(raw, promptLang) {
   return items;
 }
 
-function answersMatch(user, expected, promptLang) {
+function answersMatch(user, expected) {
   const u = String(user || "").trim();
   const e = String(expected || "").trim();
   if (!u || !e) return false;
-  if (promptLang === "zh") {
-    return normalizeWordKey(u) === normalizeWordKey(e);
-  }
-  return u.toLowerCase() === e.toLowerCase();
+  return normalizeWordKey(u) === normalizeWordKey(e);
 }
 
 /**
@@ -203,7 +278,6 @@ function answersMatch(user, expected, promptLang) {
  * @param {{ blankGrades?: Record<string, boolean> }} [opts]
  */
 export function scoreQuiz(quiz, opts = {}) {
-  const promptLang = quiz.promptLang === "zh" ? "zh" : "en";
   const blankGrades = opts.blankGrades && typeof opts.blankGrades === "object" ? opts.blankGrades : null;
   const items = Array.isArray(quiz.items) ? quiz.items : [];
   let correct = 0;
@@ -226,7 +300,7 @@ export function scoreQuiz(quiz, opts = {}) {
       } else if (blankGrades && Object.prototype.hasOwnProperty.call(blankGrades, item.id)) {
         ok = !!blankGrades[item.id];
       } else {
-        ok = answersMatch(user, item.answer, promptLang);
+        ok = answersMatch(user, item.answer);
       }
       item.correct = ok;
       if (ok) correct += 1;
@@ -269,11 +343,17 @@ export function blankItemsForGrading(quiz) {
 export function renderQuizPrompt(template, words, promptLang) {
   const lang = promptLang === "zh" ? "zh" : "en";
   const wordsJson = JSON.stringify(
-    words.map((w) => ({
-      word: w.word,
-      translation: w.translation,
-      phonetic: w.phonetic || undefined
-    })),
+    words.map((w) => {
+      const row = {
+        word: w.word,
+        translation: w.translation
+      };
+      if (w.phonetic) row.phonetic = w.phonetic;
+      if (w.note) row.note = w.note;
+      if (w.pageTitle) row.pageTitle = w.pageTitle;
+      if (w.context) row.context = w.context;
+      return row;
+    }),
     null,
     2
   );

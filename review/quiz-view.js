@@ -1,8 +1,15 @@
 import { escapeHtml } from "../shared/dom.js";
-import { blankItemsForGrading, pickRandomWords, quizWordPool, scoreQuiz } from "../shared/quiz.js";
+import {
+  blankItemsForGrading,
+  enrichWordsForQuiz,
+  pickRandomWords,
+  quizWordPool,
+  scoreQuiz
+} from "../shared/quiz.js";
 import {
   deleteQuiz,
   generateQuiz,
+  getAllCaptures,
   getAllQuizzes,
   gradeQuizBlanks,
   saveQuiz,
@@ -50,7 +57,7 @@ export function renderQuizList({ root, progressEl, onRefresh, onOpen }) {
 
   root.innerHTML = `
     <div class="rv-quiz-toolbar">
-      <p class="rv-quiz-toolbar-hint">用大模型从未学会词中出题，卷面含选择、填空、连线。</p>
+      <p class="rv-quiz-toolbar-hint">用大模型从未学会词中出题：语境填空、用法辨析、场景连线（会参考备注与原文语境）。</p>
       <button type="button" class="btn btn-primary rv-quiz-gen-btn" id="rv-quiz-gen" ${canGenerate ? "" : "disabled"}>生成试卷</button>
     </div>
     ${
@@ -97,7 +104,14 @@ export function renderQuizList({ root, progressEl, onRefresh, onOpen }) {
     genBtn.textContent = "生成中…";
     try {
       const picked = pickRandomWords(pool, choice.count);
-      const res = await generateQuiz(picked, choice.promptLang);
+      let captures = [];
+      try {
+        captures = (await getAllCaptures()) || [];
+      } catch (e) {
+        captures = [];
+      }
+      const enriched = enrichWordsForQuiz(picked, captures);
+      const res = await generateQuiz(enriched, choice.promptLang);
       if (!res || !res.ok) {
         const code = res && res.code;
         let msg = (res && res.error) || "生成失败";
@@ -106,10 +120,10 @@ export function renderQuizList({ root, progressEl, onRefresh, onOpen }) {
         return;
       }
       const saveRes = await saveQuiz({
-        count: picked.length,
+        count: enriched.length,
         promptLang: choice.promptLang,
         status: "ready",
-        sourceWords: picked,
+        sourceWords: enriched,
         items: res.items,
         score: null,
         finishedAt: null
