@@ -1,0 +1,131 @@
+/* popup */
+/* ---------- popup ---------- */
+body.popup-page {
+  background-color: var(--ru-surface);
+  background-image: none;
+}
+
+.popup {
+  width: 340px;
+  padding: 16px 16px 14px;
+}
+
+.popup-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.popup-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.popup-logo {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  display: block;
+}
+
+.popup-title {
+  font-family: var(--ru-serif);
+  font-weight: 600;
+  font-size: 18px;
+  letter-spacing: 0.08em;
+  color: var(--ru-ink);
+}
+
+.link {
+  color: var(--ru-thin);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  padding-bottom: 1px;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.link:hover {
+  color: var(--ru-ink);
+  border-bottom-color: var(--ru-ink);
+}
+
+.page-info {
+  font-size: 11px;
+  color: var(--ru-thin);
+  letter-spacing: 0.04em;
+  background: transparent;
+  border-bottom: 1px solid var(--ru-line);
+  border-radius: 0;
+  padding: 0 0 8px;
+  margin-bottom: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.input {
+  width: 100%;
+  border: 1px solid var(--ru-line);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  font-size: 15px;
+  font-family: var(--ru-serif);
+  line-height: 1.65;
+  color: var(--ru-ink);
+  background: var(--rv-surface);
+  resize: vertical;
+  min-height: 120px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.input:focus {
+  border-color: var(--ru-ink);
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.popup-extra {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--ru-line);
+}
+
+.popup-shot {
+  appearance: none;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  color: var(--ru-thin);
+  cursor: pointer;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.popup-shot:hover {
+  color: var(--ru-ink);
+  border-bottom-color: var(--ru-ink);
+}
+
+.popup-hint {
+  font-size: 11px;
+  color: var(--ru-thin);
+  letter-spacing: 0.04em;
+}

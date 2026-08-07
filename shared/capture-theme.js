@@ -1,21 +1,26 @@
 /**
- * In-page capture UI theme (和紙).
+ * In-page capture UI theme (Apple × 日系 · 和紙 / 墨 / 藍).
  * Loaded before content.js as a classic script (sets globalThis.RcCaptureTheme).
- * Values must stay in sync with :root tokens in styles.css.
+ * Values must stay in sync with :root tokens in styles/tokens.css.
  */
 (function (g) {
-  const ink = "#1a1a1a";
-  const sumi = "#5c5c5c";
-  const thin = "#9a958c";
-  const line = "#d8d2c8";
-  const paper = "#f2f0eb";
-  const paperDeep = "#e8e4db";
-  const accent = "#3d5a80";
-  const warm = "#c4a35a";
+  const ink = "#1d1d1f";
+  const sumi = "#6e6e73";
+  const thin = "#86868b";
+  const line = "#e5e5ea";
+  const paper = "#ffffff";
+  const paperDeep = "#f5f5f7";
+  const accent = "#3f5f8a";
+  const accentPress = "#355278";
+  const warm = "#c4923a";
+  const vermilion = "#c45c4a";
+  const ok = "#5a8f6b";
+  const radius = "6px";
+  const radiusLg = "10px";
   const sans =
-    '"PingFang SC", "Hiragino Sans", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif';
+    '"Hiragino Sans", "Hiragino Kaku Gothic ProN", "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif';
   const serif =
-    '"Hiragino Mincho ProN", "Songti SC", "STSong", "SimSun", serif';
+    '"Hiragino Mincho ProN", "Songti SC", "STSong", "Noto Serif CJK SC", "SimSun", serif';
 
   g.RcCaptureTheme = {
     highlightCss: `
@@ -23,7 +28,7 @@
       background: color-mix(in srgb, var(--rc-idea-hl, ${warm}) 28%, transparent);
       border-radius: 2px;
       cursor: pointer;
-      box-shadow: 0 0 0 1px color-mix(in srgb, var(--rc-idea-hl, ${warm}) 28%, transparent);
+      box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--rc-idea-hl, ${warm}) 35%, transparent);
     }
     .rc-highlight:hover {
       background: color-mix(in srgb, var(--rc-idea-hl, ${warm}) 42%, transparent);
@@ -40,13 +45,12 @@
       border-bottom-color: var(--rc-idea-hl, ${warm});
     }
     .rc-word-highlight {
-      background: color-mix(in srgb, var(--rc-word-hl, ${accent}) 22%, transparent);
+      background: color-mix(in srgb, var(--rc-word-hl, ${accent}) 18%, transparent);
       border-radius: 2px;
       cursor: pointer;
-      box-shadow: 0 0 0 1px color-mix(in srgb, var(--rc-word-hl, ${accent}) 22%, transparent);
     }
     .rc-word-highlight:hover {
-      background: color-mix(in srgb, var(--rc-word-hl, ${accent}) 36%, transparent);
+      background: color-mix(in srgb, var(--rc-word-hl, ${accent}) 30%, transparent);
     }
     html[data-rc-word-style="underline"] .rc-word-highlight {
       background: transparent;
@@ -68,7 +72,7 @@
       display: none;
       flex-direction: row;
       align-items: center;
-      gap: 4px;
+      gap: 6px;
       padding: 0;
       margin: 0;
       border: none;
@@ -79,12 +83,12 @@
       display: flex;
     }
     #rc-float-bar .rc-float-item {
-      width: 24px;
-      height: 24px;
-      border-radius: 3px;
+      width: 28px;
+      height: 28px;
+      border-radius: 4px;
       background: ${paper};
       border: 1px solid ${line};
-      box-shadow: 0 1px 4px rgba(26, 26, 26, 0.08);
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
       cursor: pointer;
       display: flex;
       align-items: center;
@@ -93,26 +97,21 @@
       line-height: 1;
       padding: 0;
       margin: 0;
-      font-family: ${serif};
+      font-family: ${sans};
       font-size: 13px;
       font-weight: 600;
-      font-style: italic;
-      letter-spacing: 0;
+      font-style: normal;
+      letter-spacing: 0.04em;
       transition: color 0.12s, border-color 0.12s, background 0.12s, box-shadow 0.12s;
     }
     #rc-float-bar .rc-float-item:hover {
-      color: ${ink};
-      border-color: ${warm};
-      background: #f7f5f0;
-      box-shadow: 0 2px 6px rgba(26, 26, 26, 0.1);
+      border-color: ${accent};
+      background: ${paperDeep};
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
     }
     #rc-float-bar .rc-float-item[data-action="word"] {
-      font-style: normal;
       font-size: 12px;
       letter-spacing: -0.02em;
-    }
-    #rc-float-bar .rc-float-item[data-action="word"]:hover {
-      border-color: ${accent};
     }
     #rc-float-bar .rc-float-letter {
       display: block;
@@ -132,11 +131,12 @@
       max-width: calc(100vw - 16px);
       background: ${paper};
       border: 1px solid ${line};
-      border-radius: 4px;
-      box-shadow: 0 10px 32px rgba(26, 26, 26, 0.12);
+      border-radius: ${radiusLg};
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.05);
       font-family: ${sans};
       font-size: 14px;
       line-height: 1.6;
+      letter-spacing: 0.01em;
       color: ${ink};
       overflow: hidden;
       box-sizing: border-box;
@@ -155,11 +155,11 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 10px 14px 0;
+      padding: 12px 16px 0;
       font-weight: 500;
       color: ${thin};
       font-size: 11px;
-      letter-spacing: 0.1em;
+      letter-spacing: 0.12em;
       background: transparent;
       cursor: grab;
       user-select: none;
@@ -184,7 +184,7 @@
       padding: 0;
       background: transparent;
       border: none;
-      border-radius: 2px;
+      border-radius: ${radius};
       cursor: pointer;
       color: ${thin};
       font-size: 18px;
@@ -194,13 +194,13 @@
     }
     #rc-overlay .rc-close:hover {
       color: ${ink};
-      background: rgba(26, 26, 26, 0.05);
+      background: rgba(0, 0, 0, 0.05);
     }
     #rc-overlay .rc-ctx {
-      margin: 10px 14px 0;
+      margin: 10px 16px 0;
       padding: 0 0 0 12px;
       background: transparent;
-      border-left: 1px solid ${accent};
+      border-left: 2px solid ${accent};
       border-radius: 0;
       font-size: 13px;
       color: ${sumi};
@@ -219,8 +219,8 @@
       margin: 0 0 4px;
     }
     #rc-overlay .rc-shot {
-      margin: 10px 14px 0;
-      border-radius: 2px;
+      margin: 10px 16px 0;
+      border-radius: ${radius};
       overflow: hidden;
       border: 1px solid ${line};
       background: ${paperDeep};
@@ -235,27 +235,28 @@
     }
     #rc-overlay textarea.rc-input {
       display: block;
-      width: calc(100% - 28px);
-      max-width: calc(100% - 28px);
-      margin: 10px 14px 0;
+      width: calc(100% - 32px);
+      max-width: calc(100% - 32px);
+      margin: 10px 16px 0;
       border: 1px solid ${line};
-      border-radius: 2px;
+      border-radius: ${radius};
       padding: 10px 12px;
       font-size: 15px;
       font-family: ${serif};
       line-height: 1.65;
       color: ${ink};
-      background: rgba(255, 255, 255, 0.45);
+      background: rgba(255, 255, 255, 0.55);
       resize: vertical;
       min-height: 88px;
       outline: none;
-      transition: border-color 0.15s;
+      transition: border-color 0.15s, box-shadow 0.15s;
     }
     #rc-overlay textarea.rc-input:focus {
-      border-color: ${ink};
+      border-color: ${accent};
+      box-shadow: 0 0 0 3px rgba(63, 95, 138, 0.12);
     }
     #rc-overlay .rc-lookup {
-      margin: 10px 14px 0;
+      margin: 10px 16px 0;
     }
     #rc-overlay .rc-lookup-status {
       font-size: 12px;
@@ -276,22 +277,23 @@
     }
     #rc-overlay .rc-field > span {
       font-size: 11px;
-      letter-spacing: 0.08em;
+      letter-spacing: 0.1em;
       color: ${thin};
     }
     #rc-overlay .rc-field input {
       width: 100%;
       border: 1px solid ${line};
-      border-radius: 2px;
+      border-radius: ${radius};
       padding: 8px 10px;
       font-size: 13px;
       font-family: ${sans};
       color: ${ink};
-      background: rgba(255, 255, 255, 0.45);
+      background: rgba(255, 255, 255, 0.55);
       outline: none;
     }
     #rc-overlay .rc-field input:focus {
-      border-color: ${ink};
+      border-color: ${accent};
+      box-shadow: 0 0 0 3px rgba(63, 95, 138, 0.12);
     }
     #rc-overlay .rc-lookup-error {
       display: flex;
@@ -306,7 +308,7 @@
       border: 1px solid ${line};
       background: transparent;
       color: ${ink};
-      border-radius: 2px;
+      border-radius: ${radius};
       padding: 3px 8px;
       font-size: 11px;
       letter-spacing: 0.06em;
@@ -314,14 +316,15 @@
       font-family: inherit;
     }
     #rc-overlay .rc-lookup-retry:hover {
-      border-color: ${ink};
+      border-color: ${accent};
+      background: rgba(63, 95, 138, 0.08);
     }
     #rc-overlay .rc-match {
       display: flex;
       flex-wrap: wrap;
       align-items: center;
       gap: 6px;
-      margin: 10px 14px 0;
+      margin: 10px 16px 0;
       font-size: 11px;
       color: ${sumi};
     }
@@ -336,13 +339,14 @@
       gap: 4px;
       padding: 3px 8px;
       border: 1px solid ${line};
-      border-radius: 2px;
+      border-radius: ${radius};
       cursor: pointer;
       user-select: none;
     }
     #rc-overlay .rc-match-opt:has(input:checked) {
-      border-color: ${ink};
-      color: ${ink};
+      border-color: ${accent};
+      color: ${accent};
+      background: rgba(63, 95, 138, 0.1);
     }
     #rc-overlay .rc-match-opt input {
       margin: 0;
@@ -350,15 +354,15 @@
     #rc-overlay .rc-actions {
       display: flex;
       gap: 8px;
-      padding: 12px 14px 14px;
+      padding: 14px 16px 16px;
     }
     #rc-overlay .rc-actions button {
       flex: 1;
       border: 1px solid ${line};
       background: transparent;
       color: ${sumi};
-      border-radius: 2px;
-      padding: 7px 0;
+      border-radius: ${radius};
+      padding: 8px 0;
       font-size: 12px;
       letter-spacing: 0.08em;
       cursor: pointer;
@@ -367,50 +371,50 @@
     }
     #rc-overlay .rc-actions button:hover {
       color: ${ink};
-      border-color: ${ink};
-      background: rgba(26, 26, 26, 0.03);
+      border-color: ${line};
+      background: rgba(0, 0, 0, 0.05);
     }
     #rc-overlay .rc-actions button.rc-save {
-      background: ${ink};
-      border-color: ${ink};
-      color: #f7f5f0;
+      background: ${accent};
+      border-color: ${accent};
+      color: ${paper};
       font-weight: 500;
     }
     #rc-overlay .rc-actions button.rc-save:hover {
-      background: #2a2a2a;
-      border-color: #2a2a2a;
+      background: ${accentPress};
+      border-color: ${accentPress};
     }
     #rc-overlay .rc-actions button.rc-learn {
       flex: 0 0 auto;
       min-width: 64px;
-      color: #2f6b3c;
-      border-color: rgba(74, 143, 92, 0.4);
+      color: ${ok};
+      border-color: rgba(90, 143, 107, 0.4);
     }
     #rc-overlay .rc-actions button.rc-learn:hover {
       color: #fff;
-      background: #4a8f5c;
-      border-color: #4a8f5c;
+      background: ${ok};
+      border-color: ${ok};
     }
     #rc-overlay .rc-actions button.rc-learn.is-learned {
       color: #fff;
-      border-color: #4a8f5c;
-      background: #4a8f5c;
+      border-color: ${ok};
+      background: ${ok};
     }
     #rc-overlay .rc-actions button.rc-learn.is-learned:hover {
       color: #fff;
-      background: #3d7a4d;
-      border-color: #3d7a4d;
+      background: #4d7c5c;
+      border-color: #4d7c5c;
     }
     #rc-overlay .rc-actions button.rc-delete {
       flex: 0 0 auto;
       min-width: 64px;
-      color: #9b2226;
-      border-color: rgba(155, 34, 38, 0.35);
+      color: ${vermilion};
+      border-color: rgba(196, 92, 74, 0.4);
     }
     #rc-overlay .rc-actions button.rc-delete:hover {
       color: #fff;
-      background: #9b2226;
-      border-color: #9b2226;
+      background: ${vermilion};
+      border-color: ${vermilion};
     }
     #rc-overlay .rc-toast {
       position: absolute;
@@ -418,9 +422,9 @@
       bottom: 16px;
       transform: translateX(-50%) translateY(6px);
       background: ${ink};
-      color: #f7f5f0;
+      color: ${paper};
       padding: 6px 14px;
-      border-radius: 2px;
+      border-radius: ${radius};
       font-size: 12px;
       letter-spacing: 0.06em;
       opacity: 0;
@@ -440,7 +444,7 @@
       z-index: 2147483646;
       cursor: crosshair;
       user-select: none;
-      background: rgba(26, 26, 26, 0.22);
+      background: rgba(0, 0, 0, 0.2);
     }
     #rc-region-mask .rc-region-tip {
       position: fixed;
@@ -453,15 +457,15 @@
       font: 12px/1.4 ${sans};
       letter-spacing: 0.06em;
       padding: 8px 14px;
-      border-radius: 2px;
+      border-radius: ${radius};
       pointer-events: none;
-      box-shadow: 0 4px 16px rgba(26, 26, 26, 0.1);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
     }
     #rc-region-mask .rc-region-box {
       position: fixed;
-      border: 1px solid ${ink};
-      background: rgba(247, 245, 240, 0.08);
-      box-shadow: 0 0 0 9999px rgba(26, 26, 26, 0.4);
+      border: 1px solid ${accent};
+      background: rgba(255, 252, 247, 0.08);
+      box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.36);
       display: none;
       pointer-events: none;
     }

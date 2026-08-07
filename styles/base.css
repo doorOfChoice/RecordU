@@ -1,0 +1,74 @@
+/* reset + shared controls */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--ru-sans);
+  color: var(--text);
+  background: var(--bg);
+  font-size: 14px;
+  line-height: 1.6;
+  letter-spacing: 0.01em;
+  -webkit-font-smoothing: antialiased;
+}
+
+.hidden {
+  display: none !important;
+}
+
+.btn {
+  flex: 1;
+  border: 1px solid var(--ru-line);
+  background: transparent;
+  color: var(--ru-sumi);
+  border-radius: var(--radius);
+  padding: 8px 0;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  font-family: inherit;
+}
+
+.btn:hover {
+  color: var(--ru-ink);
+  border-color: var(--ru-line);
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.btn-primary {
+  background: var(--ru-accent);
+  border-color: var(--ru-accent);
+  color: #ffffff;
+  font-weight: 500;
+}
+
+.btn-primary:hover {
+  background: var(--ru-accent-press);
+  border-color: var(--ru-accent-press);
+  color: #ffffff;
+}
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%) translateY(6px);
+  background: var(--ru-ink);
+  color: #ffffff;
+  padding: 6px 14px;
+  border-radius: var(--radius);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  opacity: 0;
+  transition: opacity 0.2s, transform 0.2s;
+  pointer-events: none;
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}

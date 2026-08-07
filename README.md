@@ -129,14 +129,15 @@ Chrome / Chromium 扩展（Manifest V3），帮助你在浏览网页时快速捕
 │   ├── llm.js             # OpenAI 兼容查词与出题
 │   ├── quiz.js            # 试卷抽词、规范化与计分
 │   ├── captures.js        # 捕获记录工具函数
-│   ├── capture-theme.js   # 页内浮层和紙主题 CSS
+│   ├── capture-theme.js   # 页内浮层 Apple×日系主题 CSS
 │   ├── dom.js             # DOM 工具
 │   ├── time.js            # 日期与时间格式化
 │   └── favicon.js         # 回顾页站点图标
 ├── vendor/
 │   └── fflate.js          # ZIP 压缩（备份用）
 ├── modal.js               # 确认 / 编辑 / 生成试卷对话框
-├── styles.css             # 弹窗与回顾页样式
+├── styles.css             # 回顾页样式入口（@import styles/*）
+├── styles/                # 拆分样式：tokens / base / popup / review / words / quiz / settings / modal / lightbox
 └── icons/                 # 扩展图标
 ```
 
@@ -163,6 +164,10 @@ Chrome / Chromium 扩展（Manifest V3），帮助你在浏览网页时快速捕
 回顾页和弹窗需在已加载的扩展环境中打开（通过扩展图标或 `review.html`），不能单独用静态服务器预览完整功能。
 
 ## 更新日志
+
+### 0.8.0
+
+- **视觉改版**：前后台统一为 Apple × 日系扁平风格（冷灰白底 `#f5f5f7`、纯白面板、墨色字、藍强调、更柔和圆角）；主按钮与选中态改用藍；网页内划词浮层 / 捕获面板同步
 
 ### 0.7.1
 

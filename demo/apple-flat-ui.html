@@ -1,0 +1,1033 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>RecordU · Apple × 日系 Flat Demo</title>
+  <style>
+    /* Reading this as: RecordU UI demo, Apple-flat base shifted Japanese (washi / sumi / ai).
+       Dials: VARIANCE 6 / MOTION 4 / DENSITY 3 */
+
+    :root {
+      --bg: #f5f5f7;
+      --bg-wash: #ececef;
+      --surface: #ffffff;
+      --surface-2: #fbfbfd;
+      --ink: #1d1d1f;
+      --secondary: #6e6e73;
+      --tertiary: #86868b;
+      --line: rgba(0, 0, 0, 0.08);
+      --line-strong: rgba(0, 0, 0, 0.12);
+      --fill: rgba(0, 0, 0, 0.04);
+      --fill-hover: rgba(0, 0, 0, 0.06);
+      /* 藍: quiet indigo, not Apple blue */
+      --accent: #3f5f8a;
+      --accent-press: #355278;
+      --accent-soft: rgba(63, 95, 138, 0.12);
+      /* 朱: sparse accent for danger / learned soft */
+      --vermilion: #c45c4a;
+      --ok: #5a8f6b;
+      --ok-soft: rgba(90, 143, 107, 0.14);
+      --warn: #c4923a;
+      --danger: #c45c4a;
+      --radius: 10px;
+      --radius-sm: 6px;
+      --radius-pill: 980px;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+      --shadow-float: 0 10px 30px rgba(0, 0, 0, 0.1), 0 2px 6px rgba(0, 0, 0, 0.05);
+      --font: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "PingFang SC",
+        "Hiragino Sans GB", -apple-system, BlinkMacSystemFont, "Helvetica Neue",
+        "Noto Sans JP", "Microsoft YaHei", sans-serif;
+      --font-display: "Hiragino Mincho ProN", "Songti SC", "Noto Serif CJK SC",
+        "Hiragino Sans", serif;
+      --ease: cubic-bezier(0.25, 0.1, 0.25, 1);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #141412;
+        --bg-wash: #1a1916;
+        --surface: #1e1d1a;
+        --surface-2: #262520;
+        --ink: #f0ede6;
+        --secondary: #a39e92;
+        --tertiary: #6f6b62;
+        --line: rgba(240, 237, 230, 0.1);
+        --line-strong: rgba(240, 237, 230, 0.16);
+        --fill: rgba(240, 237, 230, 0.06);
+        --fill-hover: rgba(240, 237, 230, 0.1);
+        --accent: #8fa8c9;
+        --accent-press: #a8bdd6;
+        --accent-soft: rgba(143, 168, 201, 0.18);
+        --vermilion: #e08a7c;
+        --ok: #7faf8e;
+        --ok-soft: rgba(127, 175, 142, 0.18);
+        --danger: #e08a7c;
+        --shadow: none;
+        --shadow-float: 0 12px 36px rgba(0, 0, 0, 0.45);
+      }
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; }
+    body {
+      font-family: var(--font);
+      color: var(--ink);
+      background:
+        radial-gradient(ellipse 80% 50% at 50% -10%, rgba(63, 95, 138, 0.06), transparent 55%),
+        var(--bg);
+      -webkit-font-smoothing: antialiased;
+      line-height: 1.5;
+      letter-spacing: 0.01em;
+    }
+
+    button, input, select, textarea {
+      font: inherit;
+      color: inherit;
+    }
+
+    .demo-top {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 14px 28px;
+      background: color-mix(in srgb, var(--surface) 78%, transparent);
+      backdrop-filter: saturate(140%) blur(18px);
+      -webkit-backdrop-filter: saturate(140%) blur(18px);
+      border-bottom: 1px solid var(--line);
+    }
+    .demo-brand {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      min-width: 0;
+    }
+    .demo-brand strong {
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+    }
+    .demo-brand span {
+      font-size: 12px;
+      color: var(--secondary);
+      letter-spacing: 0.06em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .demo-tabs {
+      display: flex;
+      padding: 3px;
+      background: var(--fill);
+      border-radius: var(--radius-sm);
+      gap: 2px;
+      border: 1px solid var(--line);
+    }
+    .demo-tab {
+      appearance: none;
+      border: 0;
+      background: transparent;
+      padding: 7px 14px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      color: var(--secondary);
+      cursor: pointer;
+      transition: background 0.2s var(--ease), color 0.2s var(--ease);
+    }
+    .demo-tab:hover { color: var(--ink); }
+    .demo-tab.is-on {
+      background: var(--surface);
+      color: var(--ink);
+      box-shadow: var(--shadow);
+    }
+
+    .panel { display: none; padding: 32px 24px 56px; }
+    .panel.is-on { display: block; }
+
+    .note {
+      max-width: 980px;
+      margin: 0 auto 24px;
+      font-size: 12px;
+      color: var(--secondary);
+      letter-spacing: 0.04em;
+      line-height: 1.7;
+    }
+
+    .btn {
+      appearance: none;
+      border: 0;
+      border-radius: var(--radius-sm);
+      padding: 8px 16px;
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      cursor: pointer;
+      transition: transform 0.12s var(--ease), background 0.15s var(--ease), opacity 0.15s;
+    }
+    .btn:active { transform: scale(0.98); }
+    .btn-primary {
+      background: var(--accent);
+      color: #ffffff;
+    }
+    .btn-primary:hover { background: var(--accent-press); }
+    .btn-secondary {
+      background: transparent;
+      color: var(--ink);
+      border: 1px solid var(--line-strong);
+    }
+    .btn-secondary:hover { background: var(--fill); }
+    .btn-ghost {
+      background: transparent;
+      color: var(--accent);
+      padding-inline: 10px;
+    }
+    .btn-danger {
+      background: transparent;
+      color: var(--danger);
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      margin-bottom: 16px;
+    }
+    .field label {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--tertiary);
+      letter-spacing: 0.12em;
+    }
+    .field input,
+    .field select,
+    .field textarea {
+      width: 100%;
+      border: 1px solid var(--line-strong);
+      background: var(--surface);
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .field textarea { min-height: 88px; resize: vertical; line-height: 1.65; }
+    .field input:focus,
+    .field select:focus,
+    .field textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-soft);
+    }
+
+    .seg {
+      display: flex;
+      padding: 3px;
+      background: var(--fill);
+      border-radius: var(--radius-sm);
+      gap: 2px;
+      border: 1px solid var(--line);
+    }
+    .seg label {
+      flex: 1;
+      text-align: center;
+      padding: 8px 10px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      color: var(--secondary);
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+    .seg input { position: absolute; opacity: 0; pointer-events: none; }
+    .seg label:has(input:checked) {
+      background: var(--surface);
+      color: var(--ink);
+      box-shadow: var(--shadow);
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 9px;
+      border-radius: 3px;
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      background: var(--fill);
+      color: var(--secondary);
+      border: 1px solid var(--line);
+    }
+    .chip.is-accent {
+      background: var(--accent-soft);
+      color: var(--accent);
+      border-color: transparent;
+    }
+    .chip.is-ok {
+      background: var(--ok-soft);
+      color: var(--ok);
+      border-color: transparent;
+    }
+
+    /* ========== FRONT ========== */
+    .page-mock {
+      max-width: 980px;
+      margin: 0 auto;
+      position: relative;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      min-height: 640px;
+    }
+    .page-chrome {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--line);
+      background: var(--surface-2);
+    }
+    .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--fill-hover); }
+    .page-url {
+      flex: 1;
+      margin-left: 8px;
+      font-size: 12px;
+      color: var(--tertiary);
+      letter-spacing: 0.02em;
+      background: var(--fill);
+      border-radius: var(--radius-sm);
+      padding: 6px 12px;
+    }
+    .article {
+      padding: 40px 52px 88px;
+      max-width: 680px;
+    }
+    .article h1 {
+      margin: 0 0 14px;
+      font-family: var(--font-display);
+      font-size: 28px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      line-height: 1.35;
+    }
+    .article .meta {
+      font-size: 11px;
+      color: var(--tertiary);
+      letter-spacing: 0.14em;
+      margin-bottom: 30px;
+    }
+    .article p {
+      margin: 0 0 18px;
+      font-size: 15px;
+      line-height: 1.85;
+      color: var(--ink);
+    }
+    .article mark.hl-idea {
+      background: rgba(196, 146, 58, 0.22);
+      color: inherit;
+      border-radius: 2px;
+      padding: 0 2px;
+      box-shadow: inset 0 -1px 0 rgba(196, 146, 58, 0.35);
+    }
+    .article mark.hl-word {
+      background: var(--accent-soft);
+      color: inherit;
+      border-radius: 2px;
+      padding: 0 1px;
+      box-decoration-break: clone;
+      -webkit-box-decoration-break: clone;
+    }
+
+    .float-bar {
+      position: absolute;
+      left: 220px;
+      top: 278px;
+      display: flex;
+      gap: 6px;
+      padding: 0;
+      background: transparent;
+      border: none;
+      box-shadow: none;
+      animation: rise 0.35s var(--ease) both;
+    }
+    .float-btn {
+      appearance: none;
+      border: 1px solid var(--line-strong);
+      width: 28px;
+      height: 28px;
+      border-radius: 4px;
+      background: var(--surface);
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .float-btn:hover {
+      background: var(--surface-2);
+      border-color: var(--accent);
+    }
+    .float-btn.is-primary {
+      background: var(--surface);
+      color: var(--ink);
+    }
+    .float-btn.is-primary:hover {
+      background: var(--surface-2);
+      border-color: var(--accent);
+    }
+
+    .capture-sheet {
+      position: absolute;
+      right: 28px;
+      top: 140px;
+      width: 340px;
+      background: var(--surface);
+      border: 1px solid var(--line-strong);
+      border-radius: 12px;
+      box-shadow: var(--shadow-float);
+      padding: 20px;
+      animation: rise 0.4s var(--ease) 0.05s both;
+    }
+    .capture-sheet h3 {
+      margin: 0 0 4px;
+      font-family: var(--font-display);
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+    }
+    .capture-sheet .sub {
+      margin: 0 0 14px;
+      font-size: 12px;
+      color: var(--secondary);
+      letter-spacing: 0.04em;
+      line-height: 1.6;
+    }
+    .quote {
+      margin: 0 0 14px;
+      padding: 10px 12px;
+      border-left: 2px solid var(--accent);
+      background: var(--fill);
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+      font-size: 13px;
+      color: var(--secondary);
+      line-height: 1.65;
+    }
+    .sheet-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    .word-peek {
+      position: absolute;
+      left: 390px;
+      top: 350px;
+      width: 260px;
+      background: var(--surface);
+      border: 1px solid var(--line-strong);
+      border-radius: 12px;
+      box-shadow: var(--shadow-float);
+      padding: 16px;
+      animation: rise 0.35s var(--ease) 0.12s both;
+    }
+    .word-peek .w {
+      font-size: 20px;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+    }
+    .word-peek .ph {
+      font-size: 12px;
+      color: var(--tertiary);
+      letter-spacing: 0.04em;
+      margin: 4px 0 10px;
+    }
+    .word-peek .tr {
+      font-size: 14px;
+      color: var(--ink);
+      margin-bottom: 14px;
+      letter-spacing: 0.04em;
+    }
+    .word-peek .row {
+      display: flex;
+      gap: 8px;
+    }
+
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .float-bar, .capture-sheet, .word-peek { animation: none; }
+    }
+
+    /* ========== BACK ========== */
+    .app {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 200px 1fr;
+      min-height: 680px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .side {
+      background: var(--surface-2);
+      border-right: 1px solid var(--line);
+      padding: 22px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .side .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 12px 22px;
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+    }
+    .side .mark {
+      width: 26px;
+      height: 26px;
+      border-radius: 4px;
+      background: var(--accent);
+      color: #ffffff;
+      display: grid;
+      place-items: center;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0;
+    }
+    .nav-item {
+      appearance: none;
+      border: 0;
+      background: transparent;
+      text-align: left;
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      color: var(--secondary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      transition: background 0.15s, color 0.15s;
+    }
+    .nav-item:hover { background: var(--fill); color: var(--ink); }
+    .nav-item.is-on {
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+    .nav-item .badge {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0;
+      min-width: 20px;
+      text-align: center;
+      padding: 2px 6px;
+      border-radius: 3px;
+      background: var(--fill);
+      color: var(--secondary);
+    }
+    .nav-item.is-on .badge {
+      background: var(--accent);
+      color: #ffffff;
+    }
+    .side-foot {
+      margin-top: auto;
+      padding: 12px;
+      font-size: 11px;
+      color: var(--tertiary);
+      letter-spacing: 0.12em;
+    }
+
+    .main {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+    .main-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 18px 24px;
+      border-bottom: 1px solid var(--line);
+    }
+    .main-bar h2 {
+      margin: 0;
+      font-family: var(--font-display);
+      font-size: 22px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+    }
+    .main-bar .tools {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .filter {
+      appearance: none;
+      border: 1px solid var(--line-strong);
+      background: var(--surface);
+      border-radius: var(--radius-sm);
+      padding: 7px 28px 7px 12px;
+      font-size: 12px;
+      letter-spacing: 0.04em;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%239a968c' d='M3 4.5L6 8l3-3.5'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+    }
+
+    .main-body {
+      padding: 20px 24px 32px;
+      overflow: auto;
+    }
+
+    .day-label {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--tertiary);
+      letter-spacing: 0.18em;
+      margin: 22px 0 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--line);
+    }
+    .day-label:first-child { margin-top: 0; }
+
+    .word-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(232px, 1fr));
+      gap: 10px;
+    }
+    .word-card {
+      padding: 14px 16px;
+      border-radius: var(--radius);
+      border: 1px solid var(--line);
+      background: var(--surface);
+      transition: border-color 0.15s, background 0.15s;
+      cursor: pointer;
+    }
+    .word-card:hover {
+      background: var(--surface-2);
+      border-color: var(--line-strong);
+    }
+    .word-card.is-focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-soft);
+    }
+    .word-card .en {
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+    }
+    .word-card .zh {
+      margin-top: 5px;
+      font-size: 13px;
+      color: var(--secondary);
+      letter-spacing: 0.04em;
+    }
+    .word-card .tags {
+      margin-top: 12px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .split {
+      display: grid;
+      grid-template-columns: 1fr 292px;
+      gap: 18px;
+      align-items: start;
+    }
+    .detail {
+      position: sticky;
+      top: 0;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 20px;
+      background: var(--surface-2);
+    }
+    .detail h3 {
+      margin: 0 0 2px;
+      font-size: 20px;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+    }
+    .detail .ph { color: var(--tertiary); font-size: 12px; margin-bottom: 12px; letter-spacing: 0.04em; }
+    .detail .zh { font-size: 14px; margin-bottom: 14px; letter-spacing: 0.06em; }
+    .detail .note-box {
+      font-size: 13px;
+      color: var(--secondary);
+      line-height: 1.7;
+      letter-spacing: 0.03em;
+      padding: 12px;
+      background: var(--surface);
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--line);
+      margin-bottom: 14px;
+    }
+    .detail .acts {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .modal-layer {
+      margin-top: 32px;
+      display: flex;
+      justify-content: center;
+    }
+    .modal {
+      width: min(400px, 100%);
+      background: var(--surface);
+      border: 1px solid var(--line-strong);
+      border-radius: 14px;
+      box-shadow: var(--shadow-float);
+      padding: 24px;
+    }
+    .modal h3 {
+      margin: 0 0 20px;
+      font-family: var(--font-display);
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-align: center;
+    }
+    .modal .actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .settings {
+      margin-top: 32px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      overflow: hidden;
+      background: var(--surface);
+    }
+    .settings .row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 15px 18px;
+      border-bottom: 1px solid var(--line);
+    }
+    .settings .row:last-child { border-bottom: 0; }
+    .settings .t {
+      font-size: 14px;
+      font-weight: 500;
+      letter-spacing: 0.06em;
+    }
+    .settings .d {
+      font-size: 12px;
+      color: var(--tertiary);
+      margin-top: 3px;
+      letter-spacing: 0.04em;
+    }
+    .toggle {
+      width: 42px;
+      height: 26px;
+      border-radius: var(--radius-pill);
+      background: #cfcabe;
+      position: relative;
+      border: 0;
+      cursor: pointer;
+      transition: background 0.2s;
+      flex-shrink: 0;
+    }
+    .toggle.is-on { background: var(--ok); }
+    .toggle::after {
+      content: "";
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: #ffffff;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+      transition: transform 0.2s var(--ease);
+    }
+    .toggle.is-on::after { transform: translateX(16px); }
+
+    @media (max-width: 860px) {
+      .app { grid-template-columns: 1fr; }
+      .side { display: none; }
+      .split { grid-template-columns: 1fr; }
+      .article { padding: 28px 22px 60px; }
+      .capture-sheet, .word-peek, .float-bar {
+        position: relative;
+        left: auto;
+        right: auto;
+        top: auto;
+        margin: 16px 22px;
+        width: auto;
+      }
+      .page-mock { min-height: 0; }
+    }
+  </style>
+</head>
+<body>
+  <header class="demo-top">
+    <div class="demo-brand">
+      <strong>RecordU</strong>
+      <span>Apple × 日系 · 和纸 / 墨 / 藍 · Demo 审阅</span>
+    </div>
+    <div class="demo-tabs" role="tablist">
+      <button type="button" class="demo-tab is-on" data-panel="front" role="tab">前台 · 划词</button>
+      <button type="button" class="demo-tab" data-panel="back" role="tab">后台 · 回顾</button>
+    </div>
+  </header>
+
+  <section class="panel is-on" id="panel-front">
+    <p class="note">相对上一版：冷灰系统蓝 → 和纸底 + 墨色字 + 藍强调；圆角更收；按钮偏方角；标题用明朝体；字距略疏；阴影更轻，靠细线分区。</p>
+    <div class="page-mock">
+      <div class="page-chrome">
+        <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+        <div class="page-url">example.com/essay/attention</div>
+      </div>
+      <div class="article">
+        <h1>Attention is a scarce resource</h1>
+        <div class="meta">ESSAY · 8 MIN</div>
+        <p>
+          Most people treat focus as a mood. It is closer to a budget.
+          Once you spend it on shallow tabs, little remains for deep work.
+        </p>
+        <p>
+          The hard part is not motivation. It is
+          <mark class="hl-idea">protecting a few uninterrupted blocks</mark>
+          every week, and refusing to negotiate them away.
+        </p>
+        <p>
+          Words like
+          <mark class="hl-word">overwhelm</mark>
+          show up when the budget is already gone. Naming the feeling helps,
+          but the fix is structural.
+        </p>
+      </div>
+
+      <div class="float-bar" aria-label="划词操作">
+        <button type="button" class="float-btn is-primary" title="记下感触">i</button>
+        <button type="button" class="float-btn" title="标记单词">w</button>
+      </div>
+
+      <aside class="capture-sheet" aria-label="捕获面板">
+        <h3>记下感触</h3>
+        <p class="sub">会保存在原文位置，下次打开可点回。</p>
+        <div class="quote">protecting a few uninterrupted blocks</div>
+        <div class="field">
+          <label for="note">你的话</label>
+          <textarea id="note">别把专注当成心情，当成预算来排。</textarea>
+        </div>
+        <div class="sheet-actions">
+          <button type="button" class="btn btn-secondary">取消</button>
+          <button type="button" class="btn btn-primary">保存</button>
+        </div>
+      </aside>
+
+      <aside class="word-peek" aria-label="单词浮层">
+        <div class="w">overwhelm</div>
+        <div class="ph">/ˌoʊvərˈwelm/</div>
+        <div class="tr">使不知所措；压垮</div>
+        <div class="row">
+          <button type="button" class="btn btn-secondary" style="flex:1">学会了</button>
+          <button type="button" class="btn btn-primary" style="flex:1">编辑</button>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <section class="panel" id="panel-back">
+    <p class="note">后台同一套语汇：日标签用疏字距细线；芯片偏方角；设置行像 iOS 列表但落在和纸色上。开关开态用淡绿而非亮绿。</p>
+    <div class="app">
+      <aside class="side">
+        <div class="logo"><span class="mark">R</span> RecordU</div>
+        <button type="button" class="nav-item">待回顾 <span class="badge">12</span></button>
+        <button type="button" class="nav-item is-on">单词 <span class="badge">28</span></button>
+        <button type="button" class="nav-item">试题 <span class="badge">3</span></button>
+        <button type="button" class="nav-item">设置</button>
+        <div class="side-foot">DEMO ONLY</div>
+      </aside>
+
+      <div class="main">
+        <div class="main-bar">
+          <h2>单词</h2>
+          <div class="tools">
+            <select class="filter" aria-label="时间">
+              <option>全部</option>
+              <option selected>今天</option>
+              <option>昨天</option>
+            </select>
+            <button type="button" class="btn btn-primary">生成试卷</button>
+          </div>
+        </div>
+
+        <div class="main-body">
+          <div class="split">
+            <div>
+              <div class="day-label">今天</div>
+              <div class="word-grid">
+                <div class="word-card is-focus">
+                  <div class="en">overwhelm</div>
+                  <div class="zh">使不知所措；压垮</div>
+                  <div class="tags">
+                    <span class="chip is-accent">变体</span>
+                    <span class="chip">未学会</span>
+                  </div>
+                </div>
+                <div class="word-card">
+                  <div class="en">scarce</div>
+                  <div class="zh">稀缺的</div>
+                  <div class="tags"><span class="chip">未学会</span></div>
+                </div>
+                <div class="word-card">
+                  <div class="en">uninterrupted</div>
+                  <div class="zh">不间断的</div>
+                  <div class="tags"><span class="chip">未学会</span></div>
+                </div>
+                <div class="word-card">
+                  <div class="en">structural</div>
+                  <div class="zh">结构性的</div>
+                  <div class="tags"><span class="chip is-ok">已学会</span></div>
+                </div>
+              </div>
+
+              <div class="day-label">昨天</div>
+              <div class="word-grid">
+                <div class="word-card">
+                  <div class="en">negotiate</div>
+                  <div class="zh">协商；谈判</div>
+                  <div class="tags"><span class="chip">未学会</span></div>
+                </div>
+                <div class="word-card">
+                  <div class="en">shallow</div>
+                  <div class="zh">浅薄的</div>
+                  <div class="tags"><span class="chip">未学会</span></div>
+                </div>
+              </div>
+            </div>
+
+            <aside class="detail">
+              <h3>overwhelm</h3>
+              <div class="ph">/ˌoʊvərˈwelm/</div>
+              <div class="zh">使不知所措；压垮</div>
+              <div class="note-box">预算花光时才会感到 overwhelm。先砍标签页，再谈意志力。</div>
+              <div class="acts">
+                <button type="button" class="btn btn-secondary">学会了</button>
+                <button type="button" class="btn btn-ghost">编辑</button>
+                <button type="button" class="btn btn-danger">删除</button>
+              </div>
+            </aside>
+          </div>
+
+          <div class="modal-layer">
+            <div class="modal" aria-label="生成试卷弹窗示意">
+              <h3>生成试卷</h3>
+              <div class="field">
+                <label for="day">时间</label>
+                <select id="day">
+                  <option>全部</option>
+                  <option selected>今天（4）</option>
+                  <option>昨天（2）</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="count">练习几个未学完的单词（1–4）</label>
+                <input id="count" type="number" value="4" min="1" max="4" />
+              </div>
+              <div class="field">
+                <label>出题方向</label>
+                <div class="seg">
+                  <label><input type="radio" name="lang" checked /> 以英文出题</label>
+                  <label><input type="radio" name="lang" /> 以中文出题</label>
+                </div>
+              </div>
+              <div class="field">
+                <label>是否展示考点词</label>
+                <div class="seg">
+                  <label><input type="radio" name="show" checked /> 不展示</label>
+                  <label><input type="radio" name="show" /> 展示</label>
+                </div>
+              </div>
+              <div class="actions">
+                <button type="button" class="btn btn-secondary">取消</button>
+                <button type="button" class="btn btn-primary">生成</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings" aria-label="设置行示意">
+            <div class="row">
+              <div>
+                <div class="t">单词高亮</div>
+                <div class="d">在所有网站匹配并高亮已标记单词</div>
+              </div>
+              <button type="button" class="toggle is-on" aria-label="单词高亮开关"></button>
+            </div>
+            <div class="row">
+              <div>
+                <div class="t">高亮风格</div>
+                <div class="d">背景填充</div>
+              </div>
+              <select class="filter" style="min-width:120px">
+                <option selected>背景填充</option>
+                <option>下划线</option>
+              </select>
+            </div>
+            <div class="row">
+              <div>
+                <div class="t">大模型思考程度</div>
+                <div class="d">低 · 更快响应</div>
+              </div>
+              <select class="filter" style="min-width:120px">
+                <option>关闭</option>
+                <option selected>低</option>
+                <option>高</option>
+                <option>最大</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    const tabs = document.querySelectorAll(".demo-tab");
+    const panels = {
+      front: document.getElementById("panel-front"),
+      back: document.getElementById("panel-back")
+    };
+    tabs.forEach((tab) => {
+      tab.addEventListener("click", () => {
+        tabs.forEach((t) => t.classList.toggle("is-on", t === tab));
+        Object.entries(panels).forEach(([key, el]) => {
+          el.classList.toggle("is-on", key === tab.dataset.panel);
+        });
+      });
+    });
+    document.querySelectorAll(".toggle").forEach((t) => {
+      t.addEventListener("click", () => t.classList.toggle("is-on"));
+    });
+  </script>
+</body>
+</html>

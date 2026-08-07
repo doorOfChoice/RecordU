@@ -1,0 +1,64 @@
+/* Apple × 日系（冷灰白 / 墨 / 藍）— keep in sync with shared/capture-theme.js */
+:root {
+  --ru-ink: #1d1d1f;
+  --ru-sumi: #6e6e73;
+  --ru-thin: #86868b;
+  --ru-line: #e5e5ea;
+  /* 冷灰白页面底，去掉暖黄 */
+  --ru-paper: #f5f5f7;
+  --ru-paper-deep: #ececef;
+  /* 主面板纯白 */
+  --ru-surface: #ffffff;
+  --ru-surface-2: #fbfbfd;
+  --ru-focus: #3f5f8a;
+  --ru-accent: #3f5f8a;
+  --ru-accent-press: #355278;
+  --ru-accent-soft: rgba(63, 95, 138, 0.1);
+  --ru-vermilion: #c45c4a;
+  --ru-warm: #c4923a;
+  --ru-ok: #5a8f6b;
+  --ru-ok-soft: rgba(90, 143, 107, 0.12);
+  --ru-warn: #c4923a;
+  --ru-warn-soft: rgba(196, 146, 58, 0.12);
+  --ru-info: #3f5f8a;
+  --ru-info-soft: rgba(63, 95, 138, 0.1);
+  --ru-serif: "Hiragino Mincho ProN", "Songti SC", "STSong", "Noto Serif CJK SC", "SimSun", serif;
+  --ru-sans: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "PingFang SC", "Hiragino Sans GB",
+    "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+  --ru-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --ru-shadow-float: 0 10px 30px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.04);
+
+  /* aliases used across popup / review / modal */
+  --bg: var(--ru-paper);
+  --text: var(--ru-ink);
+  --muted: var(--ru-sumi);
+  --accent: var(--ru-accent);
+  --border: var(--ru-line);
+  --radius: 6px;
+  --radius-lg: 10px;
+
+  --rv-ink: var(--ru-ink);
+  --rv-sumi: var(--ru-sumi);
+  --rv-thin: var(--ru-thin);
+  --rv-line: var(--ru-line);
+  --rv-paper: var(--ru-paper);
+  --rv-paper-deep: var(--ru-paper-deep);
+  --rv-surface: var(--ru-surface);
+  --rv-surface-2: var(--ru-surface-2);
+  --rv-focus: var(--ru-focus);
+  --rv-accent: var(--ru-accent);
+  --rv-accent-press: var(--ru-accent-press);
+  --rv-accent-soft: var(--ru-accent-soft);
+  --rv-vermilion: var(--ru-vermilion);
+  --rv-warm: var(--ru-warm);
+  --rv-ok: var(--ru-ok);
+  --rv-ok-soft: var(--ru-ok-soft);
+  --rv-warn: var(--ru-warn);
+  --rv-warn-soft: var(--ru-warn-soft);
+  --rv-info: var(--ru-info);
+  --rv-info-soft: var(--ru-info-soft);
+  --rv-serif: var(--ru-serif);
+  --rv-sans: var(--ru-sans);
+  --rv-shadow: var(--ru-shadow);
+  --rv-shadow-float: var(--ru-shadow-float);
+}

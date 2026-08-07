@@ -37,11 +37,11 @@ export const DEFAULT_LLM_QUIZ_PROMPT = `你是英语词汇练习出题助手。�
 
 export const DEFAULT_SETTINGS = {
   /** 感触高亮色 */
-  ideaHighlightColor: "#c4a35a",
+  ideaHighlightColor: "#c4923a",
   /** 感触高亮风格：fill = 背景填充；underline = 下划线 */
   ideaHighlightStyle: "fill",
   /** 单词高亮色 */
-  wordHighlightColor: "#3d5a80",
+  wordHighlightColor: "#3f5f8a",
   /** 单词高亮风格：fill = 背景填充；underline = 下划线 */
   wordHighlightStyle: "fill",
   /** 单词高亮匹配：exact = 整词精确；variant = 双向词形变体 */

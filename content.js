@@ -79,44 +79,43 @@
   const theme = (typeof globalThis !== "undefined" && globalThis.RcCaptureTheme) || {};
   const PAGE_STYLE = theme.highlightCss || `
     .rc-highlight {
-      background: color-mix(in srgb, var(--rc-idea-hl, #c4a35a) 28%, transparent);
+      background: color-mix(in srgb, var(--rc-idea-hl, #c4923a) 28%, transparent);
       border-radius: 2px;
       cursor: pointer;
-      box-shadow: 0 0 0 1px color-mix(in srgb, var(--rc-idea-hl, #c4a35a) 28%, transparent);
+      box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--rc-idea-hl, #c4923a) 35%, transparent);
     }
     .rc-highlight:hover {
-      background: color-mix(in srgb, var(--rc-idea-hl, #c4a35a) 42%, transparent);
+      background: color-mix(in srgb, var(--rc-idea-hl, #c4923a) 42%, transparent);
     }
     html[data-rc-idea-style="underline"] .rc-highlight {
       background: transparent;
       border-radius: 0;
       box-shadow: none;
-      border-bottom: 2px solid color-mix(in srgb, var(--rc-idea-hl, #c4a35a) 90%, transparent);
+      border-bottom: 2px solid color-mix(in srgb, var(--rc-idea-hl, #c4923a) 90%, transparent);
       padding-bottom: 1px;
     }
     html[data-rc-idea-style="underline"] .rc-highlight:hover {
       background: transparent;
-      border-bottom-color: var(--rc-idea-hl, #c4a35a);
+      border-bottom-color: var(--rc-idea-hl, #c4923a);
     }
     .rc-word-highlight {
-      background: color-mix(in srgb, var(--rc-word-hl, #3d5a80) 22%, transparent);
+      background: color-mix(in srgb, var(--rc-word-hl, #3f5f8a) 18%, transparent);
       border-radius: 2px;
       cursor: pointer;
-      box-shadow: 0 0 0 1px color-mix(in srgb, var(--rc-word-hl, #3d5a80) 22%, transparent);
     }
     .rc-word-highlight:hover {
-      background: color-mix(in srgb, var(--rc-word-hl, #3d5a80) 36%, transparent);
+      background: color-mix(in srgb, var(--rc-word-hl, #3f5f8a) 30%, transparent);
     }
     html[data-rc-word-style="underline"] .rc-word-highlight {
       background: transparent;
       border-radius: 0;
       box-shadow: none;
-      border-bottom: 2px solid color-mix(in srgb, var(--rc-word-hl, #3d5a80) 90%, transparent);
+      border-bottom: 2px solid color-mix(in srgb, var(--rc-word-hl, #3f5f8a) 90%, transparent);
       padding-bottom: 1px;
     }
     html[data-rc-word-style="underline"] .rc-word-highlight:hover {
       background: transparent;
-      border-bottom-color: var(--rc-word-hl, #3d5a80);
+      border-bottom-color: var(--rc-word-hl, #3f5f8a);
     }
   `;
   const styleEl = document.createElement("style");
@@ -1410,9 +1409,9 @@
       "z-index:2147483646",
       "max-width:260px",
       "padding:7px 11px",
-      "background:#1a1a1a",
-      "color:#f7f5f0",
-      "font:12px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",
+      "background:#1d1d1f",
+      "color:#ffffff",
+      "font:12px/1.5 'Hiragino Sans','PingFang SC',-apple-system,BlinkMacSystemFont,sans-serif",
       "border-radius:2px",
       "box-shadow:0 4px 14px rgba(26,26,26,0.18)",
       "pointer-events:none",

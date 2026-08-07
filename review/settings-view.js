@@ -10,7 +10,7 @@ import {
 import { state } from "./state.js";
 
 const PRESETS = [
-  { id: "washi", label: "和紙", idea: "#c4a35a", word: "#3d5a80" },
+  { id: "washi", label: "和紙", idea: "#c4923a", word: "#3f5f8a" },
   { id: "ink", label: "墨色", idea: "#8b7355", word: "#4a5568" },
   { id: "moss", label: "苔绿", idea: "#6b8f71", word: "#3d6b7a" },
   { id: "clay", label: "朱土", idea: "#b86b4b", word: "#5c6b8a" }

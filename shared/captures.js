@@ -1,6 +1,6 @@
 import { inEarlierThanThisWeek, inThisWeek } from "./time.js";
 
-const PALETTE = ["#3d5a80", "#2a9d8f", "#6b705c", "#577590", "#4a4e69", "#22223b", "#5c677d", "#415a77"];
+const PALETTE = ["#3f5f8a", "#2a9d8f", "#6b705c", "#577590", "#4a4e69", "#22223b", "#5c677d", "#415a77"];
 
 export function exactOf(c) {
   return (c && c.anchor && c.anchor.exact) || "";
