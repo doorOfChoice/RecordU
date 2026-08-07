@@ -103,9 +103,12 @@ function captureMentionsWord(snippet, word) {
   return hay.includes(needle);
 }
 
+/** Max captures scanned for cross-page word mention fallback. */
+const ENRICH_ANY_PAGE_SCAN_MAX = 400;
+
 /**
  * Attach optional reading context from captures (best-effort).
- * Prefers same pageUrl; falls back to any capture mentioning the word.
+ * Prefers same pageUrl (indexed); falls back to a bounded scan of other captures.
  * @param {object[]} words from pickRandomWords
  * @param {object[]} captures
  * @returns {object[]}
@@ -113,23 +116,51 @@ function captureMentionsWord(snippet, word) {
 export function enrichWordsForQuiz(words, captures) {
   const list = Array.isArray(words) ? words : [];
   const caps = Array.isArray(captures) ? captures : [];
+  /** @type {Map<string, object[]>} */
+  const byUrl = new Map();
+  for (const c of caps) {
+    if (!c) continue;
+    const url = String(c.pageUrl || "").trim();
+    if (!url) continue;
+    let bucket = byUrl.get(url);
+    if (!bucket) {
+      bucket = [];
+      byUrl.set(url, bucket);
+    }
+    bucket.push(c);
+  }
+
   return list.map((w) => {
     const word = String(w.word || "").trim();
     const pageUrl = String(w.pageUrl || "").trim();
-    let context = "";
     let samePage = null;
     let anyPage = null;
-    for (const c of caps) {
-      const snip = captureSnippet(c);
-      if (!snip || !captureMentionsWord(snip, word)) continue;
-      const cUrl = String(c.pageUrl || "").trim();
-      if (pageUrl && cUrl && cUrl === pageUrl) {
+
+    const sameList = pageUrl ? byUrl.get(pageUrl) : null;
+    if (sameList) {
+      for (const c of sameList) {
+        const snip = captureSnippet(c);
+        if (!snip || !captureMentionsWord(snip, word)) continue;
         samePage = snip;
         break;
       }
-      if (!anyPage) anyPage = snip;
     }
-    context = clipContext(samePage || anyPage || "");
+
+    if (!samePage) {
+      const scanLimit = Math.min(caps.length, ENRICH_ANY_PAGE_SCAN_MAX);
+      for (let i = 0; i < scanLimit; i++) {
+        const c = caps[i];
+        if (!c) continue;
+        const cUrl = String(c.pageUrl || "").trim();
+        if (pageUrl && cUrl === pageUrl) continue;
+        const snip = captureSnippet(c);
+        if (!snip || !captureMentionsWord(snip, word)) continue;
+        anyPage = snip;
+        break;
+      }
+    }
+
+    const context = clipContext(samePage || anyPage || "");
     const out = {
       id: w.id || "",
       word,
@@ -142,6 +173,36 @@ export function enrichWordsForQuiz(words, captures) {
     if (context) out.context = context;
     return out;
   });
+}
+
+/** Chunk an array into fixed-size batches (last batch may be smaller). */
+export function chunkList(list, size) {
+  const arr = Array.isArray(list) ? list : [];
+  const n = Math.max(1, Math.floor(Number(size) || 8));
+  const out = [];
+  for (let i = 0; i < arr.length; i += n) out.push(arr.slice(i, i + n));
+  return out;
+}
+
+/**
+ * Split blanks into exact local matches vs ones that need LLM soft-grading.
+ * @param {Array<{ id: string, prompt?: string, answer: string, userAnswer: string }>} blanks
+ * @returns {{ localGrades: Record<string, boolean>, needsLlm: typeof blanks }}
+ */
+export function splitBlanksForGrading(blanks) {
+  const localGrades = {};
+  const needsLlm = [];
+  for (const b of Array.isArray(blanks) ? blanks : []) {
+    if (!b || !b.id) continue;
+    const user = String(b.userAnswer == null ? "" : b.userAnswer).trim();
+    if (!user) continue;
+    if (answersMatch(user, b.answer)) {
+      localGrades[String(b.id)] = true;
+    } else {
+      needsLlm.push(b);
+    }
+  }
+  return { localGrades, needsLlm };
 }
 
 function itemId() {

@@ -1,17 +1,18 @@
 import { escapeHtml } from "../shared/dom.js";
 import {
   blankItemsForGrading,
+  chunkList,
   enrichWordsForQuiz,
   filterQuizPoolByDay,
   pickRandomWords,
   quizDayOptions,
   quizWordPool,
-  scoreQuiz
+  scoreQuiz,
+  splitBlanksForGrading
 } from "../shared/quiz.js";
 import {
   deleteQuiz,
   generateQuiz,
-  getAllCaptures,
   getAllQuizzes,
   gradeQuizBlanks,
   saveQuiz,
@@ -19,6 +20,8 @@ import {
 } from "../shared/api.js";
 import { alert as modalAlert, confirm as modalConfirm, promptQuizGenerate } from "../modal.js";
 import { state } from "./state.js";
+
+const QUIZ_GENERATE_CHUNK = 5;
 
 function statusMeta(q) {
   if (q.status === "done") {
@@ -117,28 +120,79 @@ export function renderQuizList({ root, progressEl, onRefresh, onOpen }) {
     genBtn.textContent = "生成中…";
     try {
       const picked = pickRandomWords(scoped, choice.count);
-      let captures = [];
-      try {
-        captures = (await getAllCaptures()) || [];
-      } catch (e) {
-        captures = [];
-      }
+      const captures = Array.isArray(state.captures) ? state.captures : [];
       const enriched = enrichWordsForQuiz(picked, captures);
-      const res = await generateQuiz(enriched, choice.promptLang);
-      if (!res || !res.ok) {
-        const code = res && res.code;
-        let msg = (res && res.error) || "生成失败";
-        if (code === "need_key") msg = "请先到设置 → 大模型填写 API Key。";
-        await modalAlert({ title: "生成失败", message: msg });
+      const chunks = chunkList(enriched, QUIZ_GENERATE_CHUNK);
+      console.log("[RecordU quiz] ui generate start", {
+        count: enriched.length,
+        chunks: chunks.length,
+        chunkSize: QUIZ_GENERATE_CHUNK,
+        concurrent: true,
+        captures: captures.length,
+        withContext: enriched.filter((w) => w && w.context).length,
+        promptLang: choice.promptLang
+      });
+
+      let done = 0;
+      const setProgress = () => {
+        genBtn.textContent =
+          chunks.length > 1 ? `生成中 ${done}/${chunks.length}…` : "生成中…";
+      };
+      setProgress();
+
+      const results = await Promise.all(
+        chunks.map(async (chunk, i) => {
+          const t0 = Date.now();
+          console.log("[RecordU quiz] ui chunk request", {
+            chunk: `${i + 1}/${chunks.length}`,
+            words: chunk.length
+          });
+          try {
+            const res = await generateQuiz(chunk, choice.promptLang);
+            console.log("[RecordU quiz] ui chunk response", {
+              chunk: `${i + 1}/${chunks.length}`,
+              ok: !!(res && res.ok),
+              code: res && res.code,
+              items: res && Array.isArray(res.items) ? res.items.length : 0,
+              error: res && res.error,
+              ms: Date.now() - t0,
+              runtimeError: chrome.runtime.lastError && chrome.runtime.lastError.message
+            });
+            return res;
+          } finally {
+            done += 1;
+            setProgress();
+          }
+        })
+      );
+
+      for (const res of results) {
+        if (!res || !res.ok) {
+          const code = res && res.code;
+          let msg = (res && res.error) || "生成失败";
+          if (code === "need_key") msg = "请先到设置 → 大模型填写 API Key。";
+          else if (code === "timeout") msg = "请求超时，请减少题量或稍后重试。";
+          await modalAlert({ title: "生成失败", message: msg });
+          return;
+        }
+      }
+
+      const allItems = [];
+      for (const res of results) {
+        if (Array.isArray(res.items)) allItems.push(...res.items);
+      }
+      if (!allItems.length) {
+        await modalAlert({ title: "生成失败", message: "模型未返回有效题目。" });
         return;
       }
+      console.log("[RecordU quiz] ui save", { items: allItems.length, words: enriched.length });
       const saveRes = await saveQuiz({
         count: enriched.length,
         promptLang: choice.promptLang,
         showSourceWords: !!choice.showSourceWords,
         status: "ready",
         sourceWords: enriched,
-        items: res.items,
+        items: allItems,
         score: null,
         finishedAt: null
       });
@@ -149,6 +203,7 @@ export function renderQuizList({ root, progressEl, onRefresh, onOpen }) {
       state.quizzes = await getAllQuizzes();
       onOpen(saveRes.quiz.id);
     } catch (e) {
+      console.warn("[RecordU quiz] ui generate exception", e);
       await modalAlert({
         title: "生成失败",
         message: e && e.message ? e.message : String(e)
@@ -251,54 +306,74 @@ export function renderQuizTake({ root, progressEl, quiz, onBack, onUpdated }) {
     bindMatchInteractions(root);
     root.querySelector("#rv-quiz-submit").addEventListener("click", async () => {
       const submitBtn = root.querySelector("#rv-quiz-submit");
-      const next = collectAnswers(quiz, root);
-      const blanks = blankItemsForGrading(next);
-      let blankGrades = {};
-
-      if (blanks.length) {
-        if (submitBtn) {
-          submitBtn.disabled = true;
-          submitBtn.textContent = "判分中…";
-        }
-        try {
-          const res = await gradeQuizBlanks(blanks, next.promptLang === "zh" ? "zh" : "en");
-          if (res && res.ok && res.grades) {
-            blankGrades = res.grades;
-          } else {
-            const code = res && res.code;
-            let msg = (res && res.error) || "填空判分失败，将按近似匹配计分";
-            if (code === "need_key") {
-              msg = "未配置 API Key，填空将按近似匹配计分。可到设置 → 大模型填写。";
-            }
-            await modalAlert({ title: "填空判分", message: msg });
-          }
-        } catch (e) {
-          await modalAlert({
-            title: "填空判分",
-            message: `${e && e.message ? e.message : e}；将按近似匹配计分`
-          });
-        } finally {
-          if (submitBtn) {
-            submitBtn.disabled = false;
-            submitBtn.textContent = "交卷";
-          }
-        }
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = "判分中…";
       }
+      try {
+        const next = collectAnswers(quiz, root);
+        const blanks = blankItemsForGrading(next);
+        const { localGrades, needsLlm } = splitBlanksForGrading(blanks);
+        let blankGrades = { ...localGrades };
 
-      const score = scoreQuiz(next, { blankGrades });
-      next.status = "done";
-      next.score = score;
-      next.finishedAt = Date.now();
-      const res = await updateQuiz(next.id, {
-        items: next.items,
-        status: next.status,
-        score: next.score,
-        finishedAt: next.finishedAt
-      });
-      if (res && res.quiz) {
-        onUpdated(res.quiz);
-      } else {
-        onUpdated(next);
+        if (needsLlm.length) {
+          const t0 = Date.now();
+          console.log("[RecordU quiz] ui grade start", {
+            local: Object.keys(localGrades).length,
+            needsLlm: needsLlm.length
+          });
+          try {
+            const res = await gradeQuizBlanks(needsLlm, next.promptLang === "zh" ? "zh" : "en");
+            console.log("[RecordU quiz] ui grade response", {
+              ok: !!(res && res.ok),
+              code: res && res.code,
+              grades: res && res.grades ? Object.keys(res.grades).length : 0,
+              error: res && res.error,
+              ms: Date.now() - t0
+            });
+            if (res && res.ok && res.grades) {
+              blankGrades = { ...blankGrades, ...res.grades };
+            } else {
+              const code = res && res.code;
+              let msg = (res && res.error) || "填空判分失败，将按近似匹配计分";
+              if (code === "need_key") {
+                msg = "未配置 API Key，填空将按近似匹配计分。可到设置 → 大模型填写。";
+              } else if (code === "timeout") {
+                msg = "判分超时，将按近似匹配计分。";
+              }
+              await modalAlert({ title: "填空判分", message: msg });
+            }
+          } catch (e) {
+            console.warn("[RecordU quiz] ui grade exception", e);
+            await modalAlert({
+              title: "填空判分",
+              message: `${e && e.message ? e.message : e}；将按近似匹配计分`
+            });
+          }
+        } else {
+          console.log("[RecordU quiz] ui grade local-only", Object.keys(localGrades).length);
+        }
+
+        const score = scoreQuiz(next, { blankGrades });
+        next.status = "done";
+        next.score = score;
+        next.finishedAt = Date.now();
+        const res = await updateQuiz(next.id, {
+          items: next.items,
+          status: next.status,
+          score: next.score,
+          finishedAt: next.finishedAt
+        });
+        if (res && res.quiz) {
+          onUpdated(res.quiz);
+        } else {
+          onUpdated(next);
+        }
+      } finally {
+        if (submitBtn && submitBtn.isConnected) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = "交卷";
+        }
       }
     });
   }

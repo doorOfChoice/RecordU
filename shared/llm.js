@@ -14,6 +14,11 @@ import {
 } from "./settings.js";
 import { normalizeQuizItems, renderQuizPrompt } from "./quiz.js";
 
+/** Default timeouts for chat completions (ms). */
+export const LLM_LOOKUP_TIMEOUT_MS = 60000;
+export const LLM_QUIZ_TIMEOUT_MS = 120000;
+export const LLM_GRADE_TIMEOUT_MS = 60000;
+
 function extractJsonObject(text) {
   const raw = String(text || "").trim();
   if (!raw) return null;
@@ -57,7 +62,37 @@ function thinkingBodyFields(settings) {
   };
 }
 
-async function chatCompletions({ settings, userContent, systemContent, temperature }) {
+function isAbortError(e) {
+  return !!(e && (e.name === "AbortError" || e.code === 20));
+}
+
+function llmLog(...args) {
+  console.log("[RecordU llm]", ...args);
+}
+
+function llmWarn(...args) {
+  console.warn("[RecordU llm]", ...args);
+}
+
+/**
+ * @param {object} opts
+ * @param {object} opts.settings
+ * @param {string} opts.userContent
+ * @param {string} opts.systemContent
+ * @param {number} [opts.temperature]
+ * @param {number} [opts.timeoutMs]
+ * @param {AbortSignal} [opts.signal]
+ * @param {string} [opts.tag]
+ */
+async function chatCompletions({
+  settings,
+  userContent,
+  systemContent,
+  temperature,
+  timeoutMs,
+  signal,
+  tag
+}) {
   const s = normalizeSettings(settings);
   if (!s.llmApiKey.trim()) {
     const err = new Error("missing api key");
@@ -65,10 +100,39 @@ async function chatCompletions({ settings, userContent, systemContent, temperatu
     throw err;
   }
 
+  if (signal && signal.aborted) {
+    const err = new Error("aborted");
+    err.code = "aborted";
+    throw err;
+  }
+
   const base = normalizeLlmBaseUrl(s.llmBaseUrl);
   const url = `${base}/v1/chat/completions`;
   const model = normalizeLlmModel(s.llmModel);
   const thinking = thinkingBodyFields(s);
+  const label = tag || "chat";
+  const ms = typeof timeoutMs === "number" && timeoutMs > 0 ? timeoutMs : LLM_LOOKUP_TIMEOUT_MS;
+  const started = Date.now();
+
+  llmLog(`${label} start`, {
+    model,
+    base,
+    timeoutMs: ms,
+    promptChars: String(userContent || "").length,
+    reasoning: s.llmReasoningEffort
+  });
+
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => {
+    llmWarn(`${label} abort by timeout after ${ms}ms`);
+    ctrl.abort();
+  }, ms);
+  const onExternalAbort = () => ctrl.abort();
+  if (signal) signal.addEventListener("abort", onExternalAbort, { once: true });
+
+  const heartbeat = setInterval(() => {
+    llmLog(`${label} waiting…`, `${Math.round((Date.now() - started) / 1000)}s / ${Math.round(ms / 1000)}s`);
+  }, 10000);
 
   let res;
   try {
@@ -86,13 +150,29 @@ async function chatCompletions({ settings, userContent, systemContent, temperatu
           { role: "user", content: userContent }
         ],
         ...thinking
-      })
+      }),
+      signal: ctrl.signal
     });
   } catch (e) {
+    const elapsed = Date.now() - started;
+    if (isAbortError(e) || ctrl.signal.aborted) {
+      const abortedByCaller = !!(signal && signal.aborted);
+      llmWarn(`${label} ${abortedByCaller ? "aborted" : "timeout"}`, `${elapsed}ms`);
+      const err = new Error(abortedByCaller ? "aborted" : "request timed out");
+      err.code = abortedByCaller ? "aborted" : "timeout";
+      throw err;
+    }
+    llmWarn(`${label} network error`, `${elapsed}ms`, e && e.message ? e.message : e);
     const err = new Error(e && e.message ? e.message : "network error");
     err.code = "network";
     throw err;
+  } finally {
+    clearInterval(heartbeat);
+    clearTimeout(timer);
+    if (signal) signal.removeEventListener("abort", onExternalAbort);
   }
+
+  llmLog(`${label} http`, res.status, `${Date.now() - started}ms`);
 
   if (!res.ok) {
     let detail = "";
@@ -104,6 +184,7 @@ async function chatCompletions({ settings, userContent, systemContent, temperatu
         detail = await res.text();
       } catch (e2) {}
     }
+    llmWarn(`${label} http error`, res.status, detail);
     const err = new Error(detail || `HTTP ${res.status}`);
     err.code = res.status === 401 || res.status === 403 ? "auth" : "http";
     err.status = res.status;
@@ -114,6 +195,7 @@ async function chatCompletions({ settings, userContent, systemContent, temperatu
   try {
     data = await res.json();
   } catch (e) {
+    llmWarn(`${label} invalid JSON body`, `${Date.now() - started}ms`);
     const err = new Error("invalid response");
     err.code = "parse";
     throw err;
@@ -127,19 +209,25 @@ async function chatCompletions({ settings, userContent, systemContent, temperatu
     data.choices[0].message.content;
   const parsed = extractJsonObject(content);
   if (!parsed || typeof parsed !== "object") {
+    llmWarn(`${label} model did not return JSON`, {
+      elapsedMs: Date.now() - started,
+      contentPreview: String(content || "").slice(0, 200)
+    });
     const err = new Error("model did not return JSON");
     err.code = "parse";
     throw err;
   }
+  llmLog(`${label} ok`, `${Date.now() - started}ms`);
   return parsed;
 }
 
 /**
  * @param {string} word
  * @param {object} settings
+ * @param {{ signal?: AbortSignal, timeoutMs?: number }} [opts]
  * @returns {Promise<{ phonetic: string, translation: string }>}
  */
-export async function lookupWordWithLlm(word, settings) {
+export async function lookupWordWithLlm(word, settings, opts = {}) {
   const term = String(word || "").replace(/\s+/g, " ").trim();
   if (!term) {
     const err = new Error("word is required");
@@ -151,7 +239,10 @@ export async function lookupWordWithLlm(word, settings) {
     settings: s,
     userContent: renderLookupPrompt(s.llmLookupPrompt, term),
     systemContent: "You return only valid JSON objects for dictionary lookups.",
-    temperature: 0.2
+    temperature: 0.2,
+    timeoutMs: opts.timeoutMs != null ? opts.timeoutMs : LLM_LOOKUP_TIMEOUT_MS,
+    signal: opts.signal,
+    tag: "lookup"
   });
 
   return {
@@ -164,9 +255,10 @@ export async function lookupWordWithLlm(word, settings) {
  * @param {object[]} words snapshots { word, translation, phonetic? }
  * @param {"en"|"zh"} promptLang
  * @param {object} settings
+ * @param {{ signal?: AbortSignal, timeoutMs?: number }} [opts]
  * @returns {Promise<object[]>} normalized quiz items
  */
-export async function generateQuizWithLlm(words, promptLang, settings) {
+export async function generateQuizWithLlm(words, promptLang, settings, opts = {}) {
   const list = Array.isArray(words) ? words : [];
   if (!list.length) {
     const err = new Error("no words");
@@ -180,9 +272,14 @@ export async function generateQuizWithLlm(words, promptLang, settings) {
     settings: s,
     userContent: renderQuizPrompt(quizPrompt, list, lang),
     systemContent: "You return only a valid JSON object for vocabulary quizzes.",
-    temperature: 0.7
+    temperature: 0.7,
+    timeoutMs: opts.timeoutMs != null ? opts.timeoutMs : LLM_QUIZ_TIMEOUT_MS,
+    signal: opts.signal,
+    tag: `quiz(${list.length}w)`
   });
-  return normalizeQuizItems(parsed, lang);
+  const items = normalizeQuizItems(parsed, lang);
+  llmLog(`quiz normalize ok`, items.length, "items");
+  return items;
 }
 
 /**
@@ -190,9 +287,10 @@ export async function generateQuizWithLlm(words, promptLang, settings) {
  * @param {Array<{ id: string, prompt: string, answer: string, userAnswer: string }>} blanks
  * @param {"en"|"zh"} promptLang
  * @param {object} settings
+ * @param {{ signal?: AbortSignal, timeoutMs?: number }} [opts]
  * @returns {Promise<Record<string, boolean>>}
  */
-export async function gradeBlankAnswersWithLlm(blanks, promptLang, settings) {
+export async function gradeBlankAnswersWithLlm(blanks, promptLang, settings, opts = {}) {
   const list = (Array.isArray(blanks) ? blanks : []).filter(
     (b) => b && b.id && String(b.userAnswer || "").trim()
   );
@@ -222,7 +320,10 @@ ${JSON.stringify(payload, null, 2)}`;
     settings,
     userContent,
     systemContent: "You return only a valid JSON object for quiz blank grading.",
-    temperature: 0.1
+    temperature: 0.1,
+    timeoutMs: opts.timeoutMs != null ? opts.timeoutMs : LLM_GRADE_TIMEOUT_MS,
+    signal: opts.signal,
+    tag: `grade(${list.length})`
   });
 
   const results = parsed && Array.isArray(parsed.results) ? parsed.results : [];
@@ -231,6 +332,7 @@ ${JSON.stringify(payload, null, 2)}`;
     if (!row || row.id == null) continue;
     grades[String(row.id)] = !!row.correct;
   }
+  llmLog("grade results", Object.keys(grades).length, "/", list.length);
   // Any unanswered-by-model blanks with user input → leave unset for local fallback
   return grades;
 }

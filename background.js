@@ -49,6 +49,23 @@ function ensureMigrated() {
   return migratePromise;
 }
 
+/** Keep the MV3 service worker alive during long LLM fetches. */
+function withLlmKeepAlive(promise) {
+  const id = setInterval(() => {}, 20000);
+  return Promise.resolve(promise).finally(() => clearInterval(id));
+}
+
+function llmFailResponse(e, extra = {}) {
+  const code = (e && e.code) || "error";
+  let error = String(e && e.message ? e.message : e);
+  if (code === "timeout") {
+    error = "请求超时，请减少题量或稍后重试";
+  } else if (code === "aborted") {
+    error = "已取消";
+  }
+  return { ok: false, error, code, ...extra };
+}
+
 function hostFromUrl(url) {
   try {
     let h = new URL(url).hostname;
@@ -693,7 +710,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
 
   if (msg.type === "rc-lookup-word") {
-    lookupWord(msg.word)
+    withLlmKeepAlive(lookupWord(msg.word))
       .then((result) =>
         sendResponse({
           ok: true,
@@ -701,52 +718,68 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           translation: result.translation
         })
       )
-      .catch((e) =>
-        sendResponse({
-          ok: false,
-          error: String(e && e.message ? e.message : e),
-          code: (e && e.code) || "error"
-        })
-      );
+      .catch((e) => sendResponse(llmFailResponse(e)));
     return true;
   }
 
   if (msg.type === "rc-generate-quiz") {
-    ensureMigrated()
-      .then(() => getSettings())
-      .then((settings) =>
-        generateQuizWithLlm(msg.words || [], msg.promptLang === "zh" ? "zh" : "en", settings)
-      )
-      .then((items) => sendResponse({ ok: true, items }))
-      .catch((e) =>
-        sendResponse({
-          ok: false,
-          error: String(e && e.message ? e.message : e),
-          code: (e && e.code) || "error"
-        })
-      );
+    const words = msg.words || [];
+    const t0 = Date.now();
+    console.log("[RecordU quiz] bg generate start", {
+      words: words.length,
+      promptLang: msg.promptLang
+    });
+    withLlmKeepAlive(
+      ensureMigrated()
+        .then(() => getSettings())
+        .then((settings) =>
+          generateQuizWithLlm(words, msg.promptLang === "zh" ? "zh" : "en", settings)
+        )
+    )
+      .then((items) => {
+        console.log("[RecordU quiz] bg generate ok", {
+          items: (items || []).length,
+          ms: Date.now() - t0
+        });
+        sendResponse({ ok: true, items });
+      })
+      .catch((e) => {
+        console.warn("[RecordU quiz] bg generate fail", {
+          code: e && e.code,
+          error: e && e.message ? e.message : e,
+          ms: Date.now() - t0
+        });
+        sendResponse(llmFailResponse(e));
+      });
     return true;
   }
 
   if (msg.type === "rc-grade-quiz-blanks") {
-    ensureMigrated()
-      .then(() => getSettings())
-      .then((settings) =>
-        gradeBlankAnswersWithLlm(
-          msg.blanks || [],
-          msg.promptLang === "zh" ? "zh" : "en",
-          settings
+    const blanks = msg.blanks || [];
+    const t0 = Date.now();
+    console.log("[RecordU quiz] bg grade start", { blanks: blanks.length });
+    withLlmKeepAlive(
+      ensureMigrated()
+        .then(() => getSettings())
+        .then((settings) =>
+          gradeBlankAnswersWithLlm(blanks, msg.promptLang === "zh" ? "zh" : "en", settings)
         )
-      )
-      .then((grades) => sendResponse({ ok: true, grades: grades || {} }))
-      .catch((e) =>
-        sendResponse({
-          ok: false,
-          error: String(e && e.message ? e.message : e),
-          code: (e && e.code) || "error",
-          grades: {}
-        })
-      );
+    )
+      .then((grades) => {
+        console.log("[RecordU quiz] bg grade ok", {
+          grades: Object.keys(grades || {}).length,
+          ms: Date.now() - t0
+        });
+        sendResponse({ ok: true, grades: grades || {} });
+      })
+      .catch((e) => {
+        console.warn("[RecordU quiz] bg grade fail", {
+          code: e && e.code,
+          error: e && e.message ? e.message : e,
+          ms: Date.now() - t0
+        });
+        sendResponse(llmFailResponse(e, { grades: {} }));
+      });
     return true;
   }
 
