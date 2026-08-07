@@ -492,6 +492,32 @@
     });
   }
 
+  /** Close overlay when pointerdown lands outside it. Returns teardown. */
+  function bindOverlayOutsideClose(overlay, close) {
+    const onPointerDown = (e) => {
+      if (!overlay.isConnected) {
+        teardown();
+        return;
+      }
+      if (e.button != null && e.button !== 0) return;
+      const t = e.target;
+      if (t && overlay.contains(t)) return;
+      close();
+    };
+
+    function teardown() {
+      document.removeEventListener("pointerdown", onPointerDown, true);
+    }
+
+    // Defer so the click/tap that opened the panel does not instantly dismiss it.
+    setTimeout(() => {
+      if (!overlay.isConnected) return;
+      document.addEventListener("pointerdown", onPointerDown, true);
+    }, 0);
+
+    return teardown;
+  }
+
   function openOverlay({
     mode = "create",
     title = "记下感触",
@@ -546,13 +572,19 @@
     const toast = overlay.querySelector(".rc-toast");
     textarea.value = initialText;
 
+    let unbindOutside = null;
     function close() {
+      if (unbindOutside) {
+        unbindOutside();
+        unbindOutside = null;
+      }
       if (mode === "create" && screenshot) {
         if (screenshot.revokePreview) screenshot.revokePreview();
         pendingScreenshot = null;
       }
       overlay.remove();
     }
+    unbindOutside = bindOverlayOutsideClose(overlay, close);
 
     async function removeCapture() {
       if (!captureId) return;
@@ -868,10 +900,16 @@
       return v === "exact" || v === "variant" ? v : "inherit";
     }
 
+    let unbindOutside = null;
     function close() {
+      if (unbindOutside) {
+        unbindOutside();
+        unbindOutside = null;
+      }
       lookupGen += 1;
       overlay.remove();
     }
+    unbindOutside = bindOverlayOutsideClose(overlay, close);
 
     function showLookupLoading() {
       statusEl.hidden = false;
