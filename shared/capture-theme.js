@@ -87,7 +87,7 @@
       height: 28px;
       border-radius: 4px;
       background: ${paper};
-      border: 1px solid ${line};
+      border: 1px solid #c7c7cc;
       box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
       cursor: pointer;
       display: flex;

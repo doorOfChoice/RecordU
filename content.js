@@ -257,8 +257,8 @@
     const bar = ensureFloatBar();
     const w = bar.offsetWidth || 52;
     const h = bar.offsetHeight || 24;
-    let x = rect.right + 4;
-    let y = rect.top;
+    let x = rect.right + 6;
+    let y = rect.top + Math.max(0, (rect.height - h) / 2);
     if (x + w > window.innerWidth - 4) x = rect.left - w - 4;
     if (x < 4) x = 4;
     if (y + h > window.innerHeight - 4) y = Math.max(4, window.innerHeight - h - 4);
@@ -270,6 +270,43 @@
 
   function hideFloatButton() {
     if (floatBar) floatBar.classList.remove("rc-show");
+  }
+
+  function isSelectionBackward(sel) {
+    if (!sel || !sel.anchorNode || !sel.focusNode) return false;
+    if (sel.anchorNode === sel.focusNode) {
+      return sel.focusOffset < sel.anchorOffset;
+    }
+    const pos = sel.anchorNode.compareDocumentPosition(sel.focusNode);
+    if (pos & Node.DOCUMENT_POSITION_PRECEDING) return true;
+    return false;
+  }
+
+  /** Rect near where the user finished selecting (last word), not the full multi-line box. */
+  function getSelectionFloatRect(sel) {
+    if (!sel || sel.rangeCount === 0) return null;
+    const range = sel.getRangeAt(0);
+
+    try {
+      if (sel.focusNode) {
+        const caret = document.createRange();
+        caret.setStart(sel.focusNode, sel.focusOffset);
+        caret.collapse(true);
+        const r = caret.getBoundingClientRect();
+        if (r && (r.height > 0 || r.width > 0)) return r;
+      }
+    } catch (e) {}
+
+    try {
+      const rects = Array.from(range.getClientRects()).filter((r) => r.width > 0 || r.height > 0);
+      if (rects.length) {
+        return isSelectionBackward(sel) ? rects[0] : rects[rects.length - 1];
+      }
+    } catch (e) {}
+
+    const box = range.getBoundingClientRect();
+    if (box && (box.width > 0 || box.height > 0)) return box;
+    return null;
   }
 
   function isInsideOwnUI(node) {
@@ -284,8 +321,8 @@
       hideFloatButton();
       return;
     }
-    const rect = sel.getRangeAt(0).getBoundingClientRect();
-    if (!rect || (rect.width === 0 && rect.height === 0)) {
+    const rect = getSelectionFloatRect(sel);
+    if (!rect) {
       hideFloatButton();
       return;
     }
