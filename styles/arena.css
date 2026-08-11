@@ -35,6 +35,37 @@
   background: var(--rv-surface-2, var(--rv-surface));
 }
 
+.rv-arena-card-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+  color: var(--rv-accent);
+  background: var(--rv-accent-soft);
+  flex: 0 0 auto;
+}
+
+.rv-arena-card-icon.is-detective {
+  color: var(--rv-accent);
+  background: var(--rv-accent-soft);
+  border-color: color-mix(in srgb, var(--rv-accent) 18%, transparent);
+}
+
+.rv-arena-card-icon.is-sprint {
+  color: var(--rv-ok);
+  background: var(--rv-ok-soft);
+  border-color: color-mix(in srgb, var(--rv-ok) 20%, transparent);
+}
+
+.rv-arena-card-svg {
+  width: 28px;
+  height: 28px;
+  display: block;
+}
+
 .rv-arena-card-title {
   margin: 0;
   font-size: 15px;
@@ -442,6 +473,24 @@
 
 .rv-arena-input:disabled {
   opacity: 0.85;
+}
+
+.rv-arena-hint-btn {
+  appearance: none;
+  flex: 0 0 auto;
+  padding: 0 12px;
+  border: 1px solid var(--rv-line);
+  border-radius: var(--radius);
+  background: var(--rv-surface);
+  font-family: inherit;
+  font-size: 12px;
+  color: var(--rv-sumi);
+  cursor: pointer;
+}
+
+.rv-arena-hint-btn:hover:not(:disabled) {
+  border-color: var(--rv-accent);
+  color: var(--rv-accent);
 }
 
 .rv-arena-result {

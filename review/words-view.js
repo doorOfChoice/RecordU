@@ -7,8 +7,8 @@ import { clampFocus, focusedWord, wordsList, state } from "./state.js";
 
 const NAV_ITEMS = [
   { id: "list", label: "单词列表" },
-  { id: "quizzes", label: "试卷" },
-  { id: "arena", label: "练习场" }
+  { id: "arena", label: "练习场" },
+  { id: "quizzes", label: "试卷" }
 ];
 
 function normalizeWordsTab(value) {

@@ -31,6 +31,29 @@ function poolEmptyHtml() {
   return `<p class="rv-arena-empty">还没有可练习的未学会单词（需有释义）。先在网页上划词标记，再回来玩。</p>`;
 }
 
+/** Context detective: passage blank + loupe */
+function iconDetective() {
+  return `<svg class="rv-arena-card-svg" viewBox="0 0 40 40" fill="none" aria-hidden="true">
+    <rect x="6" y="7" width="20" height="26" rx="3" stroke="currentColor" stroke-width="1.75"/>
+    <path d="M11 14h10M11 19h10" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+    <path d="M11 24h8" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-dasharray="2.2 2.4"/>
+    <circle cx="27.5" cy="27.5" r="6" stroke="currentColor" stroke-width="1.75"/>
+    <path d="M32 32l4.5 4.5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+  </svg>`;
+}
+
+/** Flash sprint: stopwatch + spark */
+function iconSprint() {
+  return `<svg class="rv-arena-card-svg" viewBox="0 0 40 40" fill="none" aria-hidden="true">
+    <path d="M16 7h8" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+    <path d="M20 7v3.5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+    <circle cx="20" cy="23" r="11" stroke="currentColor" stroke-width="1.75"/>
+    <path d="M20 23V15.5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+    <path d="M20 23l6 3.5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+    <path d="M30.5 11.5l2.2-1.1M32.2 14.2l1.1-2.2M33.5 12.8l-1.8 1.8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+  </svg>`;
+}
+
 /**
  * @param {object} opts
  * @param {HTMLElement} opts.root
@@ -71,11 +94,13 @@ function renderArenaHub({ root, progressEl, onRefresh }) {
         n
           ? `<div class="rv-arena-cards">
           <article class="rv-arena-card">
+            <div class="rv-arena-card-icon is-detective" aria-hidden="true">${iconDetective()}</div>
             <h3 class="rv-arena-card-title">语境侦探</h3>
             <p class="rv-arena-card-desc">从你当初划词的原文里挖空，凭语境填回单词。没有原文时改为看释义填词。</p>
             <button type="button" class="btn btn-primary" data-arena-start="detective">开始</button>
           </article>
           <article class="rv-arena-card">
+            <div class="rv-arena-card-icon is-sprint" aria-hidden="true">${iconSprint()}</div>
             <h3 class="rv-arena-card-title">六十秒闪回</h3>
             <p class="rv-arena-card-desc">限时抢答：认词或认义，四选一。连对会安静地叠 combo。</p>
             <div class="rv-arena-card-opts" role="group" aria-label="出题方向">
@@ -432,11 +457,6 @@ function renderDetective({ root, progressEl, onRefresh }) {
           ? `<blockquote class="rv-arena-cloze">${escapeHtml(item.promptText)}</blockquote>`
           : `<p class="rv-arena-gloss">${escapeHtml(item.promptText || "（无释义）")}</p>`
       }
-      ${
-        item.phonetic
-          ? `<p class="rv-arena-phonetic">${escapeHtml(item.phonetic)}</p>`
-          : ""
-      }
       ${source}
       <form class="rv-arena-form" id="rv-arena-detective-form">
         <label class="rv-arena-label" for="rv-arena-answer">填入单词</label>
@@ -445,7 +465,15 @@ function renderDetective({ root, progressEl, onRefresh }) {
             ${answered ? "disabled" : ""}
             value="${escapeHtml(item.userAnswer || "")}"
             placeholder="输入英文词">
+          ${
+            item.phonetic
+              ? `<button type="button" class="rv-arena-hint-btn" data-show-phonetic ${
+                  answered ? "disabled" : ""
+                }>音标</button>`
+              : ""
+          }
         </div>
+        <p class="rv-arena-phonetic" data-phonetic hidden>${escapeHtml(item.phonetic || "")}</p>
         ${
           answered
             ? `<p class="rv-arena-feedback ${item.correct ? "is-ok" : "is-bad"}">${
@@ -468,6 +496,13 @@ function renderDetective({ root, progressEl, onRefresh }) {
 
   const play = root.querySelector("[data-detective-play]");
   const comboEl = root.querySelector("[data-combo]");
+  const phoneticBtn = root.querySelector("[data-show-phonetic]");
+  const phoneticEl = root.querySelector("[data-phonetic]");
+  if (phoneticBtn && phoneticEl) {
+    phoneticBtn.addEventListener("click", () => {
+      phoneticEl.hidden = !phoneticEl.hidden;
+    });
+  }
 
   const form = root.querySelector("#rv-arena-detective-form");
   const input = root.querySelector("#rv-arena-answer");
