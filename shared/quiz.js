@@ -3,6 +3,28 @@ import { DEFAULT_LLM_QUIZ_PROMPT } from "./settings.js";
 import { dayKey, formatDayLabel } from "./time.js";
 
 export const DEFAULT_QUIZ_PROMPT = DEFAULT_LLM_QUIZ_PROMPT;
+
+/**
+ * @param {unknown} value
+ * @returns {"easy"|"normal"|"hard"}
+ */
+export function normalizeQuizDifficulty(value) {
+  if (value === "easy" || value === "hard") return value;
+  return "normal";
+}
+
+/**
+ * Human label for quiz difficulty.
+ * @param {unknown} value
+ * @returns {string}
+ */
+export function quizDifficultyLabel(value) {
+  const d = normalizeQuizDifficulty(value);
+  if (d === "easy") return "简单";
+  if (d === "hard") return "困难";
+  return "普通";
+}
+
 /**
  * @param {object[]} words
  * @returns {object[]}
@@ -430,9 +452,11 @@ export function blankItemsForGrading(quiz) {
  * @param {string} template
  * @param {object[]} words
  * @param {"en"|"zh"} promptLang
+ * @param {"easy"|"normal"|"hard"} [difficulty]
  */
-export function renderQuizPrompt(template, words, promptLang) {
+export function renderQuizPrompt(template, words, promptLang, difficulty) {
   const lang = promptLang === "zh" ? "zh" : "en";
+  const level = normalizeQuizDifficulty(difficulty);
   const wordsJson = JSON.stringify(
     words.map((w) => {
       const row = {
@@ -455,5 +479,14 @@ export function renderQuizPrompt(template, words, promptLang) {
   if (!out.includes("{{promptLang}}")) {
     out = `${out}\n出题方向：{{promptLang}}`;
   }
-  return out.split("{{promptLang}}").join(lang).split("{{words}}").join(wordsJson);
+  if (!out.includes("{{difficulty}}")) {
+    out = `${out}\n难度：{{difficulty}}`;
+  }
+  return out
+    .split("{{promptLang}}")
+    .join(lang)
+    .split("{{difficulty}}")
+    .join(level)
+    .split("{{words}}")
+    .join(wordsJson);
 }

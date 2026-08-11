@@ -6,6 +6,7 @@ import {
   filterQuizPoolByDay,
   pickRandomWords,
   quizDayOptions,
+  quizDifficultyLabel,
   quizWordPool,
   scoreQuiz,
   splitBlanksForGrading
@@ -76,7 +77,7 @@ export function renderQuizList({ root, progressEl, onRefresh, onOpen }) {
                 <button type="button" class="rv-quiz-item-main" data-act="open">
                   <span class="rv-quiz-item-title">${escapeHtml(formatQuizTime(q.createdAt))} · ${q.count || 0} 词 · ${
                     q.promptLang === "zh" ? "中文出题" : "英文出题"
-                  }</span>
+                  } · ${escapeHtml(quizDifficultyLabel(q.difficulty))}</span>
                   <span class="rv-quiz-item-status is-${escapeHtml(st.key)}">${escapeHtml(st.label)}</span>
                 </button>
                 <button type="button" class="rv-quiz-item-del" data-act="delete" aria-label="删除试卷">删除</button>
@@ -130,7 +131,8 @@ export function renderQuizList({ root, progressEl, onRefresh, onOpen }) {
         concurrent: true,
         captures: captures.length,
         withContext: enriched.filter((w) => w && w.context).length,
-        promptLang: choice.promptLang
+        promptLang: choice.promptLang,
+        difficulty: choice.difficulty
       });
 
       let done = 0;
@@ -148,7 +150,7 @@ export function renderQuizList({ root, progressEl, onRefresh, onOpen }) {
             words: chunk.length
           });
           try {
-            const res = await generateQuiz(chunk, choice.promptLang);
+            const res = await generateQuiz(chunk, choice.promptLang, choice.difficulty);
             console.log("[RecordU quiz] ui chunk response", {
               chunk: `${i + 1}/${chunks.length}`,
               ok: !!(res && res.ok),
@@ -189,6 +191,7 @@ export function renderQuizList({ root, progressEl, onRefresh, onOpen }) {
       const saveRes = await saveQuiz({
         count: enriched.length,
         promptLang: choice.promptLang,
+        difficulty: choice.difficulty,
         showSourceWords: !!choice.showSourceWords,
         status: "ready",
         sourceWords: enriched,
@@ -246,7 +249,7 @@ export function renderQuizTake({ root, progressEl, quiz, onBack, onUpdated }) {
   const readonly = quiz.status === "done";
   progressEl.textContent = readonly
     ? `试卷回顾 · ${quiz.score ? `${quiz.score.correct}/${quiz.score.total}` : "已完成"}`
-    : `答题中 · ${quiz.count || 0} 词 · ${quiz.promptLang === "zh" ? "中文出题" : "英文出题"}`;
+    : `答题中 · ${quiz.count || 0} 词 · ${quiz.promptLang === "zh" ? "中文出题" : "英文出题"} · ${quizDifficultyLabel(quiz.difficulty)}`;
 
   if (!readonly && quiz.status === "ready") {
     quiz.status = "in_progress";

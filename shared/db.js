@@ -380,6 +380,11 @@ function normalizePromptLang(value) {
   return value === "zh" ? "zh" : "en";
 }
 
+function normalizeQuizDifficulty(value) {
+  if (value === "easy" || value === "hard") return value;
+  return "normal";
+}
+
 export function normalizeQuizRecord(input) {
   const src = input && typeof input === "object" ? input : {};
   const items = Array.isArray(src.items) ? src.items : [];
@@ -389,6 +394,7 @@ export function normalizeQuizRecord(input) {
     createdAt: typeof src.createdAt === "number" ? src.createdAt : Date.now(),
     count: typeof src.count === "number" ? src.count : sourceWords.length,
     promptLang: normalizePromptLang(src.promptLang),
+    difficulty: normalizeQuizDifficulty(src.difficulty),
     status: normalizeQuizStatus(src.status),
     showSourceWords: !!src.showSourceWords,
     sourceWords: sourceWords.map((w) => ({

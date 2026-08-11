@@ -10,7 +10,7 @@ export const DEFAULT_LLM_LOOKUP_PROMPT = `你是英语词典助手。请为单�
 3. phonetic 使用 IPA，两侧可带斜杠，如 /ˈwɜːrd/；若无法确定则用空字符串。
 4. translation 为简洁中文释义（可含词性），多个义项用分号分隔。`;
 
-export const DEFAULT_LLM_QUIZ_PROMPT = `你是英语词汇练习出题助手。目标：让学习者主动检索与辨析用法，留下更深印象——不要出「这个词是什么意思」式浅层题。
+export const DEFAULT_LLM_QUIZ_PROMPT = `你是英语词汇练习出题助手。按指定难度出题，帮助学习者巩固词表。
 
 要求：
 1. 只输出一个 JSON 对象，不要 markdown 代码块，不要其它说明。
@@ -21,14 +21,14 @@ export const DEFAULT_LLM_QUIZ_PROMPT = `你是英语词汇练习出题助手。�
    - blank: {"type":"blank","prompt":"题干","answer":"标准答案"}
    - match: {"type":"match","left":["左1","左2",...],"right":["右1","右2",...],"links":[2,0,1]}
      left 与 right 长度相同（3～5）；links[i] 表示 left[i] 对应的 right 下标。
-4. 题型认知动作（禁止机械互译）：
-   - blank（主力，词量允许时至少一半）：英文语境挖空，答案为**目标英文词**；无可用语境时，用简短中文场景描述触发英文产出。禁止「写出中文意思」「Fill in the Chinese for …」。
-   - choice：考用法正误、近义/形近辨析、或「哪句里该词最贴切」。禁止「X 是什么意思？」+ 四个无关中文选项；干扰项须近义、形近或易混。
-   - match：左侧为细微场景/用法提示，右侧为目标词；禁止机械「英文词 ↔ 中文释义」配对。
-5. 每词尽量只考一次；优先产出英文词，少做「认中文」。
-6. 词表字段：word / translation / phonetic? / note? / pageTitle? / context?。有 note 或 context 时优先改编进题干（可改写，勿原样剧透答案词）；无语境时自造自然短句挖空。
+4. 难度：{{difficulty}}（easy | normal | hard），严格按档出题：
+   - easy（简单）：**禁止 blank（填空题）**，只能用 choice 与 match。以认词/释义为主；choice 可用「词→义」或「义→词」；match 可为「英文词 ↔ 中文释义」。少做近义/形近辨析。
+   - normal（普通）：认用混合，可用 choice / blank / match。约一半题可认词/释义，其余为简短语境或轻量用法；blank 答案仍优先为英文词；干扰项可略近义，但不必刁钻。
+   - hard（困难）：侧重用法/辨析/情境产出，可用 choice / blank / match。blank（词量允许时至少一半）用英文语境挖空，答案为目标英文词；choice 考用法正误、近义/形近辨析；match 左侧为细微场景/用法提示。禁止机械「词↔义」互译与「X 是什么意思？」+ 无关选项。
+5. 每词尽量只考一次；优先产出英文词（尤其 normal / hard）。
+6. 词表字段：word / translation / phonetic? / note? / pageTitle? / context?。有 note 或 context 时优先改编进题干（可改写，勿原样剧透答案词）；无语境时自造自然短句。
 7. 出题方向：{{promptLang}}
-   - en：题干以英文为主（语境/用法）
+   - en：题干以英文为主（语境/用法）；easy 档题干可用中英混合
    - zh：题干可用中文场景，但 blank 的 answer 仍优先为英文词
 8. 干扰项要合理；正确答案必须对应词表中的目标词，不要引入词表外的「正确对应」当答案。
 
@@ -63,7 +63,7 @@ export const DEFAULT_SETTINGS = {
   llmReasoningEffort: "off",
   /** Lookup prompt template; must contain {{word}} */
   llmLookupPrompt: DEFAULT_LLM_LOOKUP_PROMPT,
-  /** Quiz generation prompt; should contain {{words}} and {{promptLang}} */
+  /** Quiz generation prompt; should contain {{words}}, {{promptLang}}, and {{difficulty}} */
   llmQuizPrompt: DEFAULT_LLM_QUIZ_PROMPT
 };
 

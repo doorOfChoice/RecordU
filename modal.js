@@ -305,6 +305,23 @@ export function promptQuizGenerate(opts = {}) {
         </div>
       </div>
       <div class="rc-modal-field">
+        <span class="rc-modal-field-label">难度</span>
+        <div class="rc-modal-radios" role="radiogroup" aria-label="难度">
+          <label class="rc-modal-radio">
+            <input type="radio" name="rc-modal-quiz-difficulty" value="easy" checked>
+            <span>简单</span>
+          </label>
+          <label class="rc-modal-radio">
+            <input type="radio" name="rc-modal-quiz-difficulty" value="normal">
+            <span>普通</span>
+          </label>
+          <label class="rc-modal-radio">
+            <input type="radio" name="rc-modal-quiz-difficulty" value="hard">
+            <span>困难</span>
+          </label>
+        </div>
+      </div>
+      <div class="rc-modal-field">
         <span class="rc-modal-field-label">是否展示考点词</span>
         <div class="rc-modal-radios" role="radiogroup" aria-label="是否展示考点词">
           <label class="rc-modal-radio">
@@ -357,11 +374,16 @@ export function promptQuizGenerate(opts = {}) {
       if (!Number.isFinite(count)) count = Math.min(10, activeMax);
       count = Math.min(activeMax, Math.max(1, count));
       const langEl = overlay.querySelector('input[name="rc-modal-quiz-lang"]:checked');
+      const difficultyEl = overlay.querySelector('input[name="rc-modal-quiz-difficulty"]:checked');
       const showWordsEl = overlay.querySelector('input[name="rc-modal-quiz-show-words"]:checked');
       const dayKeyVal = String(dayEl.value || "all");
+      const difficultyRaw = difficultyEl && difficultyEl.value;
+      const difficulty =
+        difficultyRaw === "normal" || difficultyRaw === "hard" ? difficultyRaw : "easy";
       return {
         count,
         promptLang: langEl && langEl.value === "zh" ? "zh" : "en",
+        difficulty,
         dayKey: dayKeyVal === "all" ? "all" : dayKeyVal,
         showSourceWords: !!(showWordsEl && showWordsEl.value === "1")
       };

@@ -12,7 +12,7 @@ import {
   normalizeLlmReasoningEffort,
   normalizeSettings
 } from "./settings.js";
-import { normalizeQuizItems, renderQuizPrompt } from "./quiz.js";
+import { normalizeQuizDifficulty, normalizeQuizItems, renderQuizPrompt } from "./quiz.js";
 
 /** Default timeouts for chat completions (ms). */
 export const LLM_LOOKUP_TIMEOUT_MS = 60000;
@@ -255,7 +255,7 @@ export async function lookupWordWithLlm(word, settings, opts = {}) {
  * @param {object[]} words snapshots { word, translation, phonetic? }
  * @param {"en"|"zh"} promptLang
  * @param {object} settings
- * @param {{ signal?: AbortSignal, timeoutMs?: number }} [opts]
+ * @param {{ signal?: AbortSignal, timeoutMs?: number, difficulty?: "easy"|"normal"|"hard" }} [opts]
  * @returns {Promise<object[]>} normalized quiz items
  */
 export async function generateQuizWithLlm(words, promptLang, settings, opts = {}) {
@@ -266,18 +266,27 @@ export async function generateQuizWithLlm(words, promptLang, settings, opts = {}
     throw err;
   }
   const lang = promptLang === "zh" ? "zh" : "en";
+  const level = normalizeQuizDifficulty(opts.difficulty);
   const s = normalizeSettings(settings);
   const quizPrompt = normalizeLlmQuizPrompt(s.llmQuizPrompt);
   const parsed = await chatCompletions({
     settings: s,
-    userContent: renderQuizPrompt(quizPrompt, list, lang),
+    userContent: renderQuizPrompt(quizPrompt, list, lang, level),
     systemContent: "You return only a valid JSON object for vocabulary quizzes.",
     temperature: 0.7,
     timeoutMs: opts.timeoutMs != null ? opts.timeoutMs : LLM_QUIZ_TIMEOUT_MS,
     signal: opts.signal,
     tag: `quiz(${list.length}w)`
   });
-  const items = normalizeQuizItems(parsed, lang);
+  let items = normalizeQuizItems(parsed, lang);
+  if (level === "easy") {
+    items = items.filter((it) => it && it.type !== "blank");
+    if (!items.length) {
+      const err = new Error("简单难度未返回有效题目（已排除填空）");
+      err.code = "parse";
+      throw err;
+    }
+  }
   llmLog(`quiz normalize ok`, items.length, "items");
   return items;
 }

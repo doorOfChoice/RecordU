@@ -88,11 +88,12 @@ export async function lookupWord(word) {
   return chrome.runtime.sendMessage({ type: "rc-lookup-word", word });
 }
 
-export async function generateQuiz(words, promptLang) {
+export async function generateQuiz(words, promptLang, difficulty) {
   return chrome.runtime.sendMessage({
     type: "rc-generate-quiz",
     words,
-    promptLang
+    promptLang,
+    difficulty
   });
 }
 

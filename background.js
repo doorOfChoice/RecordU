@@ -727,13 +727,16 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     const t0 = Date.now();
     console.log("[RecordU quiz] bg generate start", {
       words: words.length,
-      promptLang: msg.promptLang
+      promptLang: msg.promptLang,
+      difficulty: msg.difficulty
     });
     withLlmKeepAlive(
       ensureMigrated()
         .then(() => getSettings())
         .then((settings) =>
-          generateQuizWithLlm(words, msg.promptLang === "zh" ? "zh" : "en", settings)
+          generateQuizWithLlm(words, msg.promptLang === "zh" ? "zh" : "en", settings, {
+            difficulty: msg.difficulty
+          })
         )
     )
       .then((items) => {
