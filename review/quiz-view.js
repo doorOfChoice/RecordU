@@ -56,7 +56,7 @@ function formatQuizTime(ts) {
  */
 export function renderQuizList({ root, progressEl, onRefresh, onOpen }) {
   const list = Array.isArray(state.quizzes) ? state.quizzes : [];
-  progressEl.textContent = `试题 · ${list.length} 份`;
+  progressEl.textContent = `试卷 · ${list.length} 份`;
 
   const pool = quizWordPool(state.words || []);
   const canGenerate = pool.length > 0;

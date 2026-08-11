@@ -15,10 +15,15 @@ export const state = {
   /** @type {"highlight"|"backup"|"llm"|"prompts"} */
   settingsTab: "highlight",
   /** Words sub-tab when mode is words. */
-  /** @type {"list"|"quizzes"} */
+  /** @type {"list"|"quizzes"|"arena"} */
   wordsTab: "list",
   /** Open quiz id when taking/reviewing a paper; null = list. */
   activeQuizId: null,
+  /** Arena mode: null = hub, sprint | detective = active play. */
+  /** @type {null|"sprint"|"detective"} */
+  activeArenaMode: null,
+  /** In-memory arena session (not persisted). */
+  arenaSession: null,
   /** @type {"week"|"earlier"|"all"} */
   dateRange: "week",
   focusIndex: 0,

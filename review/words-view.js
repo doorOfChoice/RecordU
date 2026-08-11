@@ -1,13 +1,20 @@
 import { escapeHtml } from "../shared/dom.js";
 import { dayKey, formatDayLabel } from "../shared/time.js";
 import { wordActionsHtml } from "./action-icons.js";
+import { renderArena } from "./arena-view.js";
 import { renderQuizList, renderQuizTake } from "./quiz-view.js";
 import { clampFocus, focusedWord, wordsList, state } from "./state.js";
 
 const NAV_ITEMS = [
   { id: "list", label: "单词列表" },
-  { id: "quizzes", label: "试题列表" }
+  { id: "quizzes", label: "试卷" },
+  { id: "arena", label: "练习场" }
 ];
+
+function normalizeWordsTab(value) {
+  if (value === "quizzes" || value === "arena") return value;
+  return "list";
+}
 
 export const WORDS_PAGE_SIZE = 48;
 
@@ -244,7 +251,7 @@ export function renderWords({ root, progressEl, emptyEl, onDrop, onEdit, onLearn
   emptyEl.classList.add("hidden");
   root.classList.remove("hidden");
 
-  const tab = state.wordsTab === "quizzes" ? "quizzes" : "list";
+  const tab = normalizeWordsTab(state.wordsTab);
   state.wordsTab = tab;
 
   root.innerHTML = `
@@ -267,10 +274,18 @@ export function renderWords({ root, progressEl, emptyEl, onDrop, onEdit, onLearn
 
   root.querySelectorAll("[data-wtab]").forEach((btn) => {
     btn.addEventListener("click", () => {
-      const next = btn.dataset.wtab === "quizzes" ? "quizzes" : "list";
-      if (next === state.wordsTab && !state.activeQuizId) return;
+      const next = normalizeWordsTab(btn.dataset.wtab);
+      if (
+        next === state.wordsTab &&
+        !state.activeQuizId &&
+        !state.activeArenaMode
+      ) {
+        return;
+      }
       state.wordsTab = next;
       state.activeQuizId = null;
+      state.activeArenaMode = null;
+      state.arenaSession = null;
       if (next === "list") state.wordsVisibleCount = WORDS_PAGE_SIZE;
       renderWords({ root, progressEl, emptyEl, onDrop, onEdit, onLearn });
     });
@@ -278,8 +293,20 @@ export function renderWords({ root, progressEl, emptyEl, onDrop, onEdit, onLearn
 
   const main = root.querySelector("#rv-words-main");
 
+  if (tab === "arena") {
+    disconnectWordsSentinel();
+    renderArena({
+      root: main,
+      progressEl,
+      onRefresh: () => renderWords({ root, progressEl, emptyEl, onDrop, onEdit, onLearn })
+    });
+    return null;
+  }
+
   if (tab === "quizzes") {
     disconnectWordsSentinel();
+    state.activeArenaMode = null;
+    state.arenaSession = null;
     const activeId = state.activeQuizId;
     const quiz =
       activeId && Array.isArray(state.quizzes)
