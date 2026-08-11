@@ -396,6 +396,15 @@
   color: var(--rv-thin);
 }
 
+.rv-arena-phonetic {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--rv-sumi);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  letter-spacing: 0.02em;
+}
+
 .rv-arena-form {
   display: flex;
   flex-direction: column;
@@ -433,30 +442,6 @@
 
 .rv-arena-input:disabled {
   opacity: 0.85;
-}
-
-.rv-arena-hint-btn {
-  appearance: none;
-  flex: 0 0 auto;
-  padding: 0 12px;
-  border: 1px solid var(--rv-line);
-  border-radius: var(--radius);
-  background: var(--rv-surface);
-  font-family: inherit;
-  font-size: 12px;
-  color: var(--rv-sumi);
-  cursor: pointer;
-}
-
-.rv-arena-hint-btn:hover:not(:disabled) {
-  border-color: var(--rv-accent);
-  color: var(--rv-accent);
-}
-
-.rv-arena-phonetic {
-  margin: 0;
-  font-size: 13px;
-  color: var(--rv-sumi);
 }
 
 .rv-arena-result {

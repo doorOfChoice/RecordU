@@ -203,6 +203,11 @@ function renderSprint({ root, progressEl, onRefresh }) {
         )}%"></div>
       </div>
       <p class="rv-arena-prompt" data-prompt>${escapeHtml(q.prompt)}</p>
+      ${
+        q.phonetic
+          ? `<p class="rv-arena-phonetic">${escapeHtml(q.phonetic)}</p>`
+          : ""
+      }
       <p class="rv-arena-prompt-hint">${
         session.direction === "zh2en" ? "选出对应英文" : "选出对应释义"
       }</p>
@@ -427,6 +432,11 @@ function renderDetective({ root, progressEl, onRefresh }) {
           ? `<blockquote class="rv-arena-cloze">${escapeHtml(item.promptText)}</blockquote>`
           : `<p class="rv-arena-gloss">${escapeHtml(item.promptText || "（无释义）")}</p>`
       }
+      ${
+        item.phonetic
+          ? `<p class="rv-arena-phonetic">${escapeHtml(item.phonetic)}</p>`
+          : ""
+      }
       ${source}
       <form class="rv-arena-form" id="rv-arena-detective-form">
         <label class="rv-arena-label" for="rv-arena-answer">填入单词</label>
@@ -435,15 +445,7 @@ function renderDetective({ root, progressEl, onRefresh }) {
             ${answered ? "disabled" : ""}
             value="${escapeHtml(item.userAnswer || "")}"
             placeholder="输入英文词">
-          ${
-            item.phonetic
-              ? `<button type="button" class="rv-arena-hint-btn" data-show-phonetic ${
-                  answered ? "disabled" : ""
-                }>音标</button>`
-              : ""
-          }
         </div>
-        <p class="rv-arena-phonetic" data-phonetic hidden>${escapeHtml(item.phonetic || "")}</p>
         ${
           answered
             ? `<p class="rv-arena-feedback ${item.correct ? "is-ok" : "is-bad"}">${
@@ -466,13 +468,6 @@ function renderDetective({ root, progressEl, onRefresh }) {
 
   const play = root.querySelector("[data-detective-play]");
   const comboEl = root.querySelector("[data-combo]");
-  const phoneticBtn = root.querySelector("[data-show-phonetic]");
-  const phoneticEl = root.querySelector("[data-phonetic]");
-  if (phoneticBtn && phoneticEl) {
-    phoneticBtn.addEventListener("click", () => {
-      phoneticEl.hidden = !phoneticEl.hidden;
-    });
-  }
 
   const form = root.querySelector("#rv-arena-detective-form");
   const input = root.querySelector("#rv-arena-answer");

@@ -158,6 +158,7 @@ export function buildSprintQuestion(pool, direction, recentIds) {
     wordId: target.id || "",
     word: String(target.word || "").trim(),
     translation: String(target.translation || "").trim(),
+    phonetic: String(target.phonetic || "").trim(),
     prompt,
     direction: dir,
     options,
