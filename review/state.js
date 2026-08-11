@@ -21,7 +21,9 @@ export const state = {
   activeQuizId: null,
   /** @type {"week"|"earlier"|"all"} */
   dateRange: "week",
-  focusIndex: 0
+  focusIndex: 0,
+  /** How many words are rendered in the list (infinite scroll). */
+  wordsVisibleCount: 48
 };
 
 function matchDate(c) {

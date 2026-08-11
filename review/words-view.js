@@ -9,15 +9,46 @@ const NAV_ITEMS = [
   { id: "quizzes", label: "试题列表" }
 ];
 
+export const WORDS_PAGE_SIZE = 48;
+
+/** @type {IntersectionObserver | null} */
+let wordsSentinelObserver = null;
+
+function disconnectWordsSentinel() {
+  if (wordsSentinelObserver) {
+    wordsSentinelObserver.disconnect();
+    wordsSentinelObserver = null;
+  }
+}
+
+/**
+ * Clamp / expand visible count so focus stays covered and length stays valid.
+ * @param {number} total
+ * @returns {number}
+ */
+function syncWordsVisibleCount(total) {
+  const page = WORDS_PAGE_SIZE;
+  let n = Number(state.wordsVisibleCount);
+  if (!Number.isFinite(n) || n < page) n = page;
+  const need = Math.max(n, (Number(state.focusIndex) || 0) + 1);
+  n = Math.ceil(need / page) * page;
+  if (total > 0 && n > total) n = total;
+  if (total <= 0) n = page;
+  state.wordsVisibleCount = n;
+  return n;
+}
+
 /**
  * @param {Array<{id: string, createdAt?: number}>} list
+ * @param {number} [indexOffset]
  * @returns {{ key: string, label: string, items: Array<{ word: object, index: number }> }[]}
  */
-function groupWordsByDay(list) {
+function groupWordsByDay(list, indexOffset = 0) {
   const groups = [];
   const byKey = new Map();
 
-  list.forEach((w, index) => {
+  list.forEach((w, i) => {
+    const index = indexOffset + i;
     const d = new Date(w.createdAt || Date.now());
     const key = dayKey(d);
     let group = byKey.get(key);
@@ -82,12 +113,17 @@ function wordCardHtml(w, i, focused) {
     </article>`;
 }
 
-function listPanelHtml() {
-  const list = wordsList();
+/**
+ * @param {object[]} list full word list
+ * @param {number} visibleCount
+ */
+function listPanelHtml(list, visibleCount) {
   if (!list.length) {
     return `<p class="rv-words-panel-empty">还没有标记单词。在网页上划词后点「标记单词」即可。</p>`;
   }
-  const groups = groupWordsByDay(list);
+  const visible = list.slice(0, visibleCount);
+  const groups = groupWordsByDay(visible, 0);
+  const atEnd = visibleCount >= list.length;
   return `
     <div class="rv-words-timeline">
       ${groups
@@ -102,6 +138,11 @@ function listPanelHtml() {
         )
         .join("")}
     </div>
+    ${
+      atEnd
+        ? `<p class="rv-words-end">已显示全部</p>`
+        : `<div class="rv-words-sentinel" data-words-sentinel aria-hidden="true"></div>`
+    }
   `;
 }
 
@@ -113,8 +154,92 @@ function listPanelHtml() {
  * @param {(id: string) => Promise<void>} opts.onDrop
  * @param {(id: string) => Promise<void>} [opts.onEdit]
  * @param {(id: string) => Promise<void>} [opts.onLearn]
+ * @param {boolean} [opts.preserveScroll]
  */
-export function renderWords({ root, progressEl, emptyEl, onDrop, onEdit, onLearn }) {
+function bindWordsListPanel(main, { root, progressEl, emptyEl, onDrop, onEdit, onLearn, preserveScroll }) {
+  const list = wordsList();
+  const visibleCount = syncWordsVisibleCount(list.length);
+  const scrollY = preserveScroll ? window.scrollY : null;
+
+  if (!list.length) {
+    progressEl.textContent = "单词 · 0 个";
+  } else if (visibleCount < list.length) {
+    progressEl.textContent = `单词 · ${list.length} 个 · 已显示 ${visibleCount}`;
+  } else {
+    progressEl.textContent = `单词 · ${list.length} 个 · 第 ${state.focusIndex + 1} 个`;
+  }
+
+  disconnectWordsSentinel();
+  main.innerHTML = listPanelHtml(list, visibleCount);
+
+  main.querySelectorAll(".rv-word-entry").forEach((el) => {
+    el.addEventListener("click", (e) => {
+      if (e.target.closest && e.target.closest("[data-act], a.rv-source")) return;
+      const idx = Number(el.dataset.index);
+      if (!Number.isFinite(idx)) return;
+      state.focusIndex = idx;
+      renderWords({ root, progressEl, emptyEl, onDrop, onEdit, onLearn });
+    });
+  });
+
+  main.querySelectorAll("[data-act]").forEach((btn) => {
+    btn.addEventListener("click", async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const id = btn.dataset.id;
+      if (!id) return;
+      if (btn.dataset.act === "drop") await onDrop(id);
+      if (btn.dataset.act === "edit" && onEdit) await onEdit(id);
+      if (btn.dataset.act === "learn" && onLearn) await onLearn(id);
+    });
+  });
+
+  const sentinel = main.querySelector("[data-words-sentinel]");
+  if (sentinel && visibleCount < list.length) {
+    wordsSentinelObserver = new IntersectionObserver(
+      (entries) => {
+        const hit = entries.some((en) => en.isIntersecting);
+        if (!hit) return;
+        if (state.mode !== "words" || state.wordsTab !== "list") return;
+        const total = wordsList().length;
+        if (state.wordsVisibleCount >= total) return;
+        state.wordsVisibleCount = Math.min(total, state.wordsVisibleCount + WORDS_PAGE_SIZE);
+        const panel = root.querySelector("#rv-words-main");
+        if (!panel) return;
+        bindWordsListPanel(panel, {
+          root,
+          progressEl,
+          emptyEl,
+          onDrop,
+          onEdit,
+          onLearn,
+          preserveScroll: true
+        });
+      },
+      { root: null, rootMargin: "200px 0px", threshold: 0 }
+    );
+    wordsSentinelObserver.observe(sentinel);
+  }
+
+  const onEl = main.querySelector(".rv-word-entry.is-on");
+  if (onEl && typeof onEl.scrollIntoView === "function" && !preserveScroll) {
+    onEl.scrollIntoView({ block: "nearest" });
+  } else if (preserveScroll && scrollY != null) {
+    requestAnimationFrame(() => window.scrollTo(0, scrollY));
+  }
+}
+
+/**
+ * @param {object} opts
+ * @param {HTMLElement} opts.root
+ * @param {HTMLElement} opts.progressEl
+ * @param {HTMLElement} opts.emptyEl
+ * @param {(id: string) => Promise<void>} opts.onDrop
+ * @param {(id: string) => Promise<void>} [opts.onEdit]
+ * @param {(id: string) => Promise<void>} [opts.onLearn]
+ * @param {boolean} [opts.preserveScroll]
+ */
+export function renderWords({ root, progressEl, emptyEl, onDrop, onEdit, onLearn, preserveScroll = false }) {
   clampFocus();
   emptyEl.classList.add("hidden");
   root.classList.remove("hidden");
@@ -146,6 +271,7 @@ export function renderWords({ root, progressEl, emptyEl, onDrop, onEdit, onLearn
       if (next === state.wordsTab && !state.activeQuizId) return;
       state.wordsTab = next;
       state.activeQuizId = null;
+      if (next === "list") state.wordsVisibleCount = WORDS_PAGE_SIZE;
       renderWords({ root, progressEl, emptyEl, onDrop, onEdit, onLearn });
     });
   });
@@ -153,6 +279,7 @@ export function renderWords({ root, progressEl, emptyEl, onDrop, onEdit, onLearn
   const main = root.querySelector("#rv-words-main");
 
   if (tab === "quizzes") {
+    disconnectWordsSentinel();
     const activeId = state.activeQuizId;
     const quiz =
       activeId && Array.isArray(state.quizzes)
@@ -190,41 +317,15 @@ export function renderWords({ root, progressEl, emptyEl, onDrop, onEdit, onLearn
     return null;
   }
 
-  const list = wordsList();
-  if (!list.length) {
-    progressEl.textContent = "单词 · 0 个";
-  } else {
-    progressEl.textContent = `单词 · ${list.length} 个 · 第 ${state.focusIndex + 1} 个`;
-  }
-
-  main.innerHTML = listPanelHtml();
-
-  main.querySelectorAll(".rv-word-entry").forEach((el) => {
-    el.addEventListener("click", (e) => {
-      if (e.target.closest && e.target.closest("[data-act], a.rv-source")) return;
-      const idx = Number(el.dataset.index);
-      if (!Number.isFinite(idx)) return;
-      state.focusIndex = idx;
-      renderWords({ root, progressEl, emptyEl, onDrop, onEdit, onLearn });
-    });
+  bindWordsListPanel(main, {
+    root,
+    progressEl,
+    emptyEl,
+    onDrop,
+    onEdit,
+    onLearn,
+    preserveScroll
   });
-
-  main.querySelectorAll("[data-act]").forEach((btn) => {
-    btn.addEventListener("click", async (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const id = btn.dataset.id;
-      if (!id) return;
-      if (btn.dataset.act === "drop") await onDrop(id);
-      if (btn.dataset.act === "edit" && onEdit) await onEdit(id);
-      if (btn.dataset.act === "learn" && onLearn) await onLearn(id);
-    });
-  });
-
-  const onEl = main.querySelector(".rv-word-entry.is-on");
-  if (onEl && typeof onEl.scrollIntoView === "function") {
-    onEl.scrollIntoView({ block: "nearest" });
-  }
 
   return focusedWord();
 }

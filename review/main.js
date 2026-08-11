@@ -19,7 +19,7 @@ import { exportMarkdown } from "./export-md.js";
 import { bindKeys } from "./keys.js";
 import { renderQueue } from "./queue-view.js";
 import { renderSettings } from "./settings-view.js";
-import { renderWords } from "./words-view.js";
+import { renderWords, WORDS_PAGE_SIZE } from "./words-view.js";
 import {
   browseList,
   clampFocus,
@@ -259,6 +259,7 @@ document.querySelectorAll("[data-mode]").forEach((el) => {
     e.preventDefault();
     state.mode = el.dataset.mode;
     state.focusIndex = 0;
+    if (state.mode === "words") state.wordsVisibleCount = WORDS_PAGE_SIZE;
     render();
   });
 });
