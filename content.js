@@ -32,6 +32,80 @@
   const WORD_HL_MAX = 40;
   const WORD_DIRTY_ROOT_FULL_THRESHOLD = 24;
 
+  // 与 shared/tts.js 保持同步：content script 无法 import，这里内联同一套逻辑。
+  let ttsVoicesReady = false;
+  let ttsReadyWaiters = [];
+  const TTS_PREFERRED_VOICE_NAMES = [
+    "Google US English",
+    "Samantha",
+    "Microsoft Aria Online (Natural)",
+    "Microsoft Jenny Online (Natural)",
+    "Microsoft Guy Online (Natural)",
+    "Aria Natural",
+    "Jenny Natural",
+    "Guy Natural",
+    "Victoria",
+    "Susan",
+    "Karen",
+    "Moira",
+    "Daniel"
+  ];
+
+  function ttsSyncVoices() {
+    if (!("speechSynthesis" in window)) return [];
+    const list = speechSynthesis.getVoices();
+    if (list.length && !ttsVoicesReady) {
+      ttsVoicesReady = true;
+      const waiters = ttsReadyWaiters;
+      ttsReadyWaiters = [];
+      waiters.forEach((resolve) => resolve());
+    }
+    return list;
+  }
+
+  function ttsPickVoice() {
+    const list = ttsSyncVoices();
+    if (!list.length) return null;
+    for (const name of TTS_PREFERRED_VOICE_NAMES) {
+      const hit = list.find((v) => v.lang === "en-US" && v.name.includes(name));
+      if (hit) return hit;
+    }
+    const english = list.filter((v) => (v.lang || "").toLowerCase().startsWith("en"));
+    return english.find((v) => v.lang === "en-US") || english[0] || null;
+  }
+
+  if ("speechSynthesis" in window) {
+    ttsSyncVoices();
+    speechSynthesis.addEventListener("voiceschanged", ttsSyncVoices);
+  }
+
+  function speakWordText(text) {
+    if (!("speechSynthesis" in window)) return;
+    const clean = String(text || "").trim();
+    if (!clean) return;
+    speechSynthesis.cancel();
+    const utter = new SpeechSynthesisUtterance(clean);
+    utter.lang = "en-US";
+    utter.rate = 0.7;
+    utter.pitch = 0.95;
+    const speakNow = () => {
+      const voice = ttsPickVoice();
+      if (voice) utter.voice = voice;
+      speechSynthesis.speak(utter);
+    };
+    if (ttsVoicesReady) {
+      speakNow();
+      return;
+    }
+    Promise.race([
+      new Promise((resolve) => ttsReadyWaiters.push(resolve)),
+      new Promise((resolve) => setTimeout(resolve, 300))
+    ]).then(() => {
+      speechSynthesis.cancel();
+      speakNow();
+    });
+  }
+
   function on(target, type, fn, capture) {
     target.addEventListener(type, fn, capture);
     listenerRegistry.push({ target, type, fn, capture });
@@ -817,11 +891,14 @@
         <div class="rc-lookup-fields" hidden>
           <label class="rc-field">
             <span>音标</span>
-            <input type="text" class="rc-phonetic" placeholder="/ˈwɜːrd/" spellcheck="false">
+            <div class="rc-field-row">
+              <div class="rc-readonly rc-phonetic"></div>
+              <button type="button" class="rc-speak" title="朗读" aria-label="朗读"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M2.5 6.5h2L7.5 4v8l-3-2.5h-2z"/><path d="M10 6a3.2 3.2 0 010 4"/><path d="M11.6 4.4a5.6 5.6 0 010 7.2"/></svg></button>
+            </div>
           </label>
           <label class="rc-field">
             <span>翻译</span>
-            <input type="text" class="rc-translation" placeholder="中文释义">
+            <div class="rc-readonly rc-translation"></div>
           </label>
         </div>
         <div class="rc-lookup-error" hidden>
@@ -861,9 +938,13 @@
     const delBtn = overlay.querySelector(".rc-delete");
     const learnBtn = overlay.querySelector(".rc-learn");
     const toast = overlay.querySelector(".rc-toast");
+    const speakBtn = overlay.querySelector(".rc-speak");
+    if (speakBtn) {
+      speakBtn.addEventListener("click", () => speakWordText(word));
+    }
 
-    phoneticEl.value = initialPhonetic;
-    translationEl.value = initialTranslation;
+    phoneticEl.textContent = initialPhonetic;
+    translationEl.textContent = initialTranslation;
     textarea.value = initialNote;
     fieldsEl.hidden = false;
     if (initialPhonetic.trim() && initialTranslation.trim()) {
@@ -901,12 +982,12 @@
       if (headTitle) headTitle.textContent = isEdit ? "编辑单词" : "标记单词";
       delBtn.hidden = !isEdit;
       syncLearnUi();
-      if (!phoneticEl.value.trim() && stored.phonetic) {
-        phoneticEl.value = stored.phonetic;
+      if (!phoneticEl.textContent.trim() && stored.phonetic) {
+        phoneticEl.textContent = stored.phonetic;
         snap.phonetic = stored.phonetic;
       }
-      if (!translationEl.value.trim() && stored.translation) {
-        translationEl.value = stored.translation;
+      if (!translationEl.textContent.trim() && stored.translation) {
+        translationEl.textContent = stored.translation;
         snap.translation = stored.translation;
       }
       if (!textarea.value.trim() && stored.note) {
@@ -954,17 +1035,13 @@
     function applyLookupResult(phonetic, translation) {
       const ph = String(phonetic || "").trim();
       const tr = String(translation || "").trim();
-      if (phoneticEl.value === snap.phonetic) {
-        phoneticEl.value = ph;
+      if (phoneticEl.textContent === snap.phonetic) {
+        phoneticEl.textContent = ph;
         snap.phonetic = ph;
       }
-      if (translationEl.value === snap.translation) {
-        translationEl.value = tr;
+      if (translationEl.textContent === snap.translation) {
+        translationEl.textContent = tr;
         snap.translation = tr;
-      }
-      if (!textarea.value.trim() && tr) {
-        textarea.value = tr;
-        snap.note = tr;
       }
       showLookupIdle();
     }
@@ -975,14 +1052,14 @@
         return;
       }
       const force = !!lookupOpts.force;
-      if (!force && phoneticEl.value.trim() && translationEl.value.trim()) {
+      if (!force && phoneticEl.textContent.trim() && translationEl.textContent.trim()) {
         showLookupIdle();
         return;
       }
       const gen = ++lookupGen;
       showLookupLoading();
-      snap.phonetic = phoneticEl.value;
-      snap.translation = translationEl.value;
+      snap.phonetic = phoneticEl.textContent;
+      snap.translation = translationEl.textContent;
       snap.note = textarea.value;
       let res;
       try {
@@ -1059,8 +1136,8 @@
         return;
       }
       const note = textarea.value.trim();
-      const phonetic = phoneticEl.value.trim();
-      const translation = translationEl.value.trim();
+      const phonetic = phoneticEl.textContent.trim();
+      const translation = translationEl.textContent.trim();
       matchMode = selectedMatchMode();
       let res;
       if (isEdit && wordId) {
@@ -1097,7 +1174,7 @@
     async function bootstrap() {
       const stored = await fetchStoredWord(word, wordId);
       if (stored) applyStoredWord(stored);
-      if (phoneticEl.value.trim() && translationEl.value.trim()) {
+      if (phoneticEl.textContent.trim() && translationEl.textContent.trim()) {
         showLookupIdle();
         return;
       }

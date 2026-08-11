@@ -149,13 +149,13 @@
 
 .rv-word-entry.is-on {
   border-color: var(--rv-ink);
-  background: var(--rv-ink);
-  color: #fff;
+  background: var(--rv-accent-soft);
+  color: var(--rv-ink);
 }
 
 .rv-word-entry.is-on .rv-word-term,
 .rv-word-entry.is-on .rv-word-note {
-  color: #fff;
+  color: var(--rv-ink);
 }
 
 .rv-word-entry.is-learned {
@@ -170,14 +170,14 @@
 }
 
 .rv-word-entry.is-learned.is-on {
-  background: var(--rv-ink);
+  background: var(--rv-accent-soft);
   border-color: var(--rv-ink);
-  color: #fff;
+  color: var(--rv-ink);
 }
 
 .rv-word-entry.is-learned.is-on .rv-word-term,
 .rv-word-entry.is-learned.is-on .rv-word-note {
-  color: #fff;
+  color: var(--rv-ink);
 }
 
 .rv-word-term {
@@ -248,6 +248,26 @@
 .rv-word-phonetic {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   letter-spacing: 0.02em;
+}
+
+.rv-word-speak {
+  display: inline-flex;
+  align-items: center;
+}
+
+.rv-icon-act.rv-icon-speak {
+  color: var(--rv-ink);
+  background: transparent;
+}
+
+.rv-icon-act.rv-icon-speak:hover {
+  color: var(--rv-ink);
+  background: var(--rv-accent-soft);
+}
+
+.rv-word-meta .rv-icon-act svg {
+  width: 13px;
+  height: 13px;
 }
 
 .rv-word-match-tag {

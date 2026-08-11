@@ -1,4 +1,5 @@
 import { escapeHtml } from "./shared/dom.js";
+import { speakWord } from "./shared/tts.js";
 
 let current = null;
 
@@ -166,18 +167,26 @@ export function promptEdit(opts = {}) {
  */
 export function promptWordEdit(opts = {}) {
   const matchMode = opts.matchMode === "exact" || opts.matchMode === "variant" ? opts.matchMode : "inherit";
+  const word = String(opts.word || "").trim();
   const overlay = document.createElement("div");
   overlay.className = "rc-modal-overlay";
   overlay.innerHTML = `
     <div class="rc-modal rc-modal-edit rc-modal-edit-word" role="dialog" aria-modal="true">
       <div class="rc-modal-title">${escapeHtml(opts.title || "编辑单词")}</div>
       <div class="rc-modal-field">
-        <label for="rc-modal-phonetic">音标</label>
-        <input type="text" id="rc-modal-phonetic" value="${escapeHtml(opts.phonetic || "")}" placeholder="/ˈwɜːrd/">
+        <span class="rc-modal-field-label">单词</span>
+        <div class="rc-modal-ro-row">
+          <div class="rc-modal-ro-value">${escapeHtml(word)}</div>
+          <button type="button" class="rc-modal-speak" title="朗读" aria-label="朗读"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M2.5 6.5h2L7.5 4v8l-3-2.5h-2z"/><path d="M10 6a3.2 3.2 0 010 4"/><path d="M11.6 4.4a5.6 5.6 0 010 7.2"/></svg></button>
+        </div>
       </div>
       <div class="rc-modal-field">
-        <label for="rc-modal-translation">翻译</label>
-        <input type="text" id="rc-modal-translation" value="${escapeHtml(opts.translation || "")}" placeholder="中文释义">
+        <span class="rc-modal-field-label">音标</span>
+        <div class="rc-modal-ro-value">${escapeHtml(opts.phonetic || "")}</div>
+      </div>
+      <div class="rc-modal-field">
+        <span class="rc-modal-field-label">翻译</span>
+        <div class="rc-modal-ro-value">${escapeHtml(opts.translation || "")}</div>
       </div>
       <div class="rc-modal-field">
         <label for="rc-modal-note">备注</label>
@@ -198,16 +207,19 @@ export function promptWordEdit(opts = {}) {
     </div>
   `;
 
-  const phoneticEl = overlay.querySelector("#rc-modal-phonetic");
-  const translationEl = overlay.querySelector("#rc-modal-translation");
   const noteEl = overlay.querySelector("#rc-modal-note");
   const matchEl = overlay.querySelector("#rc-modal-match");
+  const speakBtn = overlay.querySelector(".rc-modal-speak");
+  if (speakBtn) {
+    speakBtn.addEventListener("click", () => speakWord(word));
+  }
 
   if (current) current.resolve("cancel");
   document.body.appendChild(overlay);
   requestAnimationFrame(() => {
     overlay.classList.add("show");
-    phoneticEl.focus();
+    noteEl.focus();
+    noteEl.setSelectionRange(noteEl.value.length, noteEl.value.length);
   });
 
   return new Promise((resolve) => {
@@ -216,8 +228,8 @@ export function promptWordEdit(opts = {}) {
     function collect() {
       const mode = matchEl.value;
       return {
-        phonetic: phoneticEl.value.trim(),
-        translation: translationEl.value.trim(),
+        phonetic: String(opts.phonetic || "").trim(),
+        translation: String(opts.translation || "").trim(),
         note: noteEl.value.trim(),
         matchMode: mode === "exact" || mode === "variant" ? mode : "inherit"
       };

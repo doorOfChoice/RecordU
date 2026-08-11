@@ -1,6 +1,7 @@
 import { escapeHtml } from "../shared/dom.js";
 import { dayKey, formatDayLabel } from "../shared/time.js";
-import { wordActionsHtml } from "./action-icons.js";
+import { wordActionsHtml, speakActionHtml } from "./action-icons.js";
+import { speakWord } from "../shared/tts.js";
 import { renderArena } from "./arena-view.js";
 import { renderQuizList, renderQuizTake } from "./quiz-view.js";
 import { clampFocus, focusedWord, wordsList, state } from "./state.js";
@@ -96,6 +97,7 @@ function wordCardHtml(w, i, focused) {
   if (phonetic) {
     metaBits.push(`<span class="rv-word-phonetic">${escapeHtml(phonetic)}</span>`);
   }
+  metaBits.push(`<span class="rv-word-speak">${speakActionHtml(w.word)}</span>`);
   if (learned) {
     metaBits.push(`<span class="rv-word-learned-tag">已学会</span>`);
   }
@@ -193,6 +195,10 @@ function bindWordsListPanel(main, { root, progressEl, emptyEl, onDrop, onEdit, o
     btn.addEventListener("click", async (e) => {
       e.preventDefault();
       e.stopPropagation();
+      if (btn.dataset.act === "speak") {
+        speakWord(btn.dataset.term);
+        return;
+      }
       const id = btn.dataset.id;
       if (!id) return;
       if (btn.dataset.act === "drop") await onDrop(id);

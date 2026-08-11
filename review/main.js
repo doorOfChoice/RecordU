@@ -204,6 +204,7 @@ async function editWord(id) {
   if (!w) return;
   const next = await promptWordEdit({
     title: `编辑单词 · ${w.word}`,
+    word: w.word,
     phonetic: w.phonetic || "",
     translation: w.translation || "",
     note: w.note || "",

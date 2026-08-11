@@ -208,9 +208,9 @@
     }
     #rc-overlay .rc-ctx {
       margin: 10px 16px 0;
-      padding: 10px 12px;
+      padding: 4px 0 10px;
       background: transparent;
-      border: 2px solid ${ink};
+      border: 0;
       border-radius: 0;
       font-size: 13px;
       font-weight: 700;
@@ -311,6 +311,50 @@
     }
     #rc-overlay .rc-field input:focus {
       background: ${warm};
+    }
+    #rc-overlay .rc-readonly {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      min-height: 33px;
+      font-size: 13px;
+      font-weight: 700;
+      font-family: ${sans};
+      color: ${ink};
+      user-select: text;
+    }
+    #rc-overlay .rc-readonly:empty::before {
+      content: "—";
+      opacity: 0.45;
+    }
+    #rc-overlay .rc-field-row {
+      display: flex;
+      gap: 6px;
+    }
+    #rc-overlay .rc-field-row input {
+      flex: 1;
+      min-width: 0;
+    }
+    #rc-overlay .rc-speak {
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 34px;
+      border: 2px solid ${ink};
+      background: transparent;
+      color: ${ink};
+      border-radius: 0;
+      cursor: pointer;
+      transition: background-color 0.15s ease-out;
+    }
+    #rc-overlay .rc-speak:hover {
+      background: ${warm};
+    }
+    #rc-overlay .rc-speak svg {
+      width: 15px;
+      height: 15px;
     }
     #rc-overlay .rc-lookup-error {
       display: flex;
