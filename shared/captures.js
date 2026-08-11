@@ -1,6 +1,7 @@
 import { inEarlierThanThisWeek, inThisWeek } from "./time.js";
 
-const PALETTE = ["#3f5f8a", "#2a9d8f", "#6b705c", "#577590", "#4a4e69", "#22223b", "#5c677d", "#415a77"];
+const PALETTE = ["#0000ff", "#ffcc00", "#ff0000", "#000000", "#0000ff", "#ffcc00", "#ff0000", "#000000"];
+const PALETTE_TEXT = ["#ffffff", "#000000", "#000000", "#ffffff", "#ffffff", "#000000", "#000000", "#ffffff"];
 
 export function exactOf(c) {
   return (c && c.anchor && c.anchor.exact) || "";
@@ -43,6 +44,13 @@ export function siteColor(host) {
   let h = 7;
   for (const ch of key) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
   return PALETTE[h % PALETTE.length];
+}
+
+export function siteLetterColor(host) {
+  const key = host || "none";
+  let h = 7;
+  for (const ch of key) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return PALETTE_TEXT[h % PALETTE.length];
 }
 
 export function filterCaptures(list, { status = "all", dateRange = "all" } = {}) {

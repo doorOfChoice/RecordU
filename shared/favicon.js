@@ -1,5 +1,5 @@
 import { fetchFavicon } from "./api.js";
-import { siteColor } from "./captures.js";
+import { siteColor, siteLetterColor } from "./captures.js";
 import { escapeHtml } from "./dom.js";
 
 export function favSlotHtml(host) {
@@ -11,7 +11,7 @@ export function favSlotHtml(host) {
 
 function letterHtml(host, letter) {
   const ch = letter || (host && host[0] ? host[0].toUpperCase() : "?");
-  return `<span class="rv-fav rv-fav-letter" data-host="${escapeHtml(host || "none")}" style="background:${siteColor(host)}">${escapeHtml(ch)}</span>`;
+  return `<span class="rv-fav rv-fav-letter" data-host="${escapeHtml(host || "none")}" style="background:${siteColor(host)};color:${siteLetterColor(host)}">${escapeHtml(ch)}</span>`;
 }
 
 function makeLetter(host) {
@@ -19,6 +19,7 @@ function makeLetter(host) {
   el.className = "rv-fav rv-fav-letter";
   el.dataset.host = host || "none";
   el.style.background = siteColor(host);
+  el.style.color = siteLetterColor(host);
   el.textContent = (host && host[0] ? host[0] : "?").toUpperCase();
   return el;
 }

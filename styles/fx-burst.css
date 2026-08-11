@@ -1,4 +1,5 @@
-/* Shared hit / explosion burst — used by arena and future surfaces */
+/* Shared hit / explosion burst — used by arena and future surfaces.
+   Bauhaus: solid geometric shapes, no gradients, no glow. */
 
 .ru-burst {
   pointer-events: none;
@@ -17,32 +18,20 @@
   height: 18px;
   margin: -9px 0 0 -9px;
   border-radius: 50%;
-  background: radial-gradient(circle, #ffffff 0%, var(--ru-ok) 45%, transparent 72%);
-  box-shadow: 0 0 28px 10px color-mix(in srgb, var(--ru-ok) 55%, transparent);
-  animation: ru-burst-core 0.45s ease-out both;
+  background: var(--ru-done);
+  animation: ru-burst-core 0.4s ease-out both;
 }
 
 .ru-burst.is-combo .ru-burst-core {
-  background: radial-gradient(circle, #ffffff 0%, var(--ru-accent) 40%, var(--ru-ok) 70%, transparent 78%);
-  box-shadow: 0 0 36px 14px color-mix(in srgb, var(--ru-accent) 50%, transparent);
+  background: var(--ru-accent-soft);
 }
 
 .ru-burst.is-hot .ru-burst-core {
   width: 24px;
   height: 24px;
   margin: -12px 0 0 -12px;
-  background: radial-gradient(
-    circle,
-    #ffffff 0%,
-    var(--ru-warm) 28%,
-    var(--ru-accent) 55%,
-    var(--ru-ok) 75%,
-    transparent 82%
-  );
-  box-shadow:
-    0 0 20px 8px color-mix(in srgb, var(--ru-warm) 55%, transparent),
-    0 0 48px 18px color-mix(in srgb, var(--ru-accent) 40%, transparent);
-  animation: ru-burst-core 0.52s ease-out both;
+  background: var(--ru-vermilion);
+  animation: ru-burst-core 0.45s ease-out both;
 }
 
 .ru-burst-ring {
@@ -53,20 +42,19 @@
   height: 12px;
   margin: -6px 0 0 -6px;
   border-radius: 50%;
-  border: 2px solid color-mix(in srgb, var(--ru-ok) 80%, #ffffff);
-  box-shadow: 0 0 12px color-mix(in srgb, var(--ru-ok) 45%, transparent);
-  animation: ru-burst-ring 0.55s cubic-bezier(0.15, 0.75, 0.25, 1) both;
+  border: 2px solid var(--ru-done);
+  animation: ru-burst-ring 0.5s ease-out both;
 }
 
 .ru-burst-ring.is-delayed {
-  border-color: color-mix(in srgb, var(--ru-accent) 70%, #ffffff);
+  border-color: var(--ru-accent);
   animation-delay: 0.05s;
-  animation-duration: 0.62s;
+  animation-duration: 0.55s;
 }
 
 .ru-burst.is-hot .ru-burst-ring {
   border-width: 3px;
-  border-color: color-mix(in srgb, var(--ru-warm) 75%, #ffffff);
+  border-color: var(--ru-accent-soft);
 }
 
 .ru-burst-bit {
@@ -76,12 +64,11 @@
   width: var(--bs, 6px);
   height: var(--bs, 6px);
   margin: calc(var(--bs, 6px) / -2) 0 0 calc(var(--bs, 6px) / -2);
-  border-radius: 50%;
-  background: var(--bcolor, var(--ru-ok));
-  box-shadow: 0 0 6px color-mix(in srgb, var(--bcolor, var(--ru-ok)) 55%, transparent);
+  border-radius: 0;
+  background: var(--bcolor, var(--ru-done));
   transform: translate(0, 0) scale(1);
   opacity: 1;
-  animation: ru-burst-bit 0.55s cubic-bezier(0.12, 0.7, 0.25, 1) both;
+  animation: ru-burst-bit 0.5s ease-out both;
   animation-delay: var(--bdelay, 0ms);
 }
 
@@ -89,8 +76,7 @@
   width: var(--blen, 14px);
   height: 2px;
   margin: -1px 0 0 calc(var(--blen, 14px) / -2);
-  border-radius: 1px;
-  box-shadow: 0 0 8px color-mix(in srgb, var(--bcolor, var(--ru-ok)) 60%, transparent);
+  border-radius: 0;
   animation-name: ru-burst-streak;
 }
 
@@ -100,31 +86,26 @@
   top: 0;
   transform: translate(-50%, -50%) scale(0.55);
   font-size: 44px;
-  font-weight: 500;
+  font-weight: 900;
   letter-spacing: 0.12em;
-  color: var(--ru-ok);
-  text-shadow: 0 0 18px color-mix(in srgb, var(--ru-ok) 45%, transparent);
+  color: var(--ru-ink);
   white-space: nowrap;
-  animation: ru-burst-label 0.5s cubic-bezier(0.2, 0.85, 0.25, 1) both;
+  animation: ru-burst-label 0.45s ease-out both;
 }
 
 .ru-burst-label.is-combo {
-  color: var(--ru-accent);
+  color: var(--ru-vermilion);
   font-size: 52px;
-  text-shadow: 0 0 22px color-mix(in srgb, var(--ru-accent) 50%, transparent);
 }
 
 .ru-burst-label.is-hot {
-  color: var(--ru-warm);
+  color: var(--ru-accent-soft);
   font-size: 58px;
   animation-name: ru-burst-label-hot;
-  text-shadow:
-    0 0 18px color-mix(in srgb, var(--ru-warm) 55%, transparent),
-    0 0 36px color-mix(in srgb, var(--ru-accent) 40%, transparent);
 }
 
 .ru-burst-shake {
-  animation: ru-burst-shake 0.38s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+  animation: ru-burst-shake 0.3s ease-out;
 }
 
 @keyframes ru-burst-core {
@@ -179,17 +160,14 @@
   0% {
     opacity: 0;
     transform: translate(-50%, -20%) scale(0.35);
-    filter: blur(3px);
   }
   30% {
     opacity: 1;
     transform: translate(-50%, -120%) scale(1.2);
-    filter: blur(0);
   }
   100% {
     opacity: 0;
     transform: translate(-50%, -180%) scale(1.35);
-    filter: blur(0);
   }
 }
 

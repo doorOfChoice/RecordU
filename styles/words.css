@@ -8,9 +8,9 @@
   min-height: 320px;
   padding: 20px 22px;
   background: var(--rv-surface);
-  border: 1px solid var(--rv-line);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--rv-shadow);
+  border: 4px solid var(--rv-line);
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .rv-words-nav {
@@ -28,27 +28,27 @@
   border: none;
   background: transparent;
   text-align: left;
-  padding: 9px 12px 9px 14px;
+  padding: 9px 12px;
   margin: 0;
   font-size: 13px;
+  font-weight: 700;
   letter-spacing: 0.06em;
-  color: var(--rv-sumi);
+  text-transform: uppercase;
+  color: var(--rv-ink);
   cursor: pointer;
   font-family: inherit;
-  border-left: 2px solid transparent;
-  border-radius: 0 var(--radius) var(--radius) 0;
-  transition: color 0.15s, background 0.15s, border-color 0.15s;
+  border-radius: 0;
+  transition: color 0.15s ease-out, background-color 0.15s ease-out;
 }
 
 .rv-words-nav-item:hover {
+  background: var(--rv-accent-soft);
   color: var(--rv-ink);
-  background: rgba(0, 0, 0, 0.04);
 }
 
 .rv-words-nav-item.is-on {
-  color: var(--rv-accent);
-  font-weight: 500;
-  border-left-color: var(--rv-accent);
+  color: var(--rv-ink);
+  font-weight: 900;
   background: var(--rv-accent-soft);
 }
 
@@ -61,8 +61,9 @@
 .rv-words-panel-empty {
   margin: 8px 0 0;
   font-size: 13px;
+  font-weight: 700;
   line-height: 1.65;
-  color: var(--rv-sumi);
+  color: var(--rv-ink);
 }
 
 .rv-words-timeline {
@@ -92,11 +93,12 @@
 
 .rv-words-day-title {
   position: relative;
-  font-family: var(--rv-serif);
-  font-size: 15px;
-  font-weight: 500;
-  letter-spacing: 0.06em;
-  color: var(--rv-sumi);
+  font-family: var(--rv-sans);
+  font-size: 14px;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--rv-ink);
   margin: 0 0 10px;
 }
 
@@ -105,21 +107,20 @@
   content: "";
   position: absolute;
   left: -20px;
-  top: 0.35em;
-  width: 9px;
-  height: 9px;
+  top: 0.3em;
+  width: 11px;
+  height: 11px;
   box-sizing: border-box;
-  margin-left: 1px;
-  border-radius: 50%;
-  border: 1.5px solid var(--rv-accent);
-  background: var(--rv-surface);
-  box-shadow: 0 0 0 2px var(--rv-surface);
+  margin-left: 0;
+  border-radius: 0;
+  border: 1px solid var(--rv-ink);
+  background: var(--rv-accent-soft);
   pointer-events: none;
 }
 
 .rv-words-day:first-child .rv-words-day-title::before {
-  background: var(--rv-accent-soft);
-  border-color: var(--rv-accent);
+  background: var(--rv-vermilion);
+  border-color: var(--rv-ink);
 }
 
 .rv-words-grid {
@@ -133,43 +134,56 @@
   flex-direction: column;
   gap: 4px;
   padding: 8px 9px 7px;
-  border: 1px solid var(--rv-line);
-  border-radius: var(--radius);
+  border: 3px solid var(--rv-line);
+  border-radius: 0;
   background: var(--rv-surface);
   cursor: pointer;
   min-height: 0;
-  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+  transition: background-color 0.15s ease-out, border-color 0.15s ease-out, color 0.15s ease-out;
 }
 
 .rv-word-entry:hover {
-  border-color: color-mix(in srgb, var(--rv-ink) 28%, var(--rv-line));
-  background: var(--rv-surface);
+  background: var(--rv-accent-soft);
+  border-color: var(--rv-ink);
 }
 
 .rv-word-entry.is-on {
-  border-color: color-mix(in srgb, var(--rv-accent) 45%, var(--rv-line));
-  background: color-mix(in srgb, var(--rv-accent) 7%, transparent);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--rv-accent) 12%, transparent);
+  border-color: var(--rv-ink);
+  background: var(--rv-ink);
+  color: #fff;
+}
+
+.rv-word-entry.is-on .rv-word-term,
+.rv-word-entry.is-on .rv-word-note {
+  color: #fff;
 }
 
 .rv-word-entry.is-learned {
-  border-color: color-mix(in srgb, #4a8f5c 40%, var(--rv-line));
-  background: color-mix(in srgb, var(--rv-ok-soft) 70%, var(--rv-surface));
+  border-color: var(--rv-ink);
+  background: var(--rv-ok);
+  color: #fff;
+}
+
+.rv-word-entry.is-learned .rv-word-term,
+.rv-word-entry.is-learned .rv-word-note {
+  color: #fff;
 }
 
 .rv-word-entry.is-learned.is-on {
-  border-color: color-mix(in srgb, #4a8f5c 55%, var(--rv-line));
-  background: color-mix(in srgb, #4a8f5c 12%, transparent);
-  box-shadow: 0 0 0 1px color-mix(in srgb, #4a8f5c 16%, transparent);
+  background: var(--rv-ink);
+  border-color: var(--rv-ink);
+  color: #fff;
 }
 
-.rv-word-entry.is-learned .rv-word-term {
-  color: #2f6b3c;
+.rv-word-entry.is-learned.is-on .rv-word-term,
+.rv-word-entry.is-learned.is-on .rv-word-note {
+  color: #fff;
 }
 
 .rv-word-term {
-  font-family: var(--rv-serif);
+  font-family: var(--rv-sans);
   font-size: 15px;
+  font-weight: 900;
   line-height: 1.25;
   color: var(--rv-ink);
   margin: 0;
@@ -180,8 +194,9 @@
 .rv-word-note {
   flex: 1;
   font-size: 12px;
+  font-weight: 700;
   line-height: 1.4;
-  color: var(--rv-sumi);
+  color: var(--rv-ink);
   margin: 0;
   word-break: break-word;
   display: -webkit-box;
@@ -208,6 +223,7 @@
   min-width: 0;
   flex: 1;
   font-size: 11px;
+  font-weight: 700;
   line-height: 1.3;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -225,7 +241,8 @@
   gap: 6px;
   margin: 0;
   font-size: 11px;
-  color: var(--rv-thin);
+  font-weight: 700;
+  color: var(--rv-ink);
 }
 
 .rv-word-phonetic {
@@ -239,12 +256,13 @@
 
 .rv-word-learned-tag {
   letter-spacing: 0.04em;
-  color: var(--rv-ok);
-  background: var(--rv-ok-soft);
+  text-transform: uppercase;
+  color: #fff;
+  background: var(--rv-ok);
   padding: 1px 6px;
-  border-radius: var(--radius);
-  border: 1px solid color-mix(in srgb, var(--rv-ok) 35%, transparent);
-  font-weight: 500;
+  border-radius: 0;
+  border: 1px solid var(--rv-ink);
+  font-weight: 900;
 }
 
 .rv-words-sentinel {
@@ -261,6 +279,7 @@
   margin: 16px 0 4px;
   text-align: center;
   font-size: 11px;
+  font-weight: 700;
   letter-spacing: 0.06em;
   color: var(--rv-thin);
 }

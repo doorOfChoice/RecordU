@@ -1,0 +1,1143 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>RecordU · Bauhaus Demo</title>
+  <style>
+    /* Reading this as: RecordU UI demo, Bauhaus restyle.
+       Palette: red #ff0000 / yellow #ffcc00 / blue #0000ff / black / white only.
+       No radius (circles excepted). No gradients. No serif. No shadows.
+       Motion: sharp, fast (150/200ms ease-out), structural rails + color flips. */
+
+    :root {
+      --red: #ff0000;
+      --yellow: #ffcc00;
+      --blue: #0000ff;
+      --black: #000000;
+      --white: #ffffff;
+      --font: "Helvetica Neue", Helvetica, Arial, "PingFang SC", "Heiti SC",
+        "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; }
+    body {
+      font-family: var(--font);
+      color: var(--black);
+      background: var(--white);
+      -webkit-font-smoothing: antialiased;
+      line-height: 1.5;
+      font-weight: 700;
+    }
+
+    button, input, select, textarea { font: inherit; color: inherit; }
+    button { cursor: pointer; }
+
+    :focus-visible {
+      outline: 3px solid var(--blue);
+      outline-offset: 2px;
+    }
+
+    /* ========== GEOMETRY ========== */
+    .circle {
+      width: 18px; height: 18px;
+      border-radius: 50%;
+    }
+    .square { width: 18px; height: 18px; }
+    .tri {
+      width: 0; height: 0;
+      border-left: 10px solid transparent;
+      border-right: 10px solid transparent;
+      border-bottom: 16px solid currentColor;
+    }
+    .g-red { background: var(--red); }
+    .g-yellow { background: var(--yellow); }
+    .g-blue { background: var(--blue); }
+    .g-black { background: var(--black); }
+
+    /* ========== TOP BAR ========== */
+    .demo-top {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 14px 28px;
+      background: var(--white);
+      border-bottom: 4px solid var(--black);
+    }
+    .demo-brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .demo-brand .mark {
+      width: 30px; height: 30px;
+      background: var(--red);
+      color: var(--black);
+      display: grid;
+      place-items: center;
+      font-size: 16px;
+      font-weight: 900;
+      transform: rotate(-6deg);
+      transition: transform 150ms ease-out;
+    }
+    .demo-brand:hover .mark { transform: rotate(6deg) scale(1.15); }
+    .demo-brand strong {
+      font-size: 17px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+    }
+    .demo-brand span {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      padding: 4px 8px;
+      border: 2px solid var(--black);
+      white-space: nowrap;
+    }
+    .demo-brand .trio { display: flex; align-items: center; gap: 5px; }
+    .demo-tabs { display: flex; gap: 0; }
+    .demo-tab {
+      appearance: none;
+      background: var(--white);
+      color: var(--black);
+      border: 3px solid var(--black);
+      margin-left: -3px;
+      padding: 9px 18px;
+      font-size: 13px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      transition: background-color 150ms ease-out, color 150ms ease-out;
+    }
+    .demo-tab:hover { background: var(--yellow); }
+    .demo-tab.is-on { background: var(--black); color: var(--white); }
+    .demo-tab.is-on:hover { background: var(--red); color: var(--white); }
+
+    .panel { display: none; padding: 36px 24px 64px; }
+    .panel.is-on { display: block; }
+
+    .note {
+      max-width: 1000px;
+      margin: 0 auto 26px;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      line-height: 1.7;
+      border: 2px solid var(--black);
+      padding: 10px 14px;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+    .note .bar { width: 26px; height: 10px; background: var(--yellow); flex-shrink: 0; }
+
+    /* ========== BUTTONS ========== */
+    .btn {
+      appearance: none;
+      background: var(--white);
+      color: var(--black);
+      border: 3px solid var(--black);
+      padding: 9px 18px;
+      font-size: 13px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      position: relative;
+      overflow: hidden;
+      transition: background-color 150ms ease-out, color 150ms ease-out;
+    }
+    .btn::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: var(--yellow);
+      transform: translateX(-100%);
+      transition: transform 150ms ease-out;
+    }
+    .btn:hover::before { transform: translateX(0); }
+    .btn span { position: relative; z-index: 1; }
+    .btn-primary { background: var(--yellow); }
+    .btn-primary::before { background: var(--red); }
+    .btn-primary:hover { color: var(--black); }
+    .btn-solid { background: var(--black); color: var(--white); }
+    .btn-solid::before { background: var(--red); }
+    .btn-solid:hover { color: var(--white); }
+    .btn-blue { background: var(--blue); color: var(--white); }
+    .btn-blue::before { background: var(--black); }
+    .btn-blue:hover { color: var(--white); }
+    .btn-danger::before { background: var(--red); }
+
+    /* ========== FIELDS ========== */
+    .field { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; }
+    .field label {
+      font-size: 11px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+    }
+    .field input,
+    .field select,
+    .field textarea {
+      width: 100%;
+      border: 2px solid var(--black);
+      background: var(--white);
+      padding: 10px 12px;
+      outline: none;
+      font-weight: 700;
+      transition: background-color 150ms ease-out;
+    }
+    .field textarea { min-height: 92px; resize: vertical; line-height: 1.65; }
+    .field input:focus, .field select:focus, .field textarea:focus {
+      background: var(--yellow);
+    }
+    .field select {
+      appearance: none;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      background-image:
+        linear-gradient(45deg, transparent 50%, var(--black) 50%),
+        linear-gradient(135deg, var(--black) 50%, transparent 50%);
+      background-position: calc(100% - 16px) 55%, calc(100% - 11px) 55%;
+      background-size: 5px 5px;
+      background-repeat: no-repeat;
+    }
+
+    .seg { display: flex; border: 2px solid var(--black); }
+    .seg label {
+      flex: 1;
+      text-align: center;
+      padding: 10px 8px;
+      font-size: 12px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      cursor: pointer;
+      border-right: 2px solid var(--black);
+      transition: background-color 150ms ease-out, color 150ms ease-out;
+    }
+    .seg label:last-child { border-right: 0; }
+    .seg label:hover { background: var(--yellow); }
+    .seg input { position: absolute; opacity: 0; pointer-events: none; }
+    .seg label:has(input:checked) {
+      background: var(--black);
+      color: var(--white);
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 9px;
+      font-size: 10px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      background: var(--white);
+      color: var(--black);
+      border: 2px solid var(--black);
+    }
+    .chip.is-accent { background: var(--yellow); }
+    .chip.is-ok { background: var(--blue); color: var(--white); }
+
+    /* ========== FRONT · BROWSER ========== */
+    .page-mock {
+      max-width: 1000px;
+      margin: 0 auto;
+      position: relative;
+      background: var(--white);
+      border: 4px solid var(--black);
+      overflow: hidden;
+      min-height: 660px;
+    }
+    .page-chrome {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 12px 16px;
+      border-bottom: 4px solid var(--black);
+    }
+    .page-chrome .sq { width: 14px; height: 14px; }
+    .page-url {
+      flex: 1;
+      margin-left: 10px;
+      font-size: 11px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      border: 2px solid var(--black);
+      padding: 6px 12px;
+    }
+    .geo-field {
+      position: absolute;
+      right: 28px;
+      top: 96px;
+      width: 130px;
+      height: 110px;
+      pointer-events: none;
+    }
+    .geo-field .c1 {
+      position: absolute; left: 0; top: 0;
+      transition: transform 200ms ease-out;
+    }
+    .geo-field .c2 {
+      position: absolute; right: 0; top: 18px;
+      transition: transform 200ms ease-out;
+    }
+    .geo-field .c3 {
+      position: absolute; left: 44px; bottom: 0;
+      transition: transform 200ms ease-out;
+    }
+    .geo-field:hover .c1 { transform: rotate(45deg) scale(1.2); }
+    .geo-field:hover .c2 { transform: rotate(-180deg); }
+    .geo-field:hover .c3 { transform: scale(1.25); }
+
+    .article {
+      padding: 44px 56px 96px;
+      max-width: 640px;
+    }
+    .article .kicker {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 11px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      margin-bottom: 18px;
+    }
+    .article h1 {
+      margin: 0 0 20px;
+      font-size: 34px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+      line-height: 1.15;
+      border-bottom: 6px solid var(--black);
+      padding-bottom: 18px;
+    }
+    .article .meta {
+      font-size: 11px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      margin-bottom: 30px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .article .meta::before { content: ""; width: 22px; height: 6px; background: var(--yellow); }
+    .article p {
+      margin: 0 0 20px;
+      font-size: 15px;
+      line-height: 1.85;
+      font-weight: 700;
+    }
+    .article mark.hl-idea {
+      background: var(--yellow);
+      color: var(--black);
+      padding: 0 3px;
+      box-decoration-break: clone;
+      -webkit-box-decoration-break: clone;
+    }
+    .article mark.hl-word {
+      background: var(--blue);
+      color: var(--white);
+      padding: 0 3px;
+      box-decoration-break: clone;
+      -webkit-box-decoration-break: clone;
+    }
+    .article mark.hl-idea, .article mark.hl-word { cursor: pointer; }
+
+    .float-bar {
+      position: absolute;
+      left: 232px;
+      top: 300px;
+      display: flex;
+      gap: 6px;
+      animation: slide-in 200ms ease-out both;
+    }
+    .float-btn {
+      appearance: none;
+      width: 34px;
+      height: 34px;
+      border: 3px solid var(--black);
+      background: var(--white);
+      color: var(--black);
+      font-size: 14px;
+      font-weight: 900;
+      position: relative;
+      overflow: hidden;
+      transition: background-color 150ms ease-out, color 150ms ease-out;
+    }
+    .float-btn::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: var(--black);
+      transform: translateX(-100%);
+      transition: transform 150ms ease-out;
+    }
+    .float-btn:hover::before { transform: translateX(0); }
+    .float-btn span { position: relative; z-index: 1; }
+    .float-btn.is-primary { background: var(--yellow); }
+    .float-btn.is-primary::before { background: var(--red); }
+
+    .capture-sheet {
+      position: absolute;
+      right: 24px;
+      top: 216px;
+      width: 330px;
+      background: var(--white);
+      border: 4px solid var(--black);
+      padding: 20px;
+      animation: slide-in 200ms ease-out 60ms both;
+    }
+    .capture-sheet h3 {
+      margin: 0 0 6px;
+      font-size: 17px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .capture-sheet .sub {
+      margin: 0 0 16px;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      line-height: 1.6;
+    }
+    .quote {
+      margin: 0 0 16px;
+      padding: 12px 14px;
+      border: 3px solid var(--black);
+      font-size: 13px;
+      font-weight: 900;
+      line-height: 1.65;
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      transition: background-color 150ms ease-out;
+    }
+    .quote:hover { background: var(--yellow); }
+    .quote .tri { color: var(--red); flex-shrink: 0; margin-top: 5px; }
+    .sheet-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 4px;
+    }
+
+    .word-peek {
+      position: absolute;
+      left: 396px;
+      top: 372px;
+      width: 264px;
+      background: var(--white);
+      border: 4px solid var(--black);
+      padding: 18px;
+      animation: slide-in 200ms ease-out 120ms both;
+    }
+    .word-peek .w {
+      font-size: 22px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+    }
+    .word-peek .ph {
+      font-size: 11px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin: 6px 0 10px;
+    }
+    .word-peek .tr {
+      font-size: 14px;
+      font-weight: 900;
+      margin-bottom: 16px;
+      border-bottom: 2px solid var(--black);
+      padding-bottom: 12px;
+    }
+    .word-peek .row { display: flex; gap: 10px; }
+
+    @keyframes slide-in {
+      from { opacity: 0; transform: translateX(-18px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .float-bar, .capture-sheet, .word-peek { animation: none; }
+      * { transition-duration: 0.01ms !important; }
+      .btn::before, .float-btn::before { transform: translateX(-100%); }
+      .btn:hover::before, .float-btn:hover::before { transform: translateX(0); }
+    }
+
+    /* ========== BACK · APP ========== */
+    .app {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 216px 1fr;
+      min-height: 680px;
+      background: var(--white);
+      border: 4px solid var(--black);
+      overflow: hidden;
+    }
+    .side {
+      background: var(--black);
+      color: var(--white);
+      padding: 24px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .side .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 2px 8px 26px;
+      font-size: 14px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+    }
+    .side .mark {
+      width: 28px;
+      height: 28px;
+      background: var(--red);
+      color: var(--black);
+      display: grid;
+      place-items: center;
+      font-size: 15px;
+      font-weight: 900;
+      transition: transform 200ms ease-out;
+    }
+    .side .logo:hover .mark { transform: rotate(45deg); }
+    .nav-item {
+      appearance: none;
+      border: 0;
+      background: transparent;
+      text-align: left;
+      width: 100%;
+      padding: 12px;
+      font-size: 13px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--white);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      position: relative;
+      overflow: hidden;
+      transition: background-color 150ms ease-out, color 150ms ease-out;
+    }
+    .nav-item::before {
+      content: "";
+      width: 10px;
+      height: 10px;
+      background: var(--yellow);
+      position: absolute;
+      left: 0;
+      top: 50%;
+      transform: translate(-14px, -50%);
+      transition: transform 150ms ease-out;
+    }
+    .nav-item:hover { background: var(--white); color: var(--black); }
+    .nav-item:hover::before { transform: translate(0, -50%); }
+    .nav-item.is-on {
+      background: var(--yellow);
+      color: var(--black);
+    }
+    .nav-item.is-on::before { background: var(--black); transform: translate(0, -50%); }
+    .nav-item .badge {
+      font-size: 10px;
+      font-weight: 900;
+      min-width: 22px;
+      text-align: center;
+      padding: 3px 6px;
+      background: var(--white);
+      color: var(--black);
+      transition: background-color 150ms ease-out, color 150ms ease-out;
+    }
+    .nav-item.is-on .badge { background: var(--black); color: var(--white); }
+    .side-foot {
+      margin-top: auto;
+      padding: 12px 8px 0;
+      font-size: 10px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      color: var(--white);
+      border-top: 2px solid var(--white);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .side-foot .sq { width: 8px; height: 8px; }
+
+    .main { display: flex; flex-direction: column; min-width: 0; }
+    .main-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 18px 24px;
+      border-bottom: 4px solid var(--black);
+    }
+    .main-bar h2 {
+      margin: 0;
+      font-size: 26px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .main-bar h2 .sq {
+      width: 16px; height: 16px;
+      transition: transform 200ms ease-out;
+    }
+    .main-bar h2:hover .sq { transform: rotate(45deg); }
+    .main-bar .tools { display: flex; align-items: center; gap: 10px; }
+    .filter {
+      appearance: none;
+      border: 3px solid var(--black);
+      background: var(--white);
+      padding: 8px 34px 8px 12px;
+      font-size: 12px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      background-image:
+        linear-gradient(45deg, transparent 50%, var(--black) 50%),
+        linear-gradient(135deg, var(--black) 50%, transparent 50%);
+      background-position: calc(100% - 16px) 55%, calc(100% - 11px) 55%;
+      background-size: 5px 5px;
+      background-repeat: no-repeat;
+      transition: background-color 150ms ease-out;
+    }
+    .filter:hover { background-color: var(--yellow); }
+
+    .main-body { padding: 22px 24px 36px; overflow: auto; }
+
+    .day-label {
+      font-size: 13px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      margin: 24px 0 14px;
+      padding-bottom: 10px;
+      border-bottom: 3px solid var(--black);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .day-label:first-child { margin-top: 0; }
+    .day-label .sq, .day-label .circle {
+      width: 12px; height: 12px;
+      transition: transform 200ms ease-out;
+    }
+    .day-label:hover .sq, .day-label:hover .circle { transform: rotate(45deg) scale(1.3); }
+
+    .word-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(228px, 1fr));
+      gap: 14px;
+    }
+    .word-card {
+      padding: 16px;
+      border: 4px solid var(--black);
+      background: var(--white);
+      position: relative;
+      overflow: hidden;
+      cursor: pointer;
+      transition: background-color 150ms ease-out, color 150ms ease-out, border-color 150ms ease-out;
+    }
+    .word-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: var(--yellow);
+      transform: translateX(-100%);
+      transition: transform 150ms ease-out;
+    }
+    .word-card:hover::before { transform: translateX(0); }
+    .word-card:hover { border-color: var(--black); }
+    .word-card > * { position: relative; z-index: 1; }
+    .word-card .en {
+      font-size: 17px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+    }
+    .word-card .zh {
+      margin-top: 6px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .word-card .tags {
+      margin-top: 14px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .word-card.is-focus {
+      background: var(--black);
+      color: var(--white);
+      border-color: var(--black);
+    }
+    .word-card.is-focus::before { background: var(--blue); }
+    .word-card.is-focus .chip { border-color: var(--white); background: transparent; color: var(--white); }
+    .word-card.is-focus .chip.is-ok { background: var(--white); color: var(--black); }
+
+    .split {
+      display: grid;
+      grid-template-columns: 1fr 300px;
+      gap: 18px;
+      align-items: start;
+    }
+    .detail {
+      position: sticky;
+      top: 0;
+      border: 4px solid var(--black);
+      padding: 20px;
+      background: var(--white);
+    }
+    .detail h3 {
+      margin: 0 0 4px;
+      font-size: 22px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+    }
+    .detail .ph {
+      font-size: 11px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 10px;
+    }
+    .detail .zh { font-size: 14px; font-weight: 900; margin-bottom: 16px; }
+    .detail .note-box {
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1.7;
+      padding: 14px;
+      background: var(--yellow);
+      border: 3px solid var(--black);
+      margin-bottom: 16px;
+      display: flex;
+      gap: 10px;
+    }
+    .detail .note-box .square {
+      width: 14px; height: 14px;
+      background: var(--red);
+      flex-shrink: 0;
+      margin-top: 3px;
+    }
+    .detail .acts { display: flex; flex-wrap: wrap; gap: 10px; }
+
+    .modal-layer {
+      margin-top: 36px;
+      display: flex;
+      justify-content: center;
+      position: relative;
+    }
+    .modal-layer::before {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 0;
+      transform: translateX(-50%);
+      width: 220px;
+      height: 6px;
+      background: var(--yellow);
+    }
+    .modal {
+      width: min(420px, 100%);
+      background: var(--white);
+      border: 4px solid var(--black);
+      padding: 26px;
+    }
+    .modal h3 {
+      margin: 0 0 22px;
+      font-size: 18px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      text-align: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+    .modal h3 .tri { color: var(--blue); }
+    .modal h3 .tri:last-child { transform: rotate(180deg); }
+    .modal .actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 8px;
+    }
+
+    .settings {
+      margin-top: 36px;
+      border: 4px solid var(--black);
+      background: var(--white);
+    }
+    .settings .row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 16px 20px;
+      border-bottom: 3px solid var(--black);
+    }
+    .settings .row:last-child { border-bottom: 0; }
+    .settings .t {
+      font-size: 14px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .settings .d {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-top: 4px;
+    }
+    .toggle {
+      width: 48px;
+      height: 28px;
+      background: var(--white);
+      border: 3px solid var(--black);
+      position: relative;
+      flex-shrink: 0;
+      transition: background-color 150ms ease-out;
+    }
+    .toggle::after {
+      content: "";
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 18px;
+      height: 18px;
+      background: var(--black);
+      transition: transform 150ms ease-out;
+    }
+    .toggle.is-on { background: var(--yellow); }
+    .toggle.is-on::after { transform: translateX(20px); }
+
+    .color-strip {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      max-width: 1100px;
+      margin: 0 auto;
+      border: 4px solid var(--black);
+    }
+    .color-strip .sq { height: 14px; }
+    .strip-label {
+      max-width: 1100px;
+      margin: 8px auto 0;
+      font-size: 10px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.3em;
+      text-align: center;
+    }
+
+    @media (max-width: 860px) {
+      .app { grid-template-columns: 1fr; }
+      .side { display: none; }
+      .split { grid-template-columns: 1fr; }
+      .article { padding: 28px 24px 60px; }
+      .capture-sheet, .word-peek, .float-bar, .geo-field {
+        position: relative;
+        left: auto;
+        right: auto;
+        top: auto;
+        margin: 16px 24px;
+        width: auto;
+      }
+      .page-mock { min-height: 0; }
+      .demo-brand span, .demo-brand .trio { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <header class="demo-top">
+    <div class="demo-brand">
+      <div class="mark">R</div>
+      <strong>RecordU</strong>
+      <span>bauhaus · restyle preview</span>
+      <div class="trio" aria-hidden="true">
+        <div class="circle g-red"></div>
+        <div class="square g-blue"></div>
+        <div class="tri" style="color:var(--yellow);"></div>
+      </div>
+    </div>
+    <div class="demo-tabs" role="tablist">
+      <button type="button" class="demo-tab is-on" data-panel="front" role="tab">Front · 划词</button>
+      <button type="button" class="demo-tab" data-panel="back" role="tab">Back · 回顾</button>
+    </div>
+  </header>
+
+  <section class="panel is-on" id="panel-front">
+    <p class="note"><span class="bar"></span>白底黑框 · 红黄蓝原色 · 无圆角 · 重字重全大写 · 150ms 硬切与色块翻转</p>
+    <div class="page-mock">
+      <div class="page-chrome">
+        <div class="sq g-red"></div>
+        <div class="sq g-yellow"></div>
+        <div class="sq g-blue"></div>
+        <div class="page-url">example.com/essay/attention</div>
+      </div>
+
+      <div class="geo-field" aria-hidden="true">
+        <div class="c1 square g-blue"></div>
+        <div class="c2 circle g-red"></div>
+        <div class="c3 tri" style="color:var(--yellow);"></div>
+      </div>
+
+      <div class="article">
+        <div class="kicker"><span class="square g-yellow"></span>Form follows function</div>
+        <h1>Attention is a scarce resource</h1>
+        <div class="meta">Essay · 8 min</div>
+        <p>
+          Most people treat focus as a mood. It is closer to a budget.
+          Once you spend it on shallow tabs, little remains for deep work.
+        </p>
+        <p>
+          The hard part is not motivation. It is
+          <mark class="hl-idea">protecting a few uninterrupted blocks</mark>
+          every week, and refusing to negotiate them away.
+        </p>
+        <p>
+          Words like
+          <mark class="hl-word">overwhelm</mark>
+          show up when the budget is already gone. Naming the feeling helps,
+          but the fix is structural.
+        </p>
+      </div>
+
+      <div class="float-bar" aria-label="划词操作">
+        <button type="button" class="float-btn is-primary" title="记下感触"><span>i</span></button>
+        <button type="button" class="float-btn" title="标记单词"><span>w</span></button>
+      </div>
+
+      <aside class="capture-sheet" aria-label="捕获面板">
+        <h3><span class="square g-red"></span>记下感触</h3>
+        <p class="sub">会保存在原文位置，下次打开可点回。</p>
+        <div class="quote"><span class="tri"></span>protecting a few uninterrupted blocks</div>
+        <div class="field">
+          <label for="note">你的话</label>
+          <textarea id="note">别把专注当成心情，当成预算来排。</textarea>
+        </div>
+        <div class="sheet-actions">
+          <button type="button" class="btn"><span>取消</span></button>
+          <button type="button" class="btn btn-primary"><span>保存</span></button>
+        </div>
+      </aside>
+
+      <aside class="word-peek" aria-label="单词浮层">
+        <div class="w">overwhelm</div>
+        <div class="ph">/ˌoʊvərˈwelm/</div>
+        <div class="tr">使不知所措；压垮</div>
+        <div class="row">
+          <button type="button" class="btn btn-blue" style="flex:1"><span>学会了</span></button>
+          <button type="button" class="btn" style="flex:1"><span>编辑</span></button>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <section class="panel" id="panel-back">
+    <p class="note"><span class="bar"></span>黑侧栏 + 白面板 + 4px 黑框 · 黄/蓝/红仅作状态与强调 · 全部方形</p>
+    <div class="app">
+      <aside class="side">
+        <div class="logo"><span class="mark">R</span> RecordU</div>
+        <button type="button" class="nav-item">待回顾 <span class="badge">12</span></button>
+        <button type="button" class="nav-item is-on">单词 <span class="badge">28</span></button>
+        <button type="button" class="nav-item">试题 <span class="badge">3</span></button>
+        <button type="button" class="nav-item">设置</button>
+        <div class="side-foot">Demo only <span class="sq g-red"></span></div>
+      </aside>
+
+      <div class="main">
+        <div class="main-bar">
+          <h2><span class="sq g-yellow"></span>单词</h2>
+          <div class="tools">
+            <select class="filter" aria-label="时间">
+              <option>全部</option>
+              <option selected>今天</option>
+              <option>昨天</option>
+            </select>
+            <button type="button" class="btn btn-solid"><span>生成试卷</span></button>
+          </div>
+        </div>
+
+        <div class="main-body">
+          <div class="split">
+            <div>
+              <div class="day-label"><span class="sq g-yellow"></span>今天</div>
+              <div class="word-grid">
+                <div class="word-card is-focus">
+                  <div class="en">overwhelm</div>
+                  <div class="zh">使不知所措；压垮</div>
+                  <div class="tags">
+                    <span class="chip is-accent">变体</span>
+                    <span class="chip">未学会</span>
+                  </div>
+                </div>
+                <div class="word-card">
+                  <div class="en">scarce</div>
+                  <div class="zh">稀缺的</div>
+                  <div class="tags"><span class="chip">未学会</span></div>
+                </div>
+                <div class="word-card">
+                  <div class="en">uninterrupted</div>
+                  <div class="zh">不间断的</div>
+                  <div class="tags"><span class="chip">未学会</span></div>
+                </div>
+                <div class="word-card">
+                  <div class="en">structural</div>
+                  <div class="zh">结构性的</div>
+                  <div class="tags"><span class="chip is-ok">已学会</span></div>
+                </div>
+              </div>
+
+              <div class="day-label"><span class="circle g-blue"></span>昨天</div>
+              <div class="word-grid">
+                <div class="word-card">
+                  <div class="en">negotiate</div>
+                  <div class="zh">协商；谈判</div>
+                  <div class="tags"><span class="chip">未学会</span></div>
+                </div>
+                <div class="word-card">
+                  <div class="en">shallow</div>
+                  <div class="zh">浅薄的</div>
+                  <div class="tags"><span class="chip">未学会</span></div>
+                </div>
+              </div>
+            </div>
+
+            <aside class="detail">
+              <h3>overwhelm</h3>
+              <div class="ph">/ˌoʊvərˈwelm/</div>
+              <div class="zh">使不知所措；压垮</div>
+              <div class="note-box"><span class="square"></span>预算花光时才会感到 overwhelm。先砍标签页，再谈意志力。</div>
+              <div class="acts">
+                <button type="button" class="btn btn-blue"><span>学会了</span></button>
+                <button type="button" class="btn"><span>编辑</span></button>
+                <button type="button" class="btn btn-danger"><span>删除</span></button>
+              </div>
+            </aside>
+          </div>
+
+          <div class="modal-layer">
+            <div class="modal" aria-label="生成试卷弹窗示意">
+              <h3><span class="tri"></span>生成试卷<span class="tri"></span></h3>
+              <div class="field">
+                <label for="day">时间</label>
+                <select id="day">
+                  <option>全部</option>
+                  <option selected>今天（4）</option>
+                  <option>昨天（2）</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="count">练习几个未学完的单词（1–4）</label>
+                <input id="count" type="number" value="4" min="1" max="4" />
+              </div>
+              <div class="field">
+                <label>出题方向</label>
+                <div class="seg">
+                  <label><input type="radio" name="lang" checked /> 以英文出题</label>
+                  <label><input type="radio" name="lang" /> 以中文出题</label>
+                </div>
+              </div>
+              <div class="field">
+                <label>是否展示考点词</label>
+                <div class="seg">
+                  <label><input type="radio" name="show" checked /> 不展示</label>
+                  <label><input type="radio" name="show" /> 展示</label>
+                </div>
+              </div>
+              <div class="actions">
+                <button type="button" class="btn"><span>取消</span></button>
+                <button type="button" class="btn btn-solid"><span>生成</span></button>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings" aria-label="设置行示意">
+            <div class="row">
+              <div>
+                <div class="t">单词高亮</div>
+                <div class="d">在所有网站匹配并高亮已标记单词</div>
+              </div>
+              <button type="button" class="toggle is-on" aria-label="单词高亮开关"></button>
+            </div>
+            <div class="row">
+              <div>
+                <div class="t">高亮风格</div>
+                <div class="d">背景填充</div>
+              </div>
+              <select class="filter" style="min-width:130px">
+                <option selected>背景填充</option>
+                <option>下划线</option>
+              </select>
+            </div>
+            <div class="row">
+              <div>
+                <div class="t">大模型思考程度</div>
+                <div class="d">低 · 更快响应</div>
+              </div>
+              <select class="filter" style="min-width:130px">
+                <option>关闭</option>
+                <option selected>低</option>
+                <option>高</option>
+                <option>最大</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="color-strip" aria-hidden="true">
+      <div class="sq g-red"></div>
+      <div class="sq g-yellow"></div>
+      <div class="sq g-blue"></div>
+      <div class="sq g-black"></div>
+    </div>
+    <div class="strip-label">Rot · Gelb · Blau — Schwarz · Weiß</div>
+  </section>
+
+  <script>
+    const tabs = document.querySelectorAll(".demo-tab");
+    const panels = {
+      front: document.getElementById("panel-front"),
+      back: document.getElementById("panel-back")
+    };
+    tabs.forEach((tab) => {
+      tab.addEventListener("click", () => {
+        tabs.forEach((t) => t.classList.toggle("is-on", t === tab));
+        Object.entries(panels).forEach(([key, el]) => {
+          el.classList.toggle("is-on", key === tab.dataset.panel);
+        });
+      });
+    });
+    document.querySelectorAll(".toggle").forEach((t) => {
+      t.addEventListener("click", () => t.classList.toggle("is-on"));
+    });
+  </script>
+</body>
+</html>

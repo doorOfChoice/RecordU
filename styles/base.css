@@ -21,34 +21,59 @@ body {
 
 .btn {
   flex: 1;
-  border: 1px solid var(--ru-line);
+  border: 3px solid var(--ru-ink);
   background: transparent;
   color: var(--ru-ink);
-  border-radius: var(--radius);
-  padding: 8px 0;
+  border-radius: 0;
+  padding: 8px 14px;
   font-size: 12px;
-  letter-spacing: 0.08em;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  transition: background-color 0.15s ease-out, color 0.15s ease-out,
+    border-color 0.15s ease-out;
   font-family: inherit;
 }
 
 .btn:hover {
+  background: var(--ru-accent-soft);
+  border-color: var(--ru-ink);
   color: var(--ru-ink);
-  border-color: var(--ru-line);
-  background: rgba(0, 0, 0, 0.05);
 }
 
 .btn-primary {
-  background: var(--ru-accent);
-  border-color: var(--ru-accent);
-  color: #ffffff;
-  font-weight: 500;
+  background: var(--ru-accent-soft);
+  border-color: var(--ru-ink);
+  color: var(--ru-ink);
 }
 
 .btn-primary:hover {
-  background: var(--ru-accent-press);
-  border-color: var(--ru-accent-press);
+  background: var(--ru-vermilion);
+  color: #ffffff;
+}
+
+.btn-solid {
+  background: var(--ru-ink);
+  border-color: var(--ru-ink);
+  color: #ffffff;
+}
+
+.btn-solid:hover {
+  background: var(--ru-vermilion);
+  border-color: var(--ru-ink);
+  color: #ffffff;
+}
+
+.btn-blue {
+  background: var(--ru-accent);
+  border-color: var(--ru-ink);
+  color: #ffffff;
+}
+
+.btn-blue:hover {
+  background: var(--ru-ink);
+  border-color: var(--ru-ink);
   color: #ffffff;
 }
 
@@ -59,12 +84,13 @@ body {
   transform: translateX(-50%) translateY(6px);
   background: var(--ru-ink);
   color: #ffffff;
-  padding: 6px 14px;
-  border-radius: var(--radius);
+  padding: 7px 14px;
+  border-radius: 0;
   font-size: 12px;
+  font-weight: 700;
   letter-spacing: 0.06em;
   opacity: 0;
-  transition: opacity 0.2s, transform 0.2s;
+  transition: opacity 0.15s ease-out, transform 0.15s ease-out;
   pointer-events: none;
 }
 

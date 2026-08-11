@@ -15,8 +15,10 @@
 .rc-modal-field-label {
   display: block;
   font-size: 11px;
+  font-weight: 900;
   letter-spacing: 0.08em;
-  color: var(--rv-sumi);
+  text-transform: uppercase;
+  color: var(--rv-ink);
   margin: 0 0 6px;
 }
 
@@ -31,20 +33,26 @@
   align-items: center;
   gap: 8px;
   flex: 0 0 auto;
-  border: 1px solid var(--rv-line);
-  border-radius: var(--radius);
+  border: 3px solid var(--rv-ink);
+  border-radius: 0;
   padding: 8px 14px;
   font-size: 13px;
+  font-weight: 700;
   line-height: 1.3;
-  color: var(--rv-sumi);
+  color: var(--rv-ink);
   cursor: pointer;
   margin: 0;
   white-space: nowrap;
+  transition: background-color 0.15s ease-out, color 0.15s ease-out;
+}
+
+.rc-modal-radio:hover {
+  background: var(--rv-accent-soft);
 }
 
 .rc-modal-radio:has(input:checked) {
-  color: var(--rv-accent);
-  border-color: var(--rv-accent);
+  color: #000;
+  border-color: var(--rv-ink);
   background: var(--rv-accent-soft);
 }
 
@@ -60,10 +68,11 @@
 .rc-modal-field select {
   width: 100%;
   box-sizing: border-box;
-  border: 1px solid var(--rv-line);
-  border-radius: var(--radius);
+  border: 2px solid var(--rv-ink);
+  border-radius: 0;
   padding: 8px 10px;
   font-size: 14px;
+  font-weight: 700;
   font-family: inherit;
   color: var(--rv-ink);
   background: var(--rv-surface);
@@ -79,8 +88,8 @@
 .rc-modal-field textarea:focus,
 .rc-modal-field select:focus {
   outline: none;
-  border-color: var(--rv-accent);
-  box-shadow: 0 0 0 3px var(--rv-accent-soft);
+  border-color: var(--rv-ink);
+  background: var(--rv-accent-soft);
 }
 
 /* ---------- modal ---------- */
@@ -88,13 +97,13 @@
   position: fixed;
   inset: 0;
   z-index: 9999;
-  background: rgba(0, 0, 0, 0.28);
+  background: rgba(0, 0, 0, 0.55);
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 20px;
   opacity: 0;
-  transition: opacity 0.18s;
+  transition: opacity 0.15s ease-out;
 }
 
 .rc-modal-overlay.show {
@@ -105,12 +114,12 @@
   width: 100%;
   max-width: 400px;
   background: var(--ru-surface);
-  border: 1px solid var(--ru-line);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--ru-shadow-float);
+  border: 4px solid var(--ru-ink);
+  border-radius: 0;
+  box-shadow: none;
   padding: 22px 22px 18px;
   transform: translateY(6px);
-  transition: transform 0.18s;
+  transition: transform 0.15s ease-out;
   font-family: var(--ru-sans);
 }
 
@@ -119,16 +128,21 @@
 }
 
 .rc-modal-title {
-  font-family: var(--ru-serif);
-  font-size: 17px;
-  font-weight: 600;
-  margin-bottom: 10px;
+  font-family: var(--ru-sans);
+  font-size: 16px;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 3px solid var(--ru-ink);
   color: var(--ru-ink);
 }
 
 .rc-modal-body {
   font-size: 13px;
-  color: var(--ru-sumi);
+  font-weight: 700;
+  color: var(--ru-ink);
   line-height: 1.7;
   white-space: pre-wrap;
   word-break: break-word;
@@ -143,11 +157,12 @@
   display: block;
   width: 100%;
   margin: 0 0 18px;
-  border: 1px solid var(--ru-line);
-  border-radius: var(--radius);
+  border: 2px solid var(--ru-ink);
+  border-radius: 0;
   padding: 10px 12px;
-  font-family: var(--ru-serif);
-  font-size: 15px;
+  font-family: var(--ru-sans);
+  font-size: 14px;
+  font-weight: 700;
   line-height: 1.65;
   color: var(--ru-ink);
   background: var(--rv-surface);
@@ -157,8 +172,8 @@
 }
 
 .rc-modal-input:focus {
-  border-color: var(--ru-accent);
-  box-shadow: 0 0 0 3px var(--ru-accent-soft);
+  border-color: var(--ru-ink);
+  background: var(--ru-accent-soft);
 }
 
 .rc-modal-actions {
@@ -170,19 +185,19 @@
 .rc-modal-actions .btn {
   flex: 0 0 auto;
   padding: 7px 16px;
-  border-radius: var(--radius);
+  border-radius: 0;
   font-size: 12px;
   letter-spacing: 0.08em;
 }
 
 .rc-modal-danger {
   background: var(--ru-vermilion);
-  border-color: var(--ru-vermilion);
+  border-color: var(--ru-ink);
   color: #fff;
 }
 
 .rc-modal-danger:hover {
-  background: #a84c3d;
-  border-color: #a84c3d;
+  background: var(--ru-ink);
+  border-color: var(--ru-ink);
   color: #fff;
 }

@@ -6,17 +6,18 @@
   gap: 16px;
   margin: 0 0 20px;
   padding: 12px 14px;
-  border: 1px solid var(--rv-line);
-  border-radius: var(--radius);
-  background: color-mix(in srgb, var(--rv-info-soft) 70%, var(--rv-surface));
+  border: 3px solid var(--rv-line);
+  border-radius: 0;
+  background: var(--rv-surface);
 }
 
 .rv-quiz-toolbar-hint {
   margin: 0;
   flex: 1;
   font-size: 13px;
+  font-weight: 700;
   line-height: 1.55;
-  color: var(--rv-sumi);
+  color: var(--rv-ink);
 }
 
 .rv-quiz-gen-btn {
@@ -27,7 +28,8 @@
 .rv-quiz-empty {
   margin: 12px 0 0;
   font-size: 13px;
-  color: var(--rv-sumi);
+  font-weight: 700;
+  color: var(--rv-ink);
 }
 
 .rv-quiz-list {
@@ -43,24 +45,25 @@
   display: flex;
   align-items: stretch;
   gap: 0;
-  border: 1px solid var(--rv-line);
-  border-radius: var(--radius);
+  border: 3px solid var(--rv-line);
+  border-radius: 0;
   background: var(--rv-surface);
   overflow: hidden;
 }
 
 .rv-quiz-item.is-ready {
-  box-shadow: inset 3px 0 0 var(--rv-warm);
+  background: var(--rv-warn);
+  color: #000;
 }
 
 .rv-quiz-item.is-progress {
-  box-shadow: inset 3px 0 0 var(--rv-accent);
-  background: color-mix(in srgb, var(--rv-info-soft) 65%, var(--rv-surface));
+  background: var(--rv-info-soft);
+  color: var(--rv-ink);
 }
 
 .rv-quiz-item.is-done {
-  box-shadow: inset 3px 0 0 var(--rv-ok);
-  background: color-mix(in srgb, var(--rv-ok-soft) 65%, var(--rv-surface));
+  background: var(--rv-surface);
+  color: var(--rv-ink);
 }
 
 .rv-quiz-item-main {
@@ -78,60 +81,63 @@
 }
 
 .rv-quiz-item-main:hover {
-  background: rgba(0, 0, 0, 0.04);
+  background: var(--rv-fill);
 }
 
 .rv-quiz-item-title {
   font-size: 13px;
-  color: var(--rv-ink);
+  font-weight: 900;
   letter-spacing: 0.02em;
+  color: var(--rv-ink);
 }
 
 .rv-quiz-item-status {
   display: inline-flex;
   align-self: flex-start;
   font-size: 11px;
+  font-weight: 900;
   letter-spacing: 0.06em;
-  font-weight: 500;
+  text-transform: uppercase;
   padding: 2px 8px;
-  border-radius: var(--radius);
-  border: 1px solid transparent;
+  border-radius: 0;
+  border: 1px solid var(--rv-ink);
 }
 
 .rv-quiz-item-status.is-ready {
-  color: #8a6b2e;
-  background: color-mix(in srgb, var(--rv-warm) 22%, white);
-  border-color: color-mix(in srgb, var(--rv-warm) 40%, transparent);
+  color: #000;
+  background: var(--rv-warn);
+  border-color: #000;
 }
 
 .rv-quiz-item-status.is-progress {
   color: var(--rv-accent);
-  background: var(--rv-info-soft);
-  border-color: color-mix(in srgb, var(--rv-accent) 28%, transparent);
+  background: transparent;
+  border-color: var(--rv-accent);
 }
 
 .rv-quiz-item-status.is-done {
-  color: var(--rv-ok);
-  background: var(--rv-ok-soft);
-  border-color: color-mix(in srgb, var(--rv-ok) 28%, transparent);
+  color: #fff;
+  background: var(--rv-done);
+  border-color: var(--rv-done);
 }
 
 .rv-quiz-item-del {
   appearance: none;
   border: none;
-  border-left: 1px solid var(--rv-line);
+  border-left: 1px solid var(--rv-ink);
   background: transparent;
-  color: var(--rv-sumi);
+  color: var(--rv-ink);
   padding: 0 14px;
   cursor: pointer;
   font-family: inherit;
   font-size: 12px;
+  font-weight: 900;
   letter-spacing: 0.06em;
 }
 
 .rv-quiz-item-del:hover {
-  color: var(--rv-vermilion);
-  background: color-mix(in srgb, var(--rv-vermilion) 8%, transparent);
+  color: #fff;
+  background: var(--rv-vermilion);
 }
 
 .rv-quiz-take-bar {
@@ -141,7 +147,7 @@
   gap: 12px;
   margin: 0 0 20px;
   padding-bottom: 14px;
-  border-bottom: 1px solid var(--rv-line);
+  border-bottom: 3px solid var(--rv-line);
 }
 
 .rv-quiz-take-bar .btn {
@@ -151,29 +157,33 @@
 
 .rv-quiz-take-score {
   font-size: 13px;
+  font-weight: 900;
   letter-spacing: 0.04em;
-  font-weight: 500;
   padding: 5px 10px;
-  border-radius: var(--radius);
+  border-radius: 0;
+  border: 1px solid var(--rv-ink);
+  text-transform: uppercase;
 }
 
 .rv-quiz-take-score.is-done {
-  color: var(--rv-ok);
-  background: var(--rv-ok-soft);
-  border: 1px solid color-mix(in srgb, var(--rv-ok) 28%, transparent);
+  color: #fff;
+  background: var(--rv-done);
+  border-color: var(--rv-done);
 }
 
 .rv-quiz-source-words {
   margin: 0 0 20px;
   padding: 12px 14px;
-  border: 1px solid var(--rv-line);
-  border-radius: var(--radius);
+  border: 3px solid var(--rv-line);
+  border-radius: 0;
   background: var(--rv-surface);
 }
 
 .rv-quiz-source-words-label {
   font-size: 12px;
+  font-weight: 900;
   letter-spacing: 0.06em;
+  text-transform: uppercase;
   color: var(--rv-thin);
   margin: 0 0 10px;
 }
@@ -187,10 +197,11 @@
 .rv-quiz-source-word {
   display: inline-block;
   font-size: 13px;
+  font-weight: 700;
   line-height: 1.3;
   padding: 4px 10px;
-  border: 1px solid var(--rv-line);
-  border-radius: var(--radius);
+  border: 1px solid var(--rv-ink);
+  border-radius: 0;
   color: var(--rv-ink);
   background: var(--rv-surface);
 }
@@ -213,52 +224,49 @@
 
 .rv-quiz-q-num {
   font-size: 12px;
+  font-weight: 900;
   letter-spacing: 0.08em;
-  font-weight: 500;
   padding: 2px 8px;
-  border-radius: var(--radius);
-  color: var(--rv-sumi);
-  background: rgba(0, 0, 0, 0.05);
+  border-radius: 0;
+  border: 1px solid var(--rv-ink);
+  color: var(--rv-ink);
+  background: var(--rv-surface);
 }
 
-.rv-quiz-q-num.is-choice {
-  color: var(--rv-accent);
-  background: var(--rv-info-soft);
-}
-
-.rv-quiz-q-num.is-blank {
-  color: #8a6b2e;
-  background: color-mix(in srgb, var(--rv-warm) 20%, white);
-}
-
+.rv-quiz-q-num.is-choice,
+.rv-quiz-q-num.is-blank,
 .rv-quiz-q-num.is-match {
-  color: var(--rv-focus);
-  background: color-mix(in srgb, var(--rv-focus) 10%, white);
+  color: var(--rv-ink);
+  background: var(--rv-surface);
+  border-color: var(--rv-ink);
 }
 
 .rv-quiz-mark {
   font-size: 11px;
+  font-weight: 900;
   letter-spacing: 0.06em;
-  font-weight: 500;
+  text-transform: uppercase;
   padding: 2px 8px;
-  border-radius: var(--radius);
+  border-radius: 0;
+  border: 1px solid var(--rv-ink);
 }
 
 .rv-quiz-mark.is-ok {
-  color: var(--rv-ok);
-  background: var(--rv-ok-soft);
-  border: 1px solid color-mix(in srgb, var(--rv-ok) 28%, transparent);
+  color: #fff;
+  background: var(--rv-done);
+  border-color: var(--rv-done);
 }
 
 .rv-quiz-mark.is-bad {
-  color: var(--rv-vermilion);
-  background: color-mix(in srgb, var(--rv-vermilion) 8%, white);
-  border: 1px solid color-mix(in srgb, var(--rv-vermilion) 24%, transparent);
+  color: #fff;
+  background: var(--rv-vermilion);
+  border-color: var(--rv-vermilion);
 }
 
 .rv-quiz-q-prompt {
   margin: 0 0 12px;
   font-size: 15px;
+  font-weight: 700;
   line-height: 1.55;
   color: var(--rv-ink);
 }
@@ -266,7 +274,8 @@
 .rv-quiz-q-hint {
   margin: 0 0 10px;
   font-size: 12px;
-  color: var(--rv-sumi);
+  font-weight: 700;
+  color: var(--rv-ink);
 }
 
 .rv-quiz-choices {
@@ -279,36 +288,39 @@
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  border: 1px solid var(--rv-line);
-  border-radius: var(--radius);
+  border: 3px solid var(--rv-line);
+  border-radius: 0;
   padding: 10px 12px;
   cursor: pointer;
   color: var(--rv-ink);
   font-size: 13px;
+  font-weight: 700;
   line-height: 1.45;
   background: var(--rv-surface);
-  transition: border-color 0.15s, background 0.15s, color 0.15s;
+  transition: background-color 0.15s ease-out, border-color 0.15s ease-out, color 0.15s ease-out;
 }
 
 .rv-quiz-choice:hover {
-  border-color: color-mix(in srgb, var(--rv-accent) 35%, var(--rv-line));
+  border-color: var(--rv-ink);
+  background: var(--rv-accent-soft);
 }
 
 .rv-quiz-choice:has(input:checked) {
-  border-color: var(--rv-accent);
-  color: var(--rv-ink);
-  background: var(--rv-info-soft);
+  border-color: var(--rv-ink);
+  background: var(--rv-accent-soft);
+  color: #000;
 }
 
 .rv-quiz-choice.is-answer {
-  border-color: var(--rv-ok);
-  background: var(--rv-ok-soft);
-  color: var(--rv-ink);
+  border-color: var(--rv-done);
+  background: var(--rv-done);
+  color: #fff;
 }
 
 .rv-quiz-choice.is-wrong {
   border-color: var(--rv-vermilion);
-  background: color-mix(in srgb, var(--rv-vermilion) 7%, white);
+  background: var(--rv-vermilion);
+  color: #fff;
 }
 
 .rv-quiz-choice input {
@@ -321,10 +333,11 @@
   width: 100%;
   max-width: 420px;
   box-sizing: border-box;
-  border: 1px solid var(--rv-line);
-  border-radius: var(--radius);
+  border: 2px solid var(--rv-line);
+  border-radius: 0;
   padding: 8px 10px;
   font-size: 14px;
+  font-weight: 700;
   font-family: inherit;
   color: var(--rv-ink);
   background: var(--rv-surface);
@@ -332,14 +345,20 @@
 
 .rv-quiz-blank:focus {
   outline: none;
-  border-color: var(--rv-accent);
+  border-color: var(--rv-ink);
+  background: var(--rv-accent-soft);
 }
 
 .rv-quiz-answer-key {
   margin: 10px 0 0;
   font-size: 12px;
-  color: var(--rv-ok);
+  font-weight: 900;
+  color: #fff;
   line-height: 1.5;
+  display: inline-block;
+  padding: 2px 8px;
+  border: 1px solid var(--rv-done);
+  background: var(--rv-done);
 }
 
 .rv-quiz-match {
@@ -356,27 +375,28 @@
 
 .rv-quiz-match-chip {
   appearance: none;
-  border: 1px solid var(--rv-line);
-  border-radius: var(--radius);
+  border: 3px solid var(--rv-line);
+  border-radius: 0;
   background: var(--rv-surface);
   text-align: left;
   padding: 10px 12px;
   font-size: 13px;
+  font-weight: 700;
   line-height: 1.4;
   color: var(--rv-ink);
   cursor: pointer;
   font-family: inherit;
-  transition: border-color 0.15s, background 0.15s;
+  transition: background-color 0.15s ease-out, border-color 0.15s ease-out;
 }
 
 .rv-quiz-match-chip:hover:not(:disabled) {
-  border-color: var(--rv-accent);
-  background: var(--rv-info-soft);
+  border-color: var(--rv-ink);
+  background: var(--rv-accent-soft);
 }
 
 .rv-quiz-match-chip.is-picked {
-  border-color: var(--rv-accent);
-  background: var(--rv-info-soft);
+  border-color: var(--rv-ink);
+  background: var(--rv-accent-soft);
 }
 
 .rv-quiz-match-chip:disabled {
@@ -389,9 +409,9 @@
   margin-left: 8px;
   font-style: normal;
   font-size: 11px;
+  font-weight: 900;
   color: var(--rv-accent);
   letter-spacing: 0.04em;
-  font-weight: 500;
 }
 
 @media (max-width: 640px) {
@@ -413,16 +433,12 @@
   }
 
   .rv-words-nav-item {
-    border-left: none;
-    border-bottom: 2px solid transparent;
     border-radius: 0;
     padding: 8px 12px 10px;
   }
 
   .rv-words-nav-item.is-on {
-    border-left-color: transparent;
-    border-bottom-color: var(--rv-accent);
-    background: transparent;
+    background: var(--rv-accent-soft);
   }
 
   .rv-words-main {

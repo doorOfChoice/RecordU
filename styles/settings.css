@@ -7,9 +7,9 @@
   min-height: 320px;
   padding: 20px 22px;
   background: var(--rv-surface);
-  border: 1px solid var(--rv-line);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--rv-shadow);
+  border: 4px solid var(--rv-line);
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .rv-settings-nav {
@@ -27,27 +27,27 @@
   border: none;
   background: transparent;
   text-align: left;
-  padding: 9px 12px 9px 14px;
+  padding: 9px 12px;
   margin: 0;
   font-size: 13px;
+  font-weight: 700;
   letter-spacing: 0.06em;
-  color: var(--rv-sumi);
+  text-transform: uppercase;
+  color: var(--rv-ink);
   cursor: pointer;
   font-family: inherit;
-  border-left: 2px solid transparent;
-  border-radius: 0 var(--radius) var(--radius) 0;
-  transition: color 0.15s, background 0.15s, border-color 0.15s;
+  border-radius: 0;
+  transition: color 0.15s ease-out, background-color 0.15s ease-out;
 }
 
 .rv-settings-nav-item:hover {
+  background: var(--rv-accent-soft);
   color: var(--rv-ink);
-  background: rgba(0, 0, 0, 0.04);
 }
 
 .rv-settings-nav-item.is-on {
-  color: var(--rv-accent);
-  font-weight: 500;
-  border-left-color: var(--rv-accent);
+  color: var(--rv-ink);
+  font-weight: 900;
   background: var(--rv-accent-soft);
 }
 
@@ -62,18 +62,20 @@
 }
 
 .rv-settings-title {
-  font-family: var(--rv-serif);
+  font-family: var(--rv-sans);
   font-size: 20px;
-  font-weight: 500;
+  font-weight: 900;
   color: var(--rv-ink);
   margin: 0 0 8px;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
 .rv-settings-desc {
   font-size: 13px;
+  font-weight: 700;
   line-height: 1.65;
-  color: var(--rv-sumi);
+  color: var(--rv-ink);
   margin: 0;
 }
 
@@ -89,8 +91,9 @@
 
 .rv-settings-subtitle {
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 900;
   letter-spacing: 0.04em;
+  text-transform: uppercase;
   color: var(--rv-ink);
   margin: 0 0 6px;
 }
@@ -98,8 +101,8 @@
 .rv-settings-desc code {
   font-size: 12px;
   padding: 1px 5px;
-  border-radius: var(--radius);
-  background: rgba(0, 0, 0, 0.06);
+  border-radius: 0;
+  background: var(--rv-fill);
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
@@ -110,8 +113,10 @@
 .rv-settings-label {
   display: block;
   font-size: 11px;
+  font-weight: 900;
   letter-spacing: 0.08em;
-  color: var(--rv-sumi);
+  text-transform: uppercase;
+  color: var(--rv-ink);
   margin: 0 0 6px;
 }
 
@@ -126,18 +131,19 @@
   width: 36px;
   height: 28px;
   padding: 0;
-  border: 1px solid var(--rv-line);
-  border-radius: var(--radius);
+  border: 2px solid var(--rv-ink);
+  border-radius: 0;
   background: transparent;
   cursor: pointer;
 }
 
 .rv-settings-hex {
   width: 88px;
-  border: 1px solid var(--rv-line);
-  border-radius: var(--radius);
+  border: 2px solid var(--rv-ink);
+  border-radius: 0;
   padding: 6px 8px;
   font-size: 13px;
+  font-weight: 700;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   color: var(--rv-ink);
   background: var(--rv-surface);
@@ -146,6 +152,7 @@
 .rv-settings-hex:focus {
   outline: none;
   border-color: var(--rv-ink);
+  background: var(--rv-accent-soft);
 }
 
 .rv-settings-text,
@@ -153,10 +160,11 @@
   display: block;
   width: 100%;
   box-sizing: border-box;
-  border: 1px solid var(--rv-line);
-  border-radius: var(--radius);
+  border: 2px solid var(--rv-ink);
+  border-radius: 0;
   padding: 8px 10px;
   font-size: 13px;
+  font-weight: 700;
   font-family: inherit;
   color: var(--rv-ink);
   background: var(--rv-surface);
@@ -165,17 +173,18 @@
 .rv-settings-text:focus,
 .rv-settings-select:focus {
   outline: none;
-  border-color: var(--rv-accent);
-  box-shadow: 0 0 0 3px var(--rv-accent-soft);
+  border-color: var(--rv-ink);
+  background: var(--rv-accent-soft);
 }
 
 .rv-settings-prompt {
   display: block;
   width: 100%;
-  border: 1px solid var(--rv-line);
-  border-radius: var(--radius);
+  border: 2px solid var(--rv-ink);
+  border-radius: 0;
   padding: 10px 12px;
   font-size: 13px;
+  font-weight: 700;
   line-height: 1.55;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   color: var(--rv-ink);
@@ -187,17 +196,18 @@
 
 .rv-settings-prompt:focus {
   outline: none;
-  border-color: var(--rv-accent);
-  box-shadow: 0 0 0 3px var(--rv-accent-soft);
+  border-color: var(--rv-ink);
+  background: var(--rv-accent-soft);
 }
 
 .rv-settings-textarea {
   display: block;
   width: 100%;
-  border: 1px solid var(--rv-line);
-  border-radius: var(--radius);
+  border: 2px solid var(--rv-ink);
+  border-radius: 0;
   padding: 10px 12px;
   font-size: 13px;
+  font-weight: 700;
   line-height: 1.5;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   color: var(--rv-ink);
@@ -209,8 +219,8 @@
 
 .rv-settings-textarea:focus {
   outline: none;
-  border-color: var(--rv-accent);
-  box-shadow: 0 0 0 3px var(--rv-accent-soft);
+  border-color: var(--rv-ink);
+  background: var(--rv-accent-soft);
 }
 
 .rv-settings-swatch {
@@ -219,8 +229,9 @@
   justify-content: center;
   min-width: 56px;
   padding: 4px 10px;
-  border-radius: var(--radius);
+  border-radius: 0;
   font-size: 12px;
+  font-weight: 900;
   color: var(--rv-ink);
   background: color-mix(in srgb, var(--swatch, var(--ru-warm)) 28%, transparent);
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--swatch, var(--ru-warm)) 28%, transparent);
@@ -230,7 +241,7 @@
   background: transparent;
   box-shadow: none;
   border-radius: 0;
-  border-bottom: 2px solid color-mix(in srgb, var(--swatch, var(--ru-warm)) 90%, transparent);
+  border-bottom: 3px solid color-mix(in srgb, var(--swatch, var(--ru-warm)) 90%, transparent);
   padding-bottom: 2px;
 }
 
@@ -244,17 +255,18 @@
 .rv-settings-hl-block {
   margin: 0;
   padding: 14px;
-  border: 1px solid var(--rv-line);
-  border-radius: var(--radius);
+  border: 3px solid var(--rv-ink);
+  border-radius: 0;
   background: var(--rv-surface);
 }
 
 .rv-settings-hl-title {
   font-size: 13px;
+  font-weight: 900;
   letter-spacing: 0.06em;
+  text-transform: uppercase;
   color: var(--rv-ink);
   margin: 0 0 12px;
-  font-weight: 500;
 }
 
 .rv-settings-hl-block .rv-settings-field {
@@ -282,21 +294,26 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  border: 1px solid var(--rv-line);
-  border-radius: var(--radius);
+  border: 3px solid var(--rv-ink);
+  border-radius: 0;
   padding: 8px 12px;
   font-size: 13px;
+  font-weight: 700;
   letter-spacing: 0.04em;
-  color: var(--rv-sumi);
+  color: var(--rv-ink);
   cursor: pointer;
   user-select: none;
-  transition: border-color 0.15s, color 0.15s, background 0.15s;
+  transition: background-color 0.15s ease-out, color 0.15s ease-out, border-color 0.15s ease-out;
+}
+
+.rv-settings-mode:hover {
+  background: var(--rv-accent-soft);
 }
 
 .rv-settings-mode:has(input:checked) {
-  color: var(--rv-ink);
+  color: #000;
   border-color: var(--rv-ink);
-  background: rgba(0, 0, 0, 0.04);
+  background: var(--rv-accent-soft);
 }
 
 .rv-settings-mode input {
@@ -308,22 +325,23 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  border: 1px solid var(--rv-line);
+  border: 3px solid var(--rv-ink);
   background: transparent;
-  color: var(--rv-sumi);
-  border-radius: var(--radius);
+  color: var(--rv-ink);
+  border-radius: 0;
   padding: 6px 10px;
   font-size: 12px;
+  font-weight: 700;
   letter-spacing: 0.06em;
   cursor: pointer;
   font-family: inherit;
-  transition: border-color 0.15s, color 0.15s, background 0.15s;
+  transition: background-color 0.15s ease-out, color 0.15s ease-out, border-color 0.15s ease-out;
 }
 
 .rv-settings-preset:hover {
-  color: var(--rv-ink);
+  background: var(--rv-accent-soft);
   border-color: var(--rv-ink);
-  background: rgba(0, 0, 0, 0.04);
+  color: #000;
 }
 
 .rv-settings-preset-dots {
@@ -335,7 +353,7 @@
   display: block;
   width: 10px;
   height: 10px;
-  border-radius: 50%;
+  border-radius: 0;
 }
 
 .rv-settings-footer {
@@ -367,8 +385,9 @@
 
 .rv-settings-toast {
   font-size: 12px;
+  font-weight: 700;
   letter-spacing: 0.06em;
-  color: var(--rv-sumi);
+  color: var(--rv-ink);
 }
 
 @media (max-width: 640px) {
@@ -390,16 +409,12 @@
   }
 
   .rv-settings-nav-item {
-    border-left: none;
-    border-bottom: 2px solid transparent;
     border-radius: 0;
     padding: 8px 12px 10px;
   }
 
   .rv-settings-nav-item.is-on {
-    border-left-color: transparent;
-    border-bottom-color: var(--rv-accent);
-    background: transparent;
+    background: var(--rv-accent-soft);
   }
 
   .rv-settings-main {

@@ -10,10 +10,10 @@ import {
 import { state } from "./state.js";
 
 const PRESETS = [
-  { id: "washi", label: "和紙", idea: "#c4923a", word: "#3f5f8a" },
-  { id: "ink", label: "墨色", idea: "#8b7355", word: "#4a5568" },
-  { id: "moss", label: "苔绿", idea: "#6b8f71", word: "#3d6b7a" },
-  { id: "clay", label: "朱土", idea: "#b86b4b", word: "#5c6b8a" }
+  { id: "bauhaus", label: "包豪斯", idea: "#ffcc00", word: "#0000ff" },
+  { id: "rot", label: "赤", idea: "#ff0000", word: "#ffcc00" },
+  { id: "blau", label: "蓝", idea: "#0000ff", word: "#000000" },
+  { id: "schwarz", label: "墨", idea: "#000000", word: "#ff0000" }
 ];
 
 const NAV_ITEMS = [

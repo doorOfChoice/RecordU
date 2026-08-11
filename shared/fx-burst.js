@@ -135,10 +135,10 @@ export function spawnBurst(opts = {}) {
     const count = tier === "hot" ? 28 : tier === "combo" ? 22 : 16;
     const colors =
       tier === "hot"
-        ? ["var(--ru-accent)", "var(--ru-ok)", "var(--ru-warm)", "#ffffff"]
+        ? ["var(--ru-accent)", "var(--ru-done)", "var(--ru-warm)", "#ffffff"]
         : tier === "combo"
-          ? ["var(--ru-accent)", "var(--ru-ok)", "#ffffff"]
-          : ["var(--ru-ok)", "var(--ru-accent)", "#ffffff"];
+          ? ["var(--ru-accent)", "var(--ru-done)", "#ffffff"]
+          : ["var(--ru-done)", "var(--ru-accent)", "#ffffff"];
     const distExtra = tier === "hot" ? 110 : 86;
 
     for (let i = 0; i < count; i++) {

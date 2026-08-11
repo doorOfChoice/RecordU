@@ -83,43 +83,44 @@
   const theme = (typeof globalThis !== "undefined" && globalThis.RcCaptureTheme) || {};
   const PAGE_STYLE = theme.highlightCss || `
     .rc-highlight {
-      background: color-mix(in srgb, var(--rc-idea-hl, #c4923a) 28%, transparent);
-      border-radius: 2px;
+      background: color-mix(in srgb, var(--rc-idea-hl, #ffcc00) 32%, transparent);
+      border-radius: 0;
       cursor: pointer;
-      box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--rc-idea-hl, #c4923a) 35%, transparent);
+      box-shadow: inset 0 -3px 0 color-mix(in srgb, var(--rc-idea-hl, #ffcc00) 55%, transparent);
     }
     .rc-highlight:hover {
-      background: color-mix(in srgb, var(--rc-idea-hl, #c4923a) 42%, transparent);
+      background: color-mix(in srgb, var(--rc-idea-hl, #ffcc00) 60%, transparent);
     }
     html[data-rc-idea-style="underline"] .rc-highlight {
       background: transparent;
       border-radius: 0;
       box-shadow: none;
-      border-bottom: 2px solid color-mix(in srgb, var(--rc-idea-hl, #c4923a) 90%, transparent);
+      border-bottom: 3px solid var(--rc-idea-hl, #ffcc00);
       padding-bottom: 1px;
     }
     html[data-rc-idea-style="underline"] .rc-highlight:hover {
       background: transparent;
-      border-bottom-color: var(--rc-idea-hl, #c4923a);
+      border-bottom-color: var(--rc-idea-hl, #ffcc00);
     }
     .rc-word-highlight {
-      background: color-mix(in srgb, var(--rc-word-hl, #3f5f8a) 18%, transparent);
-      border-radius: 2px;
+      background: color-mix(in srgb, var(--rc-word-hl, #0000ff) 26%, transparent);
+      border-radius: 0;
       cursor: pointer;
+      box-shadow: inset 0 -3px 0 color-mix(in srgb, var(--rc-word-hl, #0000ff) 40%, transparent);
     }
     .rc-word-highlight:hover {
-      background: color-mix(in srgb, var(--rc-word-hl, #3f5f8a) 30%, transparent);
+      background: color-mix(in srgb, var(--rc-word-hl, #0000ff) 45%, transparent);
     }
     html[data-rc-word-style="underline"] .rc-word-highlight {
       background: transparent;
       border-radius: 0;
       box-shadow: none;
-      border-bottom: 2px solid color-mix(in srgb, var(--rc-word-hl, #3f5f8a) 90%, transparent);
+      border-bottom: 3px solid var(--rc-word-hl, #0000ff);
       padding-bottom: 1px;
     }
     html[data-rc-word-style="underline"] .rc-word-highlight:hover {
       background: transparent;
-      border-bottom-color: var(--rc-word-hl, #3f5f8a);
+      border-bottom-color: var(--rc-word-hl, #0000ff);
     }
   `;
   const styleEl = document.createElement("style");
@@ -1556,11 +1557,11 @@
       "z-index:2147483646",
       "max-width:260px",
       "padding:7px 11px",
-      "background:#1d1d1f",
+      "background:#000000",
       "color:#ffffff",
-      "font:12px/1.5 'Hiragino Sans','PingFang SC',-apple-system,BlinkMacSystemFont,sans-serif",
-      "border-radius:2px",
-      "box-shadow:0 4px 14px rgba(26,26,26,0.18)",
+      "font:700 12px/1.5 'Helvetica Neue',Helvetica,Arial,'PingFang SC','Heiti SC','Microsoft YaHei',sans-serif",
+      "border-radius:0",
+      "box-shadow:none",
       "pointer-events:none",
       "white-space:pre-wrap",
       "word-break:break-word",

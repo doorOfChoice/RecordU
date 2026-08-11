@@ -6,11 +6,11 @@ Guidance for AI agents working on RecordU (Chrome MV3 extension).
 
 RecordU captures reading notes and vocabulary while browsing, with in-page highlights and a review page (queue / words / quizzes / settings). Prefer small, focused diffs. Do not rewrite unrelated modules.
 
-## Design system (0.8.0+)
+## Design system (0.10.0+)
 
-Visual language: **Apple × 日系扁平** — cool gray-white, flat surfaces, quiet indigo accent, restrained motion.
+Visual language: **Bauhaus** — white ground, thick black frames, red/yellow/blue primaries, zero radius, zero gradients, zero shadows, heavy uppercase sans.
 
-Reference mock (do not ship as product UI): [`demo/apple-flat-ui.html`](demo/apple-flat-ui.html).
+Reference mock (do not ship as product UI): [`demo/bauhaus-ui.html`](demo/bauhaus-ui.html).
 
 ### Source of truth
 
@@ -23,66 +23,62 @@ Reference mock (do not ship as product UI): [`demo/apple-flat-ui.html`](demo/app
 
 New UI CSS goes into the matching file under `styles/` (e.g. quiz UI → `styles/quiz.css`). Do not grow a monolithic `styles.css`; it is only an `@import` aggregator for `review.html`. `popup.html` links `tokens` + `base` + `popup` only.
 
-Default highlight colors live in [`shared/settings.js`](shared/settings.js) and the「和紙」preset in [`review/settings-view.js`](review/settings-view.js).
+Default highlight colors live in [`shared/settings.js`](shared/settings.js) and the「包豪斯」preset in [`review/settings-view.js`](review/settings-view.js).
 
 ### Palette
 
-Use CSS variables (`--ru-*` / `--rv-*`). Do not invent one-off warm beige or Apple-system-blue.
+Only these hues. Use CSS variables (`--ru-*` / `--rv-*`). Do not invent grays, beiges, greens, or Apple-system-blue.
 
 | Role | Token | Value |
 | --- | --- | --- |
-| Page wash | `--ru-paper` | `#f5f5f7` (cold gray-white, **not** cream/washi yellow) |
-| Panel | `--ru-surface` | `#ffffff` |
-| Panel secondary | `--ru-surface-2` | `#fbfbfd` |
-| Ink | `--ru-ink` | `#1d1d1f` |
-| Secondary text | `--ru-sumi` | `#515154` |
-| Tertiary | `--ru-thin` | `#6e6e73` |
-| Hairline | `--ru-line` | `#d8d8dc` |
-| Accent (藍) | `--ru-accent` | `#3f5f8a` |
-| Accent press | `--ru-accent-press` | `#355278` |
-| Accent soft | `--ru-accent-soft` | `rgba(63, 95, 138, 0.1)` |
-| Danger (朱) | `--ru-vermilion` | `#c45c4a` |
-| OK | `--ru-ok` | `#5a8f6b` |
-| Idea highlight default | settings | `#c4923a` |
-| Word highlight default | settings | `#3f5f8a` |
+| Page wash / panel | `--ru-paper`, `--ru-surface`, `--ru-surface-2` | `#ffffff` |
+| Ink / secondary / tertiary | `--ru-ink`, `--ru-sumi`, `--ru-thin` | `#000000` |
+| Hairline / border | `--ru-line` | `#000000` |
+| Accent (blue) | `--ru-accent`, `--ru-focus` | `#0000ff` |
+| Accent soft (selected/hover fill) | `--ru-accent-soft` | `#ffcc00` (yellow) |
+| Danger (red) | `--ru-vermilion` | `#ff0000` |
+| Warm / ready | `--ru-warm` | `#ffcc00` |
+| OK / learned / correct | `--ru-ok` | `#2e7d32` — green, user-specified; the only allowed off-palette hue |
+| 已完成 / 答对 (quiz) | `--ru-done` | `#2e7d32` (same green as `--ru-ok`) |
+| Idea highlight default | settings | `#ffcc00` |
+| Word highlight default | settings | `#0000ff` |
 
-Shadows: neutral black alpha only (`rgba(0,0,0,…)`). No brown-tint shadows (`rgba(60,54,42,…)`).
+Alpha variants of these hues are allowed (e.g. `rgba(0,0,255,0.12)`, black overlays for masks). No shadows: `--ru-shadow: none`, `--ru-shadow-float: none`.
 
 ### Shape
 
-- `--radius: 6px` for controls, chips, inputs
-- `--radius-lg: 10px` for cards, modals, split shells
-- Prefer soft rectangles over full pills (except tiny badges / toggles)
-- Flat: light hairlines + minimal shadow; no heavy glass stacks
+- All radii `0` (`--radius: 0`, `--radius-lg: 0`); only pure circles (`border-radius: 50%`) and CSS-border triangles allowed as geometry.
+- Thick frames: `3px`/`4px` black borders for cards, panels, buttons, modals; `1px` black hairlines for dense list separators.
+- No gradients, no shadows, no glass, no `background-clip: text`, no text-shadow.
 
 ### Typography
 
 | Use | Font | Notes |
 | --- | --- | --- |
-| UI body, lists, notes, buttons | `--ru-sans` (Hiragino Sans / PingFang SC …) | Default for almost everything |
-| Brand title only (e.g. `.rv-brand`, `.popup-title`) | `--ru-serif` (Mincho / Songti) | Sparse use |
+| Everything | `--ru-sans` (Helvetica Neue / Arial / PingFang SC / Heiti SC …) | `--ru-serif` aliased to sans — serif is banned |
 
 Rules:
 
-- **Do not** use serif for rail lists, word cards, or long note bodies — small CJK Mincho looks uneven (some glyphs appear larger/heavier).
-- Body/UI weight **400**; avoid `font-weight: 500+` on CJK serif (fake-bold looks blotchy).
-- Prefer `font-synthesis: none` on note text.
-- Primary buttons and selected nav: **accent blue**, not ink fill.
+- Headings, buttons, labels, nav: `font-weight: 900` + `text-transform: uppercase` + letter-spacing.
+- Notes / body prose: `font-weight: 700`, `font-synthesis: none`; line length capped ~70 chars.
+- Hierarchy via weight/size/uppercase — never gray text.
 
 ### Layout habits
 
-- Page background = cold paper wash; interactive content sits on **white** surface panels with `1px` line border.
-- Selected nav / rail: accent soft fill + accent border (not ink underline only).
-- Focus rings: accent border + `0 0 0 3px var(--*-accent-soft)`.
-- Motion: short opacity/transform only; respect `prefers-reduced-motion`.
+- White ground; panels separated by thick black frames, lists by `1px` black hairlines.
+- Selected nav / rail / cards: solid fills — yellow `--ru-accent-soft` for selection/hover, black bg + white text for strongest state (focused card, done quiz).
+- Primary CTAs: black bg white text; save = black, learn/ok = blue, danger/wrong = red bg white text (user preference over AA — do not use red-bg black-text fills)
+- Focus rings: `0 0 0 3px var(--*-accent-soft)` (yellow) or `3px` black outline.
+- Motion: `150–200ms ease-out` flips and shifts only; no ease-in-out, no `duration-500+`; respect `prefers-reduced-motion`.
 
 ### Forbidden (regressions)
 
-- Warm cream / washi yellow page fills (`#f2f0eb`, `#f3f1ec`, `#f7f6f3`, beige gradients)
-- Purple / neon AI gradients
-- Pure Apple `#0071e3` as brand accent (use 藍 `#3f5f8a`)
-- Ink-black primary buttons as the default CTA
-- Serif for dense list previews
+- Any color outside the palette (gray text, green ok, beige, cream, purple, gradients)
+- `border-radius` on any non-circle element (chips, cards, buttons, inputs, badges)
+- Shadows / glows / glassmorphism / gradient text
+- Serif fonts anywhere
+- Side-stripe accents (`border-left`/`border-right` > 1px) — use full-fill states instead
+- Soft slow easing (`ease-in-out`, long durations)
 - Hardcoded one-off colors when a token exists
 
 ## Versioning

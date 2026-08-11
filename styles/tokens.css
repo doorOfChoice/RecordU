@@ -1,32 +1,40 @@
-/* Apple × 日系（冷灰白 / 墨 / 藍）— keep in sync with shared/capture-theme.js */
+/* Bauhaus — 白底黑框 · 红黄蓝原色 · 无圆角 · 无渐变 · 无阴影.
+   Keep in sync with shared/capture-theme.js.
+   Palette (only): red #ff0000 / yellow #ffcc00 / blue #0000ff / black / white. */
 :root {
-  --ru-ink: #1d1d1f;
-  --ru-sumi: #515154;
-  --ru-thin: #6e6e73;
-  --ru-line: #d8d8dc;
-  /* 冷灰白页面底，去掉暖黄 */
-  --ru-paper: #f5f5f7;
-  --ru-paper-deep: #ececef;
-  /* 主面板纯白 */
+  --ru-ink: #000000;
+  --ru-sumi: #000000;
+  --ru-thin: #000000;
+  --ru-line: #000000;
+  --ru-paper: #ffffff;
+  --ru-paper-deep: #ffffff;
   --ru-surface: #ffffff;
-  --ru-surface-2: #fbfbfd;
-  --ru-focus: #3f5f8a;
-  --ru-accent: #3f5f8a;
-  --ru-accent-press: #355278;
-  --ru-accent-soft: rgba(63, 95, 138, 0.1);
-  --ru-vermilion: #c45c4a;
-  --ru-warm: #c4923a;
-  --ru-ok: #5a8f6b;
-  --ru-ok-soft: rgba(90, 143, 107, 0.12);
-  --ru-warn: #c4923a;
-  --ru-warn-soft: rgba(196, 146, 58, 0.12);
-  --ru-info: #3f5f8a;
-  --ru-info-soft: rgba(63, 95, 138, 0.1);
-  --ru-serif: "Hiragino Mincho ProN", "Songti SC", "STSong", "Noto Serif CJK SC", "SimSun", serif;
-  --ru-sans: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "PingFang SC", "Hiragino Sans GB",
-    "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
-  --ru-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
-  --ru-shadow-float: 0 10px 30px rgba(0, 0, 0, 0.1), 0 2px 6px rgba(0, 0, 0, 0.05);
+  --ru-surface-2: #ffffff;
+  --ru-focus: #0000ff;
+  --ru-accent: #0000ff;
+  --ru-accent-press: #0000ff;
+  /* 黄 = 选中 / hover 填充 */
+  --ru-accent-soft: #ffcc00;
+  --ru-vermilion: #ff0000;
+  --ru-warm: #ffcc00;
+  --ru-ok: #2e7d32;
+  --ru-ok-soft: rgba(46, 125, 50, 0.12);
+  /* 已完成 / 答对（用户指定）：与 --ru-ok 同绿，唯一允许的 palette 外色相 */
+  --ru-done: #2e7d32;
+  --ru-warn: #ffcc00;
+  --ru-warn-soft: rgba(255, 204, 0, 0.18);
+  --ru-info: #0000ff;
+  --ru-info-soft: rgba(0, 0, 255, 0.1);
+  /* 通用细微填充：黑透明度 */
+  --ru-fill: rgba(0, 0, 0, 0.06);
+  --ru-fill-hover: rgba(0, 0, 0, 0.1);
+  /* 无衬线：Bauhaus 禁用 serif */
+  --ru-serif: "Helvetica Neue", Helvetica, Arial, "PingFang SC", "Heiti SC",
+    "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --ru-sans: "Helvetica Neue", Helvetica, Arial, "PingFang SC", "Heiti SC",
+    "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --ru-shadow: none;
+  --ru-shadow-float: none;
 
   /* aliases used across popup / review / modal */
   --bg: var(--ru-paper);
@@ -34,8 +42,8 @@
   --muted: var(--ru-sumi);
   --accent: var(--ru-accent);
   --border: var(--ru-line);
-  --radius: 6px;
-  --radius-lg: 10px;
+  --radius: 0;
+  --radius-lg: 0;
 
   --rv-ink: var(--ru-ink);
   --rv-sumi: var(--ru-sumi);
@@ -53,10 +61,13 @@
   --rv-warm: var(--ru-warm);
   --rv-ok: var(--ru-ok);
   --rv-ok-soft: var(--ru-ok-soft);
+  --rv-done: var(--ru-done);
   --rv-warn: var(--ru-warn);
   --rv-warn-soft: var(--ru-warn-soft);
   --rv-info: var(--ru-info);
   --rv-info-soft: var(--ru-info-soft);
+  --rv-fill: var(--ru-fill);
+  --rv-fill-hover: var(--ru-fill-hover);
   --rv-serif: var(--ru-serif);
   --rv-sans: var(--ru-sans);
   --rv-shadow: var(--ru-shadow);
