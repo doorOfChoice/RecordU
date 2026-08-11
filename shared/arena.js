@@ -217,6 +217,8 @@ export function createSprintSession(words, direction = "en2zh") {
     combo: 0,
     maxCombo: 0,
     recentIds: new Set(),
+    /** @type {{ wordId: string, word: string, translation: string, phonetic: string, picked: string }[]} */
+    misses: [],
     current: null,
     finished: false,
     startedAt: Date.now()
@@ -247,6 +249,8 @@ export function answerSprint(session, optionIndex) {
   const q = session && session.current;
   if (!q || session.finished) return { ok: false, correctText: "" };
   const ok = Number(optionIndex) === Number(q.answerIndex);
+  const correctText = q.options[q.answerIndex] || "";
+  const picked = q.options[Number(optionIndex)] || "";
   session.answered += 1;
   if (ok) {
     session.correctCount += 1;
@@ -254,10 +258,24 @@ export function answerSprint(session, optionIndex) {
     if (session.combo > session.maxCombo) session.maxCombo = session.combo;
   } else {
     session.combo = 0;
+    if (!Array.isArray(session.misses)) session.misses = [];
+    const wordId = String(q.wordId || q.word || "");
+    const already = session.misses.some(
+      (m) => m && String(m.wordId || m.word || "") === wordId && wordId
+    );
+    if (!already) {
+      session.misses.push({
+        wordId,
+        word: String(q.word || "").trim(),
+        translation: String(q.translation || "").trim(),
+        phonetic: String(q.phonetic || "").trim(),
+        picked: String(picked).trim()
+      });
+    }
   }
   return {
     ok,
-    correctText: q.options[q.answerIndex] || ""
+    correctText
   };
 }
 

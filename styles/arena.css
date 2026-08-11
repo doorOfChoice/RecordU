@@ -524,6 +524,30 @@
   background: var(--rv-surface);
 }
 
+.rv-arena-stat.is-weak {
+  border-color: color-mix(in srgb, var(--rv-vermilion) 35%, var(--rv-line));
+  background: color-mix(in srgb, rgba(196, 92, 74, 0.08) 80%, var(--rv-surface));
+  box-shadow: inset 3px 0 0 var(--rv-vermilion);
+}
+
+.rv-arena-stat.is-fair {
+  border-color: color-mix(in srgb, var(--rv-warm) 40%, var(--rv-line));
+  background: color-mix(in srgb, var(--rv-warn-soft, rgba(196, 146, 58, 0.12)) 75%, var(--rv-surface));
+  box-shadow: inset 3px 0 0 var(--rv-warm);
+}
+
+.rv-arena-stat.is-good {
+  border-color: color-mix(in srgb, var(--rv-ok) 35%, var(--rv-line));
+  background: color-mix(in srgb, var(--rv-ok-soft) 75%, var(--rv-surface));
+  box-shadow: inset 3px 0 0 var(--rv-ok);
+}
+
+.rv-arena-stat.is-great {
+  border-color: color-mix(in srgb, var(--rv-accent) 40%, var(--rv-line));
+  background: color-mix(in srgb, var(--rv-accent-soft) 80%, var(--rv-surface));
+  box-shadow: inset 3px 0 0 var(--rv-accent);
+}
+
 .rv-arena-stat-label {
   font-size: 11px;
   letter-spacing: 0.06em;
@@ -532,8 +556,99 @@
 
 .rv-arena-stat-val {
   font-size: 18px;
+  font-weight: 500;
   font-variant-numeric: tabular-nums;
   color: var(--rv-ink);
+}
+
+.rv-arena-stat.is-weak .rv-arena-stat-val {
+  color: var(--rv-vermilion);
+}
+
+.rv-arena-stat.is-fair .rv-arena-stat-val {
+  color: var(--rv-warm);
+}
+
+.rv-arena-stat.is-good .rv-arena-stat-val {
+  color: var(--rv-ok);
+}
+
+.rv-arena-stat.is-great .rv-arena-stat-val {
+  color: var(--rv-accent);
+}
+
+.rv-arena-misses {
+  margin: 0 0 20px;
+}
+
+.rv-arena-misses-title {
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--rv-ink);
+}
+
+.rv-arena-misses-empty {
+  margin: 0 0 20px;
+  font-size: 13px;
+  color: var(--rv-ok);
+}
+
+.rv-arena-miss-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 280px;
+  overflow: auto;
+}
+
+.rv-arena-miss-item {
+  padding: 10px 12px;
+  border: 1px solid var(--rv-line);
+  border-radius: var(--radius);
+  background: var(--rv-surface);
+  box-shadow: inset 3px 0 0 var(--rv-vermilion);
+}
+
+.rv-arena-miss-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 12px;
+}
+
+.rv-arena-miss-word {
+  font-size: 15px;
+  color: var(--rv-ink);
+  font-synthesis: none;
+}
+
+.rv-arena-miss-phonetic {
+  font-size: 12px;
+  color: var(--rv-sumi);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  letter-spacing: 0.02em;
+}
+
+.rv-arena-miss-sub {
+  margin-top: 4px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.rv-arena-miss-gloss {
+  color: var(--rv-sumi);
+}
+
+.rv-arena-miss-picked {
+  color: var(--rv-vermilion);
 }
 
 .rv-arena-result-actions {

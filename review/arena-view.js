@@ -157,6 +157,51 @@ function backToHub(onRefresh) {
 }
 
 /**
+ * Performance tone for sprint result stats.
+ * @param {"correct"|"answered"|"rate"|"combo"} kind
+ * @param {number} value
+ * @returns {"weak"|"fair"|"good"|"great"}
+ */
+function sprintStatTone(kind, value) {
+  const n = Number(value) || 0;
+  if (kind === "rate") {
+    if (n >= 90) return "great";
+    if (n >= 75) return "good";
+    if (n >= 55) return "fair";
+    return "weak";
+  }
+  if (kind === "combo") {
+    if (n >= 8) return "great";
+    if (n >= 5) return "good";
+    if (n >= 2) return "fair";
+    return "weak";
+  }
+  if (kind === "correct") {
+    if (n >= 20) return "great";
+    if (n >= 12) return "good";
+    if (n >= 6) return "fair";
+    return "weak";
+  }
+  // answered volume in 60s
+  if (n >= 24) return "great";
+  if (n >= 14) return "good";
+  if (n >= 7) return "fair";
+  return "weak";
+}
+
+/**
+ * @param {string} label
+ * @param {string|number} display
+ * @param {"weak"|"fair"|"good"|"great"} tone
+ */
+function sprintStatHtml(label, display, tone) {
+  return `<li class="rv-arena-stat is-${escapeHtml(tone)}">
+    <span class="rv-arena-stat-label">${escapeHtml(label)}</span>
+    <span class="rv-arena-stat-val">${escapeHtml(String(display))}</span>
+  </li>`;
+}
+
+/**
  * @param {object} opts
  * @param {HTMLElement} opts.root
  * @param {HTMLElement} opts.progressEl
@@ -175,6 +220,8 @@ function renderSprint({ root, progressEl, onRefresh }) {
     const answered = session.answered || 0;
     const correct = session.correctCount || 0;
     const rate = answered ? Math.round((correct / answered) * 100) : 0;
+    const maxCombo = session.maxCombo || 0;
+    const misses = Array.isArray(session.misses) ? session.misses : [];
     root.innerHTML = `
       <div class="rv-arena-play">
         <div class="rv-arena-top">
@@ -183,11 +230,42 @@ function renderSprint({ root, progressEl, onRefresh }) {
         <div class="rv-arena-result">
           <h3 class="rv-arena-result-title">六十秒结束</h3>
           <ul class="rv-arena-stats">
-            <li><span class="rv-arena-stat-label">答对</span><span class="rv-arena-stat-val">${correct}</span></li>
-            <li><span class="rv-arena-stat-label">作答</span><span class="rv-arena-stat-val">${answered}</span></li>
-            <li><span class="rv-arena-stat-label">正确率</span><span class="rv-arena-stat-val">${rate}%</span></li>
-            <li><span class="rv-arena-stat-label">最长连对</span><span class="rv-arena-stat-val">${session.maxCombo || 0}</span></li>
+            ${sprintStatHtml("答对", correct, sprintStatTone("correct", correct))}
+            ${sprintStatHtml("作答", answered, sprintStatTone("answered", answered))}
+            ${sprintStatHtml("正确率", `${rate}%`, sprintStatTone("rate", rate))}
+            ${sprintStatHtml("最长连对", maxCombo, sprintStatTone("combo", maxCombo))}
           </ul>
+          ${
+            misses.length
+              ? `<div class="rv-arena-misses">
+                  <h4 class="rv-arena-misses-title">本次做错 · ${misses.length}</h4>
+                  <ul class="rv-arena-miss-list">
+                    ${misses
+                      .map((m) => {
+                        const word = escapeHtml(m.word || "");
+                        const translation = escapeHtml(m.translation || "");
+                        const phonetic = m.phonetic
+                          ? `<span class="rv-arena-miss-phonetic">${escapeHtml(m.phonetic)}</span>`
+                          : "";
+                        const picked = m.picked
+                          ? `<span class="rv-arena-miss-picked">你选：${escapeHtml(m.picked)}</span>`
+                          : "";
+                        return `<li class="rv-arena-miss-item">
+                          <div class="rv-arena-miss-main">
+                            <span class="rv-arena-miss-word">${word}</span>
+                            ${phonetic}
+                          </div>
+                          <div class="rv-arena-miss-sub">
+                            <span class="rv-arena-miss-gloss">${translation || "—"}</span>
+                            ${picked}
+                          </div>
+                        </li>`;
+                      })
+                      .join("")}
+                  </ul>
+                </div>`
+              : `<p class="rv-arena-misses-empty">本局没有做错，漂亮。</p>`
+          }
           <div class="rv-arena-result-actions">
             <button type="button" class="btn btn-primary" data-arena-again="sprint">再来一局</button>
             <button type="button" class="btn" data-arena-back>返回</button>
