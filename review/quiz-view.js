@@ -305,8 +305,9 @@ export function renderQuizTake({ root, progressEl, quiz, onBack, onUpdated }) {
 
   root.querySelector("#rv-quiz-back").addEventListener("click", onBack);
 
+  setupMatchUI(root, readonly);
+
   if (!readonly) {
-    bindMatchInteractions(root);
     root.querySelector("#rv-quiz-submit").addEventListener("click", async () => {
       const submitBtn = root.querySelector("#rv-quiz-submit");
       if (submitBtn) {
@@ -436,20 +437,24 @@ function questionHtml(item, index, readonly) {
     const left = item.left || [];
     const right = item.right || [];
     const user = Array.isArray(item.userAnswer) ? item.userAnswer : left.map(() => -1);
+    const links = Array.isArray(item.links) ? item.links : [];
     return `
       <li class="rv-quiz-q" data-qid="${escapeHtml(item.id)}" data-type="match">
         <div class="rv-quiz-q-head"><span class="rv-quiz-q-num is-match">${index + 1}. 连线</span>${mark}</div>
         <p class="rv-quiz-q-hint">先点左侧一项，再点右侧对应项。</p>
-        <div class="rv-quiz-match" data-match-id="${escapeHtml(item.id)}">
+        <div class="rv-quiz-match" data-match-id="${escapeHtml(item.id)}" data-readonly="${
+          readonly ? "1" : "0"
+        }" data-correct="${escapeHtml(links.join(","))}">
+          <svg class="rv-quiz-match-lines" aria-hidden="true"></svg>
           <div class="rv-quiz-match-col">
             ${left
               .map(
                 (t, i) =>
                   `<button type="button" class="rv-quiz-match-chip" data-side="left" data-index="${i}" data-label="${escapeHtml(
                     t
-                  )}" ${readonly ? "disabled" : ""}>${escapeHtml(t)}${
-                    user[i] >= 0 ? `<i class="rv-quiz-match-link">→ ${user[i] + 1}</i>` : ""
-                  }</button>`
+                  )}" ${user[i] >= 0 ? `data-linked="${user[i]}"` : ""} ${
+                    readonly ? "disabled" : ""
+                  }>${escapeHtml(t)}</button>`
               )
               .join("")}
           </div>
@@ -467,7 +472,7 @@ function questionHtml(item, index, readonly) {
         ${
           readonly
             ? `<p class="rv-quiz-answer-key">正确对应：${left
-                .map((t, i) => `${escapeHtml(t)} → ${escapeHtml(right[item.links[i]] || "")}`)
+                .map((t, i) => `${escapeHtml(t)} → ${escapeHtml(right[links[i]] || "")}`)
                 .join("；")}</p>`
             : ""
         }
@@ -477,51 +482,155 @@ function questionHtml(item, index, readonly) {
   return "";
 }
 
-function bindMatchInteractions(root) {
+function setupMatchUI(root, readonly) {
   root.querySelectorAll(".rv-quiz-match").forEach((box) => {
-    let leftPick = -1;
-    const leftLen = box.querySelectorAll('[data-side="left"]').length;
-    const links = Array(leftLen).fill(-1);
+    const svg = box.querySelector(".rv-quiz-match-lines");
+    if (!svg) return;
 
-    // restore from chip labels already rendered — re-parse → N
+    const links = [];
     box.querySelectorAll('[data-side="left"]').forEach((chip) => {
       const i = Number(chip.dataset.index);
-      const m = /→\s*(\d+)/.exec(chip.textContent || "");
-      if (m) links[i] = Number(m[1]) - 1;
+      const v = chip.dataset.linked;
+      links[i] = v == null ? -1 : Number(v);
     });
     box._links = links;
 
-    box.addEventListener("click", (e) => {
-      const chip = e.target.closest(".rv-quiz-match-chip");
-      if (!chip || chip.disabled) return;
-      const side = chip.dataset.side;
-      const index = Number(chip.dataset.index);
-      if (side === "left") {
-        leftPick = index;
-        box.querySelectorAll('[data-side="left"]').forEach((c) => {
-          c.classList.toggle("is-picked", Number(c.dataset.index) === leftPick);
-        });
-        return;
-      }
-      if (side === "right" && leftPick >= 0) {
-        // clear previous use of this right index
-        for (let i = 0; i < links.length; i++) {
-          if (links[i] === index) links[i] = -1;
-        }
-        links[leftPick] = index;
-        box._links = links;
-        box.querySelectorAll('[data-side="left"]').forEach((c) => {
-          const i = Number(c.dataset.index);
-          const text = c.dataset.label || "";
-          c.innerHTML =
-            escapeHtml(text) +
-            (links[i] >= 0 ? `<i class="rv-quiz-match-link">→ ${links[i] + 1}</i>` : "");
-          c.classList.remove("is-picked");
-        });
-        leftPick = -1;
-      }
-    });
+    const draw = () => drawMatchLines(box, svg);
+    const ro = new ResizeObserver(draw);
+    ro.observe(box);
+    draw();
+
+    if (readonly) return;
+    bindMatchInteractions(box, svg, draw);
   });
+}
+
+function matchAnchor(chip, boxRect, fromLeft) {
+  const r = chip.getBoundingClientRect();
+  return {
+    x: fromLeft ? r.left - boxRect.left : r.right - boxRect.left,
+    y: r.top + r.height / 2 - boxRect.top
+  };
+}
+
+function matchLineEl(x1, y1, x2, y2, cls) {
+  const el = document.createElementNS("http://www.w3.org/2000/svg", "line");
+  el.setAttribute("x1", x1);
+  el.setAttribute("y1", y1);
+  el.setAttribute("x2", x2);
+  el.setAttribute("y2", y2);
+  el.setAttribute("vector-effect", "non-scaling-stroke");
+  el.setAttribute("class", cls);
+  return el;
+}
+
+function drawMatchLines(box, svg) {
+  const b = box.getBoundingClientRect();
+  if (!b.width || !b.height) return;
+  svg.setAttribute("viewBox", `0 0 ${b.width} ${b.height}`);
+  svg.textContent = "";
+
+  const readonly = box.dataset.readonly === "1";
+  const correct = box.dataset.correct
+    ? box.dataset.correct.split(",").map((s) => Number(s))
+    : [];
+  const links = box._links || [];
+  const leftChips = box.querySelectorAll('[data-side="left"]');
+  const rightChips = box.querySelectorAll('[data-side="right"]');
+
+  leftChips.forEach((chip) => {
+    const i = Number(chip.dataset.index);
+    const li = links[i];
+    const isOk = li >= 0 && li === correct[i];
+
+    if (readonly) {
+      if (li >= 0 && rightChips[li]) {
+        const p1 = matchAnchor(chip, b, false);
+        const p2 = matchAnchor(rightChips[li], b, true);
+        svg.appendChild(
+          matchLineEl(p1.x, p1.y, p2.x, p2.y, isOk ? "rv-quiz-line is-ok" : "rv-quiz-line is-bad")
+        );
+      }
+      if (!isOk && correct[i] >= 0 && rightChips[correct[i]]) {
+        const q1 = matchAnchor(chip, b, false);
+        const q2 = matchAnchor(rightChips[correct[i]], b, true);
+        svg.appendChild(matchLineEl(q1.x, q1.y, q2.x, q2.y, "rv-quiz-line is-guide"));
+      }
+      return;
+    }
+
+    if (li < 0 || !rightChips[li]) return;
+    const p1 = matchAnchor(chip, b, false);
+    const p2 = matchAnchor(rightChips[li], b, true);
+    svg.appendChild(matchLineEl(p1.x, p1.y, p2.x, p2.y, "rv-quiz-line"));
+  });
+}
+
+function bindMatchInteractions(box, svg, draw) {
+  let leftPick = -1;
+  const leftChips = box.querySelectorAll('[data-side="left"]');
+  const links = box._links;
+
+  const setPicked = (index) => {
+    leftPick = index;
+    leftChips.forEach((c) => c.classList.toggle("is-picked", Number(c.dataset.index) === leftPick));
+  };
+
+  const renderChips = () => {
+    leftChips.forEach((c) => {
+      const i = Number(c.dataset.index);
+      if (links[i] >= 0) c.dataset.linked = String(links[i]);
+      else delete c.dataset.linked;
+    });
+    draw();
+  };
+
+  const removePreview = () => {
+    const prev = svg.querySelector(".rv-quiz-line.is-preview");
+    if (prev) prev.remove();
+  };
+
+  box.addEventListener("click", (e) => {
+    const chip = e.target.closest(".rv-quiz-match-chip");
+    if (!chip || chip.disabled) return;
+    const side = chip.dataset.side;
+    const index = Number(chip.dataset.index);
+    if (side === "left") {
+      setPicked(index);
+      return;
+    }
+    if (side === "right" && leftPick >= 0) {
+      for (let i = 0; i < links.length; i++) {
+        if (links[i] === index) links[i] = -1;
+      }
+      links[leftPick] = index;
+      renderChips();
+      setPicked(-1);
+    }
+  });
+
+  box.addEventListener("mousemove", (e) => {
+    if (leftPick < 0 || !leftChips[leftPick]) {
+      removePreview();
+      return;
+    }
+    const b = box.getBoundingClientRect();
+    const p1 = matchAnchor(leftChips[leftPick], b, false);
+    const x2 = e.clientX - b.left;
+    const y2 = e.clientY - b.top;
+    let prev = svg.querySelector(".rv-quiz-line.is-preview");
+    if (!prev) {
+      prev = matchLineEl(p1.x, p1.y, x2, y2, "rv-quiz-line is-preview");
+      svg.appendChild(prev);
+    } else {
+      prev.setAttribute("x1", p1.x);
+      prev.setAttribute("y1", p1.y);
+      prev.setAttribute("x2", x2);
+      prev.setAttribute("y2", y2);
+    }
+  });
+
+  box.addEventListener("mouseleave", removePreview);
 }
 
 function collectAnswers(quiz, root) {
