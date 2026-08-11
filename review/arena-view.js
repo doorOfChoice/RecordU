@@ -296,7 +296,7 @@ function renderSprint({ root, progressEl, onRefresh }) {
         }
         progressEl.textContent = `闪回 · ${s.remainingSec}s · 连对 ${s.combo}`;
       }
-      const wait = result.ok ? burstWaitMs(s.combo || 0) : 700;
+      const wait = result.ok ? burstWaitMs(s.combo || 0) : 1500;
       window.setTimeout(() => {
         if (!state.arenaSession || state.arenaSession.finished) {
           onRefresh();
