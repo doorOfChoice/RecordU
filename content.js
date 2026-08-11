@@ -7,14 +7,15 @@
   let pendingRange = null;
   let pendingScreenshot = null;
   let regionMask = null;
-  let reconcileTimer = null;
-  let wordReconcileTimer = null;
+  let reconcilePassTimer = null;
   let failCount = 0;
   let observer = null;
   let applyingHighlight = false;
   let applyingWordHighlight = false;
   let wordHlQuietUntil = 0;
   let cachedWords = [];
+  let wordsCacheFresh = false;
+  let cachedCaptures = null;
   let cachedSettings = null;
   let lastUrl = location.href;
   let historyPatched = false;
@@ -22,9 +23,14 @@
   let origReplaceState = null;
   let wordTipEl = null;
   let wordTipHideTimer = null;
+  let pendingPass = { idea: false, wordFull: false, wordIncremental: false };
+  const dirtyWordRoots = new Set();
+  const MUTATION_RECONCILE_MS = 550;
+  let reconcilePassRunning = false;
 
   const OWN_UI_SEL = "#rc-overlay, #rc-float-bar, #rc-region-mask, #rc-word-tip";
   const WORD_HL_MAX = 40;
+  const WORD_DIRTY_ROOT_FULL_THRESHOLD = 24;
 
   function on(target, type, fn, capture) {
     target.addEventListener(type, fn, capture);
@@ -51,14 +57,12 @@
       observer.disconnect();
       observer = null;
     }
-    if (reconcileTimer) {
-      clearTimeout(reconcileTimer);
-      reconcileTimer = null;
+    if (reconcilePassTimer) {
+      clearTimeout(reconcilePassTimer);
+      reconcilePassTimer = null;
     }
-    if (wordReconcileTimer) {
-      clearTimeout(wordReconcileTimer);
-      wordReconcileTimer = null;
-    }
+    dirtyWordRoots.clear();
+    pendingPass = { idea: false, wordFull: false, wordIncremental: false };
     if (historyPatched) {
       if (origPushState) history.pushState = origPushState;
       if (origReplaceState) history.replaceState = origReplaceState;
@@ -360,20 +364,24 @@
       return;
     }
     if (msg.type === "rc-captures-changed") {
-      failCount = 0;
-      reconcileHighlights();
+      const pageUrl = msg.pageUrl;
+      if (pageUrl == null || samePage(pageUrl)) {
+        cachedCaptures = null;
+        failCount = 0;
+        scheduleReconcilePass(50, { idea: true });
+      }
       sendResponse({ ok: true });
       return;
     }
     if (msg.type === "rc-words-changed") {
-      scheduleWordReconcile(50);
+      wordsCacheFresh = false;
+      scheduleReconcilePass(50, { wordFull: true });
       sendResponse({ ok: true });
       return;
     }
     if (msg.type === "rc-settings-changed") {
       applyHighlightSettings(msg.settings);
-      scheduleReconcile(50);
-      scheduleWordReconcile(50);
+      scheduleReconcilePass(50, { idea: true, wordFull: true });
       sendResponse({ ok: true });
     }
   });
@@ -741,6 +749,7 @@
     const idx = cachedWords.findIndex((w) => w.id === record.id);
     if (idx >= 0) cachedWords[idx] = record;
     else cachedWords.push(record);
+    wordsCacheFresh = true;
   }
 
   async function fetchStoredWord(wordText, wordId) {
@@ -996,6 +1005,7 @@
         return;
       }
       cachedWords = cachedWords.filter((w) => w.id !== wordId);
+      wordsCacheFresh = true;
       toast.textContent = "✓ 已取消标记";
       toast.classList.add("show");
       scheduleWordReconcile(50);
@@ -1175,7 +1185,7 @@
     return { normText, charMap };
   }
 
-  function rangeBoundsInMap(range, charMap) {
+  function rangeBoundsInMapComparePoint(range, charMap) {
     let start = -1;
     let end = -1;
     for (let i = 0; i < charMap.length; i++) {
@@ -1189,6 +1199,55 @@
         // node detached / not in range's document
       }
     }
+    if (start < 0 || end <= start) return null;
+    return { start, end };
+  }
+
+  function rangeBoundsInMap(range, charMap) {
+    if (!charMap.length) return null;
+    const sc = range.startContainer;
+    const ec = range.endContainer;
+    const so = range.startOffset;
+    const eo = range.endOffset;
+
+    if (sc.nodeType !== Node.TEXT_NODE || ec.nodeType !== Node.TEXT_NODE) {
+      return rangeBoundsInMapComparePoint(range, charMap);
+    }
+
+    let start = -1;
+    let end = -1;
+    let lastNode = null;
+    let nodeBeforeEc = true;
+
+    for (let i = 0; i < charMap.length; i++) {
+      const { node, offset } = charMap[i];
+      if (start < 0) {
+        if (node === sc && offset >= so) start = i;
+        else continue;
+      }
+
+      if (node !== lastNode) {
+        lastNode = node;
+        if (node === ec || node === sc) {
+          nodeBeforeEc = true;
+        } else {
+          const pos = node.compareDocumentPosition(ec);
+          nodeBeforeEc =
+            !!(pos & Node.DOCUMENT_POSITION_FOLLOWING) ||
+            !!(pos & Node.DOCUMENT_POSITION_CONTAINS);
+        }
+      }
+
+      if (node === ec) {
+        if (offset < eo) end = i + 1;
+        else break;
+      } else if (nodeBeforeEc) {
+        end = i + 1;
+      } else {
+        break;
+      }
+    }
+
     if (start < 0 || end <= start) return null;
     return { start, end };
   }
@@ -1261,10 +1320,10 @@
     return n;
   }
 
-  function locateByQuote(anchor) {
+  function locateByQuote(anchor, map) {
     const exact = normalizeWs(anchor.exact);
     if (!exact) return null;
-    const { normText, charMap } = buildTextMap({ skipHighlights: true });
+    const { normText, charMap } = map || buildTextMap({ skipHighlights: true });
     if (!charMap.length) return null;
 
     const matches = [];
@@ -1297,13 +1356,13 @@
     return offsetsToFragments(charMap, best, best + exact.length);
   }
 
-  function locateByPosition(anchor) {
+  function locateByPosition(anchor, map) {
     if (typeof anchor.start !== "number" || typeof anchor.end !== "number") return null;
     if (anchor.start < 0 || anchor.end <= anchor.start) return null;
 
     const exact = normalizeWs(anchor.exact);
     if (!exact) return null;
-    const { normText, charMap } = buildTextMap({ skipHighlights: true });
+    const { normText, charMap } = map || buildTextMap({ skipHighlights: true });
     if (!charMap.length) return null;
 
     if (anchor.end <= normText.length) {
@@ -1326,11 +1385,11 @@
     return offsetsToFragments(charMap, idx, idx + exact.length);
   }
 
-  function locateAnchor(anchor) {
+  function locateAnchor(anchor, map) {
     if (!anchor || !anchor.exact) return null;
-    const byQuote = locateByQuote(anchor);
+    const byQuote = locateByQuote(anchor, map);
     if (byQuote && byQuote.length) return byQuote;
-    const byPos = locateByPosition(anchor);
+    const byPos = locateByPosition(anchor, map);
     if (byPos && byPos.length) return byPos;
     return null;
   }
@@ -1583,6 +1642,29 @@
     return false;
   }
 
+  async function ensureCapturesCache() {
+    if (cachedCaptures) return cachedCaptures;
+    try {
+      const res = await chrome.runtime.sendMessage({ type: "rc-get-page" });
+      cachedCaptures = (res && res.captures) || [];
+    } catch (e) {
+      return cachedCaptures || [];
+    }
+    return cachedCaptures;
+  }
+
+  async function ensureWordsCache() {
+    if (wordsCacheFresh) return cachedWords;
+    try {
+      const res = await chrome.runtime.sendMessage({ type: "rc-get-all-words" });
+      cachedWords = (res && res.words) || [];
+      wordsCacheFresh = true;
+    } catch (e) {
+      return cachedWords;
+    }
+    return cachedWords;
+  }
+
   async function reconcileHighlights() {
     if (!cachedSettings) {
       await loadHighlightSettings();
@@ -1593,8 +1675,7 @@
     }
     let all = [];
     try {
-      const res = await chrome.runtime.sendMessage({ type: "rc-get-page" });
-      all = (res && res.captures) || [];
+      all = await ensureCapturesCache();
     } catch (e) {
       return;
     }
@@ -1605,6 +1686,7 @@
       if (!ids.has(el.dataset.rcId)) unwrapHighlight(el);
     });
 
+    const needLocate = [];
     let matched = 0;
     for (const c of captures) {
       const existing = document.querySelectorAll(
@@ -1613,9 +1695,14 @@
       if (existing.length) {
         updateHighlightNotes(c.id, c.text);
         matched++;
-        continue;
+      } else {
+        needLocate.push(c);
       }
-      const fragments = locateAnchor(c.anchor);
+    }
+
+    const sharedMap = needLocate.length ? buildTextMap({ skipHighlights: true }) : null;
+    for (const c of needLocate) {
+      const fragments = locateAnchor(c.anchor, sharedMap);
       if (fragments && fragments.length) {
         try {
           applyHighlight(fragments, c.id, c.text);
@@ -1635,7 +1722,7 @@
     if (matched < captures.length) {
       failCount++;
       ensureObserver();
-      if (failCount <= 12) scheduleReconcile();
+      if (failCount <= 12) scheduleReconcilePass(null, { idea: true });
     } else {
       failCount = 0;
       // All matched: keep observer alive but idle; it wakes on real DOM changes.
@@ -1643,13 +1730,76 @@
     }
   }
 
-  function scheduleReconcile(delay) {
-    const d = delay != null ? delay : Math.min(400 * Math.pow(1.45, failCount), 6000);
-    if (reconcileTimer) clearTimeout(reconcileTimer);
-    reconcileTimer = setTimeout(() => {
-      reconcileTimer = null;
-      reconcileHighlights();
+  function scheduleReconcilePass(delay, opts) {
+    if (!opts) opts = {};
+    if (opts.idea) pendingPass.idea = true;
+    if (opts.wordFull) {
+      pendingPass.wordFull = true;
+      pendingPass.wordIncremental = false;
+      dirtyWordRoots.clear();
+    } else if (opts.wordIncremental && !pendingPass.wordFull) {
+      pendingPass.wordIncremental = true;
+      if (opts.roots) {
+        for (const r of opts.roots) {
+          if (r && r.nodeType === Node.ELEMENT_NODE && r.isConnected) dirtyWordRoots.add(r);
+        }
+      }
+    }
+
+    let d = delay;
+    if (d == null) {
+      if (pendingPass.wordFull || pendingPass.wordIncremental) d = 350;
+      else d = Math.min(400 * Math.pow(1.45, failCount), 6000);
+    }
+
+    if (reconcilePassTimer) clearTimeout(reconcilePassTimer);
+    reconcilePassTimer = setTimeout(() => {
+      reconcilePassTimer = null;
+      runReconcilePass();
     }, d);
+  }
+
+  async function runReconcilePass() {
+    if (reconcilePassRunning) {
+      if (!reconcilePassTimer) {
+        reconcilePassTimer = setTimeout(() => {
+          reconcilePassTimer = null;
+          runReconcilePass();
+        }, MUTATION_RECONCILE_MS);
+      }
+      return;
+    }
+    if (!pendingPass.idea && !pendingPass.wordFull && !pendingPass.wordIncremental) return;
+
+    const doIdea = pendingPass.idea;
+    const wordFull = pendingPass.wordFull;
+    const wordInc = pendingPass.wordIncremental && !wordFull;
+    const roots = wordInc ? [...dirtyWordRoots] : [];
+    pendingPass = { idea: false, wordFull: false, wordIncremental: false };
+    dirtyWordRoots.clear();
+
+    reconcilePassRunning = true;
+    try {
+      const tasks = [];
+      if (doIdea) tasks.push(reconcileHighlights());
+      if (wordFull) tasks.push(reconcileWordHighlights({ full: true }));
+      else if (wordInc) tasks.push(reconcileWordHighlights({ full: false, roots }));
+      if (tasks.length) await Promise.all(tasks);
+    } finally {
+      reconcilePassRunning = false;
+      if (pendingPass.idea || pendingPass.wordFull || pendingPass.wordIncremental) {
+        scheduleReconcilePass(0, {});
+      }
+    }
+  }
+
+  /** Back-compat helpers for local call sites. */
+  function scheduleReconcile(delay) {
+    scheduleReconcilePass(delay, { idea: true });
+  }
+
+  function scheduleWordReconcile(delay) {
+    scheduleReconcilePass(delay, { wordFull: true });
   }
 
   // ---------- word highlights (global) ----------
@@ -1802,28 +1952,74 @@
     return matches;
   }
 
-  function applyWordHighlightsForWord(entry) {
-    if (!entry || !entry.word || !document.body) return 0;
-    const word = entry.word;
-    const latin = isLatinWord(word);
-    const mode = resolveWordMatchMode(entry);
-    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+  function countExistingWordHighlights() {
+    const counts = new Map();
+    document.querySelectorAll("span.rc-word-highlight").forEach((el) => {
+      const id = el.dataset.rcWordId;
+      if (!id) return;
+      counts.set(id, (counts.get(id) || 0) + 1);
+    });
+    return counts;
+  }
+
+  function buildActiveWordMatchers(words) {
+    const matchers = [];
+    for (const w of words) {
+      if (!w || w.learned || !w.word || !w.id) continue;
+      matchers.push({
+        entry: w,
+        word: w.word,
+        latin: isLatinWord(w.word),
+        mode: resolveWordMatchMode(w)
+      });
+    }
+    return matchers;
+  }
+
+  function collectWordHighlightPlans(root, matchers, counts) {
+    const planned = [];
+    if (!root || !matchers.length) return planned;
+
+    function overlapsPlanned(node, start, end) {
+      for (const p of planned) {
+        if (p.node !== node) continue;
+        if (start < p.end && p.start < end) return true;
+      }
+      return false;
+    }
+
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
       acceptNode(node) {
         return acceptTextNode(node, true);
       }
     });
 
-    const planned = [];
     while (walker.nextNode()) {
       const node = walker.currentNode;
-      const hits = findWordMatchesInNode(node.nodeValue, word, latin, mode);
-      for (const hit of hits) {
-        planned.push({ node, start: hit.start, end: hit.end });
-        if (planned.length >= WORD_HL_MAX) break;
+      const value = node.nodeValue;
+      if (!value) continue;
+      for (const m of matchers) {
+        const used = counts.get(m.entry.id) || 0;
+        if (used >= WORD_HL_MAX) continue;
+        const hits = findWordMatchesInNode(value, m.word, m.latin, m.mode);
+        for (const hit of hits) {
+          const n = counts.get(m.entry.id) || 0;
+          if (n >= WORD_HL_MAX) break;
+          if (overlapsPlanned(node, hit.start, hit.end)) continue;
+          planned.push({
+            node,
+            start: hit.start,
+            end: hit.end,
+            entry: m.entry
+          });
+          counts.set(m.entry.id, n + 1);
+        }
       }
-      if (planned.length >= WORD_HL_MAX) break;
     }
+    return planned;
+  }
 
+  function sortAndWrapWordPlans(planned) {
     const sorted = planned.slice().sort((a, b) => {
       if (a.node === b.node) return b.start - a.start;
       const pos = a.node.compareDocumentPosition(b.node);
@@ -1834,7 +2030,8 @@
 
     for (const frag of sorted) {
       if (!frag.node || !frag.node.isConnected) continue;
-      wrapWordRange(frag.node, frag.start, frag.end, entry.id, word, {
+      const entry = frag.entry;
+      wrapWordRange(frag.node, frag.start, frag.end, entry.id, entry.word, {
         note: entry.note || "",
         translation: entry.translation || "",
         phonetic: entry.phonetic || ""
@@ -1843,7 +2040,88 @@
     return sorted.length;
   }
 
-  async function reconcileWordHighlights() {
+  function unwrapAllWordHighlights() {
+    document.querySelectorAll("span.rc-word-highlight").forEach((el) => {
+      unwrapWordHighlight(el);
+    });
+  }
+
+  function normalizeDirtyRoots(roots) {
+    const list = [];
+    for (const r of roots || []) {
+      if (!r || r.nodeType !== Node.ELEMENT_NODE || !r.isConnected) continue;
+      if (r.closest && r.closest(OWN_UI_SEL)) continue;
+      list.push(r);
+    }
+    if (!list.length) return [];
+
+    // Drop roots contained by another dirty root.
+    const filtered = [];
+    for (const r of list) {
+      let contained = false;
+      for (const o of list) {
+        if (o !== r && o.contains(r)) {
+          contained = true;
+          break;
+        }
+      }
+      if (!contained) filtered.push(r);
+    }
+    return filtered;
+  }
+
+  function collectWordDirtyFromMutations(mutations) {
+    const roots = [];
+    let forceFull = false;
+    let removedHighlightParent = false;
+
+    for (const m of mutations) {
+      if (m.type === "characterData") {
+        const parent = m.target && m.target.parentElement;
+        if (parent) roots.push(parent);
+        continue;
+      }
+
+      for (const n of m.removedNodes) {
+        if (n.nodeType !== Node.ELEMENT_NODE) continue;
+        const hadWordHl =
+          (n.classList && n.classList.contains("rc-word-highlight")) ||
+          (n.querySelector && n.querySelector("span.rc-word-highlight"));
+        if (hadWordHl) {
+          removedHighlightParent = true;
+          if (m.target && m.target.nodeType === Node.ELEMENT_NODE) roots.push(m.target);
+        }
+      }
+
+      for (const n of m.addedNodes) {
+        if (n.nodeType === Node.ELEMENT_NODE) {
+          if (n.id === "rc-overlay" || n.id === "rc-float-bar" || n.id === "rc-region-mask" || n.id === "rc-word-tip") {
+            continue;
+          }
+          if (n.classList && (n.classList.contains("rc-highlight") || n.classList.contains("rc-word-highlight"))) {
+            continue;
+          }
+          if (n.closest && n.closest(OWN_UI_SEL)) continue;
+          roots.push(n);
+        } else if (n.nodeType === Node.TEXT_NODE && n.parentElement) {
+          roots.push(n.parentElement);
+        }
+      }
+    }
+
+    const normalized = normalizeDirtyRoots(roots);
+    if (normalized.length >= WORD_DIRTY_ROOT_FULL_THRESHOLD) forceFull = true;
+    for (const r of normalized) {
+      if (r === document.body || r === document.documentElement) forceFull = true;
+    }
+    // Large subtree swaps that drop old highlights: prefer full rebuild for correctness.
+    if (removedHighlightParent && normalized.length > 8) forceFull = true;
+
+    return { roots: normalized, forceFull };
+  }
+
+  async function reconcileWordHighlights(options) {
+    const opts = options || { full: true };
     if (!cachedSettings) {
       await loadHighlightSettings();
     }
@@ -1851,41 +2129,46 @@
       clearAllPageHighlights();
       return;
     }
-    let words = [];
+
+    let words;
     try {
-      const res = await chrome.runtime.sendMessage({ type: "rc-get-all-words" });
-      words = (res && res.words) || [];
+      words = await ensureWordsCache();
     } catch (e) {
       return;
     }
-    cachedWords = words;
 
+    const matchers = buildActiveWordMatchers(words);
     applyingWordHighlight = true;
     try {
-      document.querySelectorAll("span.rc-word-highlight").forEach((el) => {
-        unwrapWordHighlight(el);
-      });
-      for (const w of words) {
-        if (w.learned) continue;
-        try {
-          applyWordHighlightsForWord(w);
-        } catch (e) {
-          console.warn("[RecordU] 单词高亮失败", w.word, e);
+      if (opts.full) {
+        unwrapAllWordHighlights();
+        const counts = new Map();
+        const planned = collectWordHighlightPlans(document.body, matchers, counts);
+        sortAndWrapWordPlans(planned);
+      } else {
+        const roots = normalizeDirtyRoots(opts.roots || []);
+        if (!roots.length) return;
+        // Unwrap word highlights inside dirty roots so text nodes are scannable again.
+        for (const root of roots) {
+          root.querySelectorAll("span.rc-word-highlight").forEach((el) => {
+            unwrapWordHighlight(el);
+          });
+          if (root.classList && root.classList.contains("rc-word-highlight")) {
+            unwrapWordHighlight(root);
+          }
         }
+        const counts = countExistingWordHighlights();
+        const planned = [];
+        for (const root of roots) {
+          if (!root.isConnected) continue;
+          planned.push(...collectWordHighlightPlans(root, matchers, counts));
+        }
+        sortAndWrapWordPlans(planned);
       }
     } finally {
       applyingWordHighlight = false;
       wordHlQuietUntil = Date.now() + 250;
     }
-  }
-
-  function scheduleWordReconcile(delay) {
-    const d = delay != null ? delay : 350;
-    if (wordReconcileTimer) clearTimeout(wordReconcileTimer);
-    wordReconcileTimer = setTimeout(() => {
-      wordReconcileTimer = null;
-      reconcileWordHighlights();
-    }, d);
   }
 
   function ensureObserver() {
@@ -1894,9 +2177,16 @@
       if (applyingHighlight || applyingWordHighlight) return;
       if (Date.now() < wordHlQuietUntil) return;
       if (!mutationTouchesContent(mutations)) return;
-      failCount = 0;
-      scheduleReconcile(300);
-      scheduleWordReconcile(400);
+
+      const { roots, forceFull } = collectWordDirtyFromMutations(mutations);
+      const pass = { idea: true };
+      if (forceFull) pass.wordFull = true;
+      else {
+        pass.wordIncremental = true;
+        pass.roots = roots;
+      }
+      // Do not reset failCount on every mutation; backoff stays until a successful full match.
+      scheduleReconcilePass(MUTATION_RECONCILE_MS, pass);
     });
     observer.observe(document.body, {
       childList: true,
@@ -1905,16 +2195,21 @@
     });
   }
 
+  function scheduleDelayedReconcilePasses(delays) {
+    for (const ms of delays) {
+      setTimeout(() => {
+        scheduleReconcilePass(0, { idea: true, wordFull: true });
+      }, ms);
+    }
+  }
+
   function onUrlMaybeChanged() {
     if (location.href === lastUrl) return;
     lastUrl = location.href;
     failCount = 0;
-    scheduleReconcile(100);
-    scheduleWordReconcile(120);
-    [400, 1200, 3000].forEach((ms) => {
-      setTimeout(reconcileHighlights, ms);
-      setTimeout(reconcileWordHighlights, ms);
-    });
+    cachedCaptures = null;
+    scheduleReconcilePass(100, { idea: true, wordFull: true });
+    scheduleDelayedReconcilePasses([800, 2500]);
   }
 
   function hookSpaNavigation() {
@@ -1938,13 +2233,9 @@
 
   function init() {
     hookSpaNavigation();
-    reconcileHighlights();
-    reconcileWordHighlights();
+    scheduleReconcilePass(0, { idea: true, wordFull: true });
     ensureObserver();
-    [800, 2000, 5000].forEach((ms) => {
-      setTimeout(reconcileHighlights, ms);
-      setTimeout(reconcileWordHighlights, ms);
-    });
+    scheduleDelayedReconcilePasses([800, 2500]);
   }
 
   if (document.readyState === "loading") {
@@ -1956,13 +2247,11 @@
   on(window, "pageshow", () => {
     failCount = 0;
     lastUrl = location.href;
-    reconcileHighlights();
-    reconcileWordHighlights();
+    cachedCaptures = null;
+    wordsCacheFresh = false;
+    scheduleReconcilePass(0, { idea: true, wordFull: true });
     ensureObserver();
-    [500, 1500, 4000].forEach((ms) => {
-      setTimeout(reconcileHighlights, ms);
-      setTimeout(reconcileWordHighlights, ms);
-    });
+    scheduleDelayedReconcilePasses([800, 2500]);
   });
 
   // ---------- region screenshot ----------
