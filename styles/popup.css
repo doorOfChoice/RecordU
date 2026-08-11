@@ -55,18 +55,95 @@ body.popup-page {
   border-bottom-color: var(--ru-ink);
 }
 
+.popup-meta {
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--ru-line);
+}
+
 .page-info {
   font-size: 11px;
   color: var(--ru-thin);
   letter-spacing: 0.04em;
   background: transparent;
-  border-bottom: 1px solid var(--ru-line);
+  border: none;
   border-radius: 0;
-  padding: 0 0 8px;
-  margin-bottom: 12px;
+  padding: 0;
+  margin: 0 0 8px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.hl-block {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.hl-block.is-disabled {
+  opacity: 0.45;
+}
+
+.hl-block-caption {
+  font-size: 11px;
+  color: var(--ru-thin);
+  letter-spacing: 0.04em;
+  flex: none;
+}
+
+.hl-seg {
+  display: inline-flex;
+  flex: none;
+  min-width: 132px;
+  border: 1px solid var(--ru-line);
+  border-radius: var(--radius);
+  background: var(--ru-surface-2);
+  overflow: hidden;
+}
+
+.hl-seg-btn {
+  appearance: none;
+  margin: 0;
+  flex: 1;
+  padding: 5px 10px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--ru-sumi);
+  font: inherit;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+
+.hl-seg-btn + .hl-seg-btn {
+  box-shadow: inset 1px 0 0 var(--ru-line);
+}
+
+.hl-seg-btn:hover:not(:disabled) {
+  color: var(--ru-ink);
+}
+
+.hl-seg-btn.is-on {
+  color: var(--ru-accent);
+  background: var(--ru-accent-soft);
+}
+
+.hl-seg-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.hl-seg-btn:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--ru-accent-soft);
+}
+
+.hl-seg-btn.is-on:focus-visible {
+  box-shadow: inset 0 0 0 2px rgba(63, 95, 138, 0.22);
 }
 
 .input {
@@ -82,11 +159,12 @@ body.popup-page {
   resize: vertical;
   min-height: 120px;
   outline: none;
-  transition: border-color 0.15s;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
 
 .input:focus {
-  border-color: var(--ru-ink);
+  border-color: var(--ru-accent);
+  box-shadow: 0 0 0 3px var(--ru-accent-soft);
 }
 
 .actions {

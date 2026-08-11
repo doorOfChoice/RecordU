@@ -160,11 +160,24 @@
   }
 
   function isHighlightBlocked() {
-    const list =
+    const hostList =
       cachedSettings && Array.isArray(cachedSettings.highlightHostBlacklist)
         ? cachedSettings.highlightHostBlacklist
         : [];
-    return isHostInHighlightBlacklist(location.hostname, list);
+    if (isHostInHighlightBlacklist(location.hostname, hostList)) return true;
+
+    const pageList =
+      cachedSettings && Array.isArray(cachedSettings.highlightPageBlacklist)
+        ? cachedSettings.highlightPageBlacklist
+        : [];
+    if (!pageList.length) return false;
+    const host = normalizeHost(location.hostname);
+    const path = normalizePathname(location.pathname || "/");
+    const key = host + path;
+    for (const entry of pageList) {
+      if (String(entry || "") === key) return true;
+    }
+    return false;
   }
 
   function clearAllPageHighlights() {

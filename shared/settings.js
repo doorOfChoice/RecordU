@@ -48,6 +48,8 @@ export const DEFAULT_SETTINGS = {
   wordMatchMode: "variant",
   /** 高亮黑名单：这些 host（及子域）不渲染感触/单词高亮 */
   highlightHostBlacklist: [],
+  /** 页面级高亮黑名单：host+pathname（忽略 query/hash） */
+  highlightPageBlacklist: [],
   /** API key（仅本地） */
   llmApiKey: "",
   /** Chat model name */
@@ -195,6 +197,90 @@ export function isHostInHighlightBlacklist(hostname, list) {
   return false;
 }
 
+/** Strip www. / port; align with content samePage host compare. */
+export function normalizePageHost(host) {
+  return String(host || "")
+    .replace(/:\d+$/, "")
+    .replace(/\.+$/, "")
+    .replace(/^www\./i, "")
+    .toLowerCase();
+}
+
+/** Collapse trailing slash except root `/`. */
+export function normalizePagePathname(pathname) {
+  let p = String(pathname || "/");
+  if (!p.startsWith("/")) p = `/${p}`;
+  if (p.length > 1 && p.endsWith("/")) p = p.slice(0, -1);
+  return p;
+}
+
+/**
+ * Canonical page key: `host/path` (host without www; path normalized).
+ * @returns {string|null}
+ */
+export function pageKeyFromUrl(url) {
+  if (!url) return null;
+  try {
+    const raw = String(url).trim();
+    if (!raw) return null;
+    const withProto = /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(raw) ? raw : `https://${raw}`;
+    const u = new URL(withProto);
+    if (u.protocol !== "http:" && u.protocol !== "https:") return null;
+    const host = normalizePageHost(u.hostname);
+    if (!host) return null;
+    return host + normalizePagePathname(u.pathname);
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
+ * Parse one page-blacklist line into a page key, or null.
+ * Accepts full URLs or `host/path`.
+ */
+export function parseHighlightPageLine(line) {
+  let raw = String(line || "").trim();
+  if (!raw || raw.startsWith("#")) return null;
+  return pageKeyFromUrl(raw);
+}
+
+/** Normalize page blacklist from string[] or multiline text → deduped page keys. */
+export function normalizeHighlightPageBlacklist(value) {
+  let lines;
+  if (Array.isArray(value)) {
+    lines = value.map((v) => String(v == null ? "" : v));
+  } else if (typeof value === "string") {
+    lines = value.split(/\r?\n/);
+  } else {
+    return [];
+  }
+  const seen = new Set();
+  const out = [];
+  for (const line of lines) {
+    const key = parseHighlightPageLine(line);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(key);
+  }
+  return out;
+}
+
+/**
+ * @param {string} pageKeyOrUrl canonical key or URL
+ * @param {string[]} list
+ */
+export function isPageInHighlightBlacklist(pageKeyOrUrl, list) {
+  if (!Array.isArray(list) || !list.length) return false;
+  const raw = String(pageKeyOrUrl || "").trim();
+  if (!raw) return false;
+  const key = pageKeyFromUrl(raw) || pageKeyFromUrl(`https://${raw.replace(/^\/+/, "")}`);
+  if (!key) return false;
+  for (const entry of list) {
+    if (String(entry || "") === key) return true;
+  }
+  return false;
+}
+
 export function normalizeSettings(input) {
   const src = input && typeof input === "object" ? input : {};
   return {
@@ -210,6 +296,7 @@ export function normalizeSettings(input) {
     wordHighlightStyle: normalizeHighlightStyle(src.wordHighlightStyle),
     wordMatchMode: normalizeWordMatchMode(src.wordMatchMode),
     highlightHostBlacklist: normalizeHighlightHostBlacklist(src.highlightHostBlacklist),
+    highlightPageBlacklist: normalizeHighlightPageBlacklist(src.highlightPageBlacklist),
     llmApiKey: typeof src.llmApiKey === "string" ? src.llmApiKey : "",
     llmModel: normalizeLlmModel(src.llmModel),
     llmBaseUrl: normalizeLlmBaseUrl(src.llmBaseUrl),
@@ -237,7 +324,8 @@ export function generalSettingsDefaults() {
     wordHighlightColor: DEFAULT_SETTINGS.wordHighlightColor,
     wordHighlightStyle: DEFAULT_SETTINGS.wordHighlightStyle,
     wordMatchMode: DEFAULT_SETTINGS.wordMatchMode,
-    highlightHostBlacklist: [...DEFAULT_SETTINGS.highlightHostBlacklist]
+    highlightHostBlacklist: [...DEFAULT_SETTINGS.highlightHostBlacklist],
+    highlightPageBlacklist: [...DEFAULT_SETTINGS.highlightPageBlacklist]
   };
 }
 

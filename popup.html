@@ -15,7 +15,16 @@
       </div>
       <a href="review.html" target="_blank" class="link">回顾 ↗</a>
     </div>
-    <div class="page-info" id="page-info"></div>
+    <div class="popup-meta">
+      <div class="page-info" id="page-info"></div>
+      <div class="hl-block" id="hl-block-row">
+        <span class="hl-block-caption">暂停高亮</span>
+        <div class="hl-seg" role="group" aria-label="暂停高亮范围">
+          <button type="button" class="hl-seg-btn" id="hl-block-page" aria-pressed="false">本页</button>
+          <button type="button" class="hl-seg-btn" id="hl-block-host" aria-pressed="false">本域</button>
+        </div>
+      </div>
+    </div>
     <textarea id="input" class="input" rows="6"
       placeholder="你的感触，用你自己的话……"></textarea>
     <div class="actions">

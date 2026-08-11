@@ -127,6 +127,10 @@ function renderHighlightPanel(settings) {
     ? settings.highlightHostBlacklist
     : [];
   const blacklistText = highlightHostBlacklist.join("\n");
+  const highlightPageBlacklist = Array.isArray(settings.highlightPageBlacklist)
+    ? settings.highlightPageBlacklist
+    : [];
+  const pageBlacklistText = highlightPageBlacklist.join("\n");
 
   return `
     <header class="rv-settings-header">
@@ -213,10 +217,14 @@ function renderHighlightPanel(settings) {
 
     <section class="rv-settings-block">
       <h3 class="rv-settings-subtitle">高亮黑名单</h3>
-      <p class="rv-settings-desc rv-settings-desc-tight">一行一个域名；名单内站点不显示高亮。以 <code>#</code> 开头为注释。</p>
+      <p class="rv-settings-desc rv-settings-desc-tight">名单内不显示感触与单词高亮；划词与捕获仍可用。以 <code>#</code> 开头为注释。</p>
       <div class="rv-settings-field">
         <label class="rv-settings-label" for="rv-set-hl-blacklist">域名列表</label>
-        <textarea id="rv-set-hl-blacklist" class="rv-settings-textarea" rows="5" spellcheck="false" placeholder="example.com&#10;https://news.ycombinator.com">${escapeHtml(blacklistText)}</textarea>
+        <textarea id="rv-set-hl-blacklist" class="rv-settings-textarea" rows="4" spellcheck="false" placeholder="example.com&#10;https://news.ycombinator.com">${escapeHtml(blacklistText)}</textarea>
+      </div>
+      <div class="rv-settings-field">
+        <label class="rv-settings-label" for="rv-set-hl-page-blacklist">页面列表</label>
+        <textarea id="rv-set-hl-page-blacklist" class="rv-settings-textarea" rows="4" spellcheck="false" placeholder="example.com/path&#10;https://example.com/article/123">${escapeHtml(pageBlacklistText)}</textarea>
       </div>
     </section>
 
@@ -375,6 +383,7 @@ function bindHighlightPanel({ root, onSave }) {
   const ideaSwatch = root.querySelector(".rv-settings-swatch-idea");
   const wordSwatch = root.querySelector(".rv-settings-swatch-word");
   const blacklistEl = root.querySelector("#rv-set-hl-blacklist");
+  const pageBlacklistEl = root.querySelector("#rv-set-hl-page-blacklist");
   const toast = root.querySelector("#rv-set-toast-highlight");
 
   function selectedIdeaStyle() {
@@ -445,6 +454,11 @@ function bindHighlightPanel({ root, onSave }) {
     blacklistEl.value = Array.isArray(list) ? list.join("\n") : "";
   }
 
+  function setPageBlacklist(list) {
+    if (!pageBlacklistEl) return;
+    pageBlacklistEl.value = Array.isArray(list) ? list.join("\n") : "";
+  }
+
   function applyGeneral(s) {
     if (!s) return;
     setIdea(s.ideaHighlightColor);
@@ -453,6 +467,7 @@ function bindHighlightPanel({ root, onSave }) {
     setWordStyle(s.wordHighlightStyle);
     setMatchMode(s.wordMatchMode);
     setBlacklist(s.highlightHostBlacklist);
+    setPageBlacklist(s.highlightPageBlacklist);
   }
 
   ideaColor.addEventListener("input", () => {
@@ -487,7 +502,8 @@ function bindHighlightPanel({ root, onSave }) {
       wordHighlightColor: wordColor.value,
       wordHighlightStyle: selectedWordStyle(),
       wordMatchMode: selectedMatchMode(),
-      highlightHostBlacklist: blacklistEl ? blacklistEl.value : ""
+      highlightHostBlacklist: blacklistEl ? blacklistEl.value : "",
+      highlightPageBlacklist: pageBlacklistEl ? pageBlacklistEl.value : ""
     });
     if (next) {
       applyGeneral(next);
