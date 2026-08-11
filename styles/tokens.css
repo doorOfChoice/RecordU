@@ -1,9 +1,9 @@
 /* Apple × 日系（冷灰白 / 墨 / 藍）— keep in sync with shared/capture-theme.js */
 :root {
   --ru-ink: #1d1d1f;
-  --ru-sumi: #6e6e73;
-  --ru-thin: #86868b;
-  --ru-line: #e5e5ea;
+  --ru-sumi: #515154;
+  --ru-thin: #6e6e73;
+  --ru-line: #d8d8dc;
   /* 冷灰白页面底，去掉暖黄 */
   --ru-paper: #f5f5f7;
   --ru-paper-deep: #ececef;
@@ -25,8 +25,8 @@
   --ru-serif: "Hiragino Mincho ProN", "Songti SC", "STSong", "Noto Serif CJK SC", "SimSun", serif;
   --ru-sans: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "PingFang SC", "Hiragino Sans GB",
     "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
-  --ru-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
-  --ru-shadow-float: 0 10px 30px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.04);
+  --ru-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  --ru-shadow-float: 0 10px 30px rgba(0, 0, 0, 0.1), 0 2px 6px rgba(0, 0, 0, 0.05);
 
   /* aliases used across popup / review / modal */
   --bg: var(--ru-paper);

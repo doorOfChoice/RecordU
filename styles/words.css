@@ -3,7 +3,8 @@
   display: flex;
   align-items: flex-start;
   gap: 0;
-  max-width: 960px;
+  width: 100%;
+  max-width: none;
   min-height: 320px;
   padding: 20px 22px;
   background: var(--rv-surface);
@@ -31,7 +32,7 @@
   margin: 0;
   font-size: 13px;
   letter-spacing: 0.06em;
-  color: var(--rv-thin);
+  color: var(--rv-sumi);
   cursor: pointer;
   font-family: inherit;
   border-left: 2px solid transparent;
@@ -76,21 +77,21 @@
   font-size: 15px;
   font-weight: 500;
   letter-spacing: 0.06em;
-  color: var(--rv-thin);
+  color: var(--rv-sumi);
   margin: 0 0 10px;
 }
 
 .rv-words-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: 8px;
 }
 
 .rv-word-entry {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 12px 12px 10px;
+  gap: 4px;
+  padding: 8px 9px 7px;
   border: 1px solid var(--rv-line);
   border-radius: var(--radius);
   background: var(--rv-surface);
@@ -127,8 +128,8 @@
 
 .rv-word-term {
   font-family: var(--rv-serif);
-  font-size: 17px;
-  line-height: 1.3;
+  font-size: 15px;
+  line-height: 1.25;
   color: var(--rv-ink);
   margin: 0;
   letter-spacing: 0.02em;
@@ -137,8 +138,8 @@
 
 .rv-word-note {
   flex: 1;
-  font-size: 12.5px;
-  line-height: 1.5;
+  font-size: 12px;
+  line-height: 1.4;
   color: var(--rv-sumi);
   margin: 0;
   word-break: break-word;
@@ -157,9 +158,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  margin-top: 2px;
-  min-height: 22px;
+  gap: 6px;
+  margin-top: 1px;
+  min-height: 20px;
 }
 
 .rv-word-source {
@@ -180,9 +181,9 @@
 .rv-word-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin: 0 0 6px;
-  font-size: 12px;
+  gap: 6px;
+  margin: 0;
+  font-size: 11px;
   color: var(--rv-thin);
 }
 

@@ -29,6 +29,10 @@ function groupWordsByDay(list) {
     group.items.push({ word: w, index });
   });
 
+  for (const group of groups) {
+    group.items.sort((a, b) => Number(!!a.word.learned) - Number(!!b.word.learned));
+  }
+
   return groups;
 }
 

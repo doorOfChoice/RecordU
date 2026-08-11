@@ -31,7 +31,7 @@
   margin: 0;
   font-size: 13px;
   letter-spacing: 0.06em;
-  color: var(--rv-thin);
+  color: var(--rv-sumi);
   cursor: pointer;
   font-family: inherit;
   border-left: 2px solid transparent;
@@ -111,7 +111,7 @@
   display: block;
   font-size: 11px;
   letter-spacing: 0.08em;
-  color: var(--rv-thin);
+  color: var(--rv-sumi);
   margin: 0 0 6px;
 }
 

@@ -41,7 +41,7 @@ body.popup-page {
 }
 
 .link {
-  color: var(--ru-thin);
+  color: var(--ru-sumi);
   font-size: 12px;
   letter-spacing: 0.06em;
   text-decoration: none;
@@ -190,7 +190,7 @@ body.popup-page {
   font: inherit;
   font-size: 12px;
   letter-spacing: 0.06em;
-  color: var(--ru-thin);
+  color: var(--ru-sumi);
   cursor: pointer;
   text-decoration: none;
   border-bottom: 1px solid transparent;

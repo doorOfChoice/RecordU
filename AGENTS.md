@@ -35,9 +35,9 @@ Use CSS variables (`--ru-*` / `--rv-*`). Do not invent one-off warm beige or App
 | Panel | `--ru-surface` | `#ffffff` |
 | Panel secondary | `--ru-surface-2` | `#fbfbfd` |
 | Ink | `--ru-ink` | `#1d1d1f` |
-| Secondary text | `--ru-sumi` | `#6e6e73` |
-| Tertiary | `--ru-thin` | `#86868b` |
-| Hairline | `--ru-line` | `#e5e5ea` |
+| Secondary text | `--ru-sumi` | `#515154` |
+| Tertiary | `--ru-thin` | `#6e6e73` |
+| Hairline | `--ru-line` | `#d8d8dc` |
 | Accent (藍) | `--ru-accent` | `#3f5f8a` |
 | Accent press | `--ru-accent-press` | `#355278` |
 | Accent soft | `--ru-accent-soft` | `rgba(63, 95, 138, 0.1)` |

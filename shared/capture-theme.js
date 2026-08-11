@@ -5,9 +5,9 @@
  */
 (function (g) {
   const ink = "#1d1d1f";
-  const sumi = "#6e6e73";
-  const thin = "#86868b";
-  const line = "#e5e5ea";
+  const sumi = "#515154";
+  const thin = "#6e6e73";
+  const line = "#d8d8dc";
   const paper = "#ffffff";
   const paperDeep = "#f5f5f7";
   const accent = "#3f5f8a";
@@ -132,7 +132,7 @@
       background: ${paper};
       border: 1px solid ${line};
       border-radius: ${radiusLg};
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.05);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1), 0 2px 6px rgba(0, 0, 0, 0.05);
       font-family: ${sans};
       font-size: 14px;
       line-height: 1.6;
@@ -157,7 +157,7 @@
       justify-content: space-between;
       padding: 12px 16px 0;
       font-weight: 500;
-      color: ${thin};
+      color: ${sumi};
       font-size: 11px;
       letter-spacing: 0.12em;
       background: transparent;
@@ -186,7 +186,7 @@
       border: none;
       border-radius: ${radius};
       cursor: pointer;
-      color: ${thin};
+      color: ${sumi};
       font-size: 18px;
       font-weight: 400;
       line-height: 1;
@@ -278,7 +278,7 @@
     #rc-overlay .rc-field > span {
       font-size: 11px;
       letter-spacing: 0.1em;
-      color: ${thin};
+      color: ${sumi};
     }
     #rc-overlay .rc-field input {
       width: 100%;
@@ -330,7 +330,7 @@
     }
     #rc-overlay .rc-match-label {
       letter-spacing: 0.08em;
-      color: ${thin};
+      color: ${sumi};
       margin-right: 2px;
     }
     #rc-overlay .rc-match-opt {

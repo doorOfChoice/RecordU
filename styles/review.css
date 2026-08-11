@@ -53,7 +53,7 @@ body.review-page {
 }
 
 .rv-export {
-  color: var(--rv-thin);
+  color: var(--rv-sumi);
   text-decoration: none;
   font-size: 12px;
   letter-spacing: 0.08em;
@@ -100,7 +100,7 @@ body.review-page {
   display: inline-flex;
   align-items: flex-start;
   gap: 4px;
-  color: var(--rv-thin);
+  color: var(--rv-sumi);
   text-decoration: none;
   letter-spacing: 0.06em;
   border-bottom: 1px solid transparent;
@@ -158,7 +158,7 @@ body.review-page {
 
 .rv-view-link,
 .rv-range-link {
-  color: var(--rv-thin);
+  color: var(--rv-sumi);
   text-decoration: none;
   transition: color 0.15s;
 }
@@ -499,7 +499,7 @@ body.review-page {
   border: none;
   padding: 2px 3px;
   cursor: pointer;
-  color: var(--rv-thin);
+  color: var(--rv-sumi);
   line-height: 0;
   border-radius: var(--radius);
   transition: color 0.15s, background 0.15s;

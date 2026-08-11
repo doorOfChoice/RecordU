@@ -23,7 +23,7 @@ body {
   flex: 1;
   border: 1px solid var(--ru-line);
   background: transparent;
-  color: var(--ru-sumi);
+  color: var(--ru-ink);
   border-radius: var(--radius);
   padding: 8px 0;
   font-size: 12px;
