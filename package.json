@@ -1,0 +1,12 @@
+{
+  "name": "recordu",
+  "version": "1.0.0",
+  "private": true,
+  "description": "RecordU Chrome extension packaging scripts",
+  "scripts": {
+    "build": "rm -rf dist/recordu && mkdir -p dist/recordu && cp -R manifest.json background.js content.js modal.js popup.html popup.js review.html styles.css icons review shared styles vendor dist/recordu/ && find dist/recordu -name .DS_Store -delete",
+    "zip": "npm run build && cd dist && rm -f recordu.zip && zip -r recordu.zip recordu",
+    "crx": "npm run build && rm -f dist/recordu.crx && \"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome\" --pack-extension=dist/recordu --pack-extension-key=dist/key.pem",
+    "release": "npm run zip && npm run crx && V=$(node -p \"require('./manifest.json').version\") && awk -v v=\"$V\" '/^### /{if(seen)exit; if($2==v)seen=1; next} seen&&!/^## /{print}' README.md > dist/notes.md && [ -s dist/notes.md ] || echo \"RecordU v$V\" > dist/notes.md && gh release create \"v$V\" dist/recordu.crx dist/recordu.zip --title \"v$V\" --notes-file dist/notes.md && rm -f dist/notes.md && echo \"Released v$V\""
+  }
+}
