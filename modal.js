@@ -273,12 +273,21 @@ export function promptWordEdit(opts = {}) {
  * @returns {Promise<{ count: number, promptLang: "en"|"zh" }|null>}
  */
 export function promptQuizGenerate(opts = {}) {
+  const hideDay = !!opts.hideDay;
   const dayOptions = Array.isArray(opts.dayOptions) && opts.dayOptions.length
     ? opts.dayOptions
     : [{ key: "all", label: "全部", count: Math.max(1, Number(opts.maxCount) || 1) }];
   const countByKey = new Map(dayOptions.map((o) => [String(o.key), Math.max(1, Number(o.count) || 1)]));
-  let activeMax = Math.min(50, countByKey.get("all") || Math.max(1, Number(opts.maxCount) || 1));
+  let activeMax = Math.min(50, countByKey.get(hideDay ? String(dayOptions[0].key) : "all") || Math.max(1, Number(opts.maxCount) || 1));
+  if (hideDay) {
+    activeMax = Math.min(50, Math.max(1, Number(opts.maxCount) || activeMax));
+  }
   const defaultCount = Math.min(activeMax, Math.max(1, Number(opts.defaultCount) || Math.min(10, activeMax)));
+  const countLabelText =
+    opts.countLabel ||
+    (hideDay
+      ? `练习几个易错词（1–${activeMax}）`
+      : `练习几个未学完的单词（1–${activeMax}）`);
 
   const daySelectHtml = dayOptions
     .map((o, i) => {
@@ -295,12 +304,16 @@ export function promptQuizGenerate(opts = {}) {
   overlay.innerHTML = `
     <div class="rc-modal rc-modal-edit rc-modal-edit-quiz" role="dialog" aria-modal="true">
       <div class="rc-modal-title">${escapeHtml(opts.title || "生成试卷")}</div>
-      <div class="rc-modal-field">
+      ${
+        hideDay
+          ? ""
+          : `<div class="rc-modal-field">
         <label for="rc-modal-quiz-day">时间</label>
         <select id="rc-modal-quiz-day">${daySelectHtml}</select>
-      </div>
+      </div>`
+      }
       <div class="rc-modal-field">
-        <label for="rc-modal-quiz-count" id="rc-modal-quiz-count-label">练习几个未学完的单词（1–${activeMax}）</label>
+        <label for="rc-modal-quiz-count" id="rc-modal-quiz-count-label">${escapeHtml(countLabelText)}</label>
         <input type="number" id="rc-modal-quiz-count" min="1" max="${activeMax}" value="${defaultCount}">
       </div>
       <div class="rc-modal-field">
@@ -355,20 +368,26 @@ export function promptQuizGenerate(opts = {}) {
 
   const countEl = overlay.querySelector("#rc-modal-quiz-count");
   const countLabel = overlay.querySelector("#rc-modal-quiz-count-label");
-  const dayEl = overlay.querySelector("#rc-modal-quiz-day");
+  const dayEl = hideDay ? null : overlay.querySelector("#rc-modal-quiz-day");
 
   function syncCountLimit() {
-    const key = dayEl.value || "all";
-    const raw = countByKey.get(key) || 1;
-    activeMax = Math.min(50, Math.max(1, raw));
-    countLabel.textContent = `练习几个未学完的单词（1–${activeMax}）`;
+    if (hideDay) {
+      activeMax = Math.min(50, Math.max(1, Number(opts.maxCount) || 1));
+      countLabel.textContent =
+        opts.countLabel || `练习几个易错词（1–${activeMax}）`;
+    } else {
+      const key = (dayEl && dayEl.value) || "all";
+      const raw = countByKey.get(key) || 1;
+      activeMax = Math.min(50, Math.max(1, raw));
+      countLabel.textContent = `练习几个未学完的单词（1–${activeMax}）`;
+    }
     countEl.max = String(activeMax);
     let n = Math.round(Number(countEl.value));
     if (!Number.isFinite(n)) n = Math.min(10, activeMax);
     countEl.value = String(Math.min(activeMax, Math.max(1, n)));
   }
 
-  dayEl.addEventListener("change", syncCountLimit);
+  if (dayEl) dayEl.addEventListener("change", syncCountLimit);
 
   if (current) current.resolve("cancel");
   document.body.appendChild(overlay);
@@ -388,7 +407,7 @@ export function promptQuizGenerate(opts = {}) {
       const langEl = overlay.querySelector('input[name="rc-modal-quiz-lang"]:checked');
       const difficultyEl = overlay.querySelector('input[name="rc-modal-quiz-difficulty"]:checked');
       const showWordsEl = overlay.querySelector('input[name="rc-modal-quiz-show-words"]:checked');
-      const dayKeyVal = String(dayEl.value || "all");
+      const dayKeyVal = hideDay ? "all" : String((dayEl && dayEl.value) || "all");
       const difficultyRaw = difficultyEl && difficultyEl.value;
       const difficulty =
         difficultyRaw === "normal" || difficultyRaw === "hard" ? difficultyRaw : "easy";

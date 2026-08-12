@@ -15,10 +15,65 @@ import {
   spawnBurst
 } from "../shared/fx-burst.js";
 import { quizWordPool } from "../shared/quiz.js";
+import { upsertArenaMisses } from "../shared/api.js";
 import { state } from "./state.js";
 
 /** @type {ReturnType<typeof setInterval> | null} */
 let sprintTimer = null;
+
+/**
+ * Persist one arena miss (fire-and-forget).
+ * @param {"sprint"|"detective"} source
+ * @param {{ wordId?: string, word?: string, translation?: string, phonetic?: string } | null} miss
+ */
+function persistArenaMiss(source, miss) {
+  if (!miss) return;
+  const wordId = String(miss.wordId || "").trim();
+  if (!wordId) return;
+  upsertArenaMisses([
+    {
+      wordId,
+      word: String(miss.word || "").trim(),
+      translation: String(miss.translation || "").trim(),
+      phonetic: String(miss.phonetic || "").trim(),
+      source
+    }
+  ]).catch(() => {});
+}
+
+function missesResultHtml(misses) {
+  const list = Array.isArray(misses) ? misses : [];
+  if (!list.length) {
+    return `<p class="rv-arena-misses-empty">本局没有做错，漂亮。</p>`;
+  }
+  return `<div class="rv-arena-misses">
+    <h4 class="rv-arena-misses-title">本次做错 · ${list.length}</h4>
+    <ul class="rv-arena-miss-list">
+      ${list
+        .map((m) => {
+          const word = escapeHtml(m.word || "");
+          const translation = escapeHtml(m.translation || "");
+          const phonetic = m.phonetic
+            ? `<span class="rv-arena-miss-phonetic">${escapeHtml(m.phonetic)}</span>`
+            : "";
+          const picked = m.picked
+            ? `<span class="rv-arena-miss-picked">你选：${escapeHtml(m.picked)}</span>`
+            : "";
+          return `<li class="rv-arena-miss-item">
+            <div class="rv-arena-miss-main">
+              <span class="rv-arena-miss-word">${word}</span>
+              ${phonetic}
+            </div>
+            <div class="rv-arena-miss-sub">
+              <span class="rv-arena-miss-gloss">${translation || "—"}</span>
+              ${picked}
+            </div>
+          </li>`;
+        })
+        .join("")}
+    </ul>
+  </div>`;
+}
 
 function clearSprintTimer() {
   if (sprintTimer != null) {
@@ -235,37 +290,7 @@ function renderSprint({ root, progressEl, onRefresh }) {
             ${sprintStatHtml("正确率", `${rate}%`, sprintStatTone("rate", rate))}
             ${sprintStatHtml("最长连对", maxCombo, sprintStatTone("combo", maxCombo))}
           </ul>
-          ${
-            misses.length
-              ? `<div class="rv-arena-misses">
-                  <h4 class="rv-arena-misses-title">本次做错 · ${misses.length}</h4>
-                  <ul class="rv-arena-miss-list">
-                    ${misses
-                      .map((m) => {
-                        const word = escapeHtml(m.word || "");
-                        const translation = escapeHtml(m.translation || "");
-                        const phonetic = m.phonetic
-                          ? `<span class="rv-arena-miss-phonetic">${escapeHtml(m.phonetic)}</span>`
-                          : "";
-                        const picked = m.picked
-                          ? `<span class="rv-arena-miss-picked">你选：${escapeHtml(m.picked)}</span>`
-                          : "";
-                        return `<li class="rv-arena-miss-item">
-                          <div class="rv-arena-miss-main">
-                            <span class="rv-arena-miss-word">${word}</span>
-                            ${phonetic}
-                          </div>
-                          <div class="rv-arena-miss-sub">
-                            <span class="rv-arena-miss-gloss">${translation || "—"}</span>
-                            ${picked}
-                          </div>
-                        </li>`;
-                      })
-                      .join("")}
-                  </ul>
-                </div>`
-              : `<p class="rv-arena-misses-empty">本局没有做错，漂亮。</p>`
-          }
+          ${missesResultHtml(misses)}
           <div class="rv-arena-result-actions">
             <button type="button" class="btn btn-primary" data-arena-again="sprint">再来一局</button>
             <button type="button" class="btn" data-arena-back>返回</button>
@@ -347,6 +372,14 @@ function renderSprint({ root, progressEl, onRefresh }) {
         const bi = Number(b.getAttribute("data-opt"));
         if (bi === s.current.answerIndex) b.classList.add("is-ok");
       });
+      if (!result.ok && s.current) {
+        persistArenaMiss("sprint", {
+          wordId: s.current.wordId,
+          word: s.current.word,
+          translation: s.current.translation,
+          phonetic: s.current.phonetic
+        });
+      }
       if (feedback) {
         feedback.hidden = false;
         feedback.className = `rv-arena-feedback ${result.ok ? "is-ok" : "is-bad"}`;
@@ -488,6 +521,7 @@ function renderDetective({ root, progressEl, onRefresh }) {
   if (session.finished || session.index >= total) {
     session.finished = true;
     progressEl.textContent = `侦探 · 结束`;
+    const misses = Array.isArray(session.misses) ? session.misses : [];
     root.innerHTML = `
       <div class="rv-arena-play">
         <div class="rv-arena-top">
@@ -499,6 +533,7 @@ function renderDetective({ root, progressEl, onRefresh }) {
             <li><span class="rv-arena-stat-label">答对</span><span class="rv-arena-stat-val">${session.correctCount}/${total}</span></li>
             <li><span class="rv-arena-stat-label">最长连对</span><span class="rv-arena-stat-val">${session.maxCombo || 0}</span></li>
           </ul>
+          ${missesResultHtml(misses)}
           <div class="rv-arena-result-actions">
             <button type="button" class="btn btn-primary" data-arena-again="detective">再来一局</button>
             <button type="button" class="btn" data-arena-back>返回</button>
@@ -599,6 +634,18 @@ function renderDetective({ root, progressEl, onRefresh }) {
       const submitBtn = form.querySelector("[data-detective-submit]");
       if (input) input.disabled = true;
       if (submitBtn) submitBtn.disabled = true;
+
+      if (!result.ok) {
+        const item = session.items[session.index];
+        if (item) {
+          persistArenaMiss("detective", {
+            wordId: item.id,
+            word: item.word,
+            translation: item.translation,
+            phonetic: item.phonetic
+          });
+        }
+      }
 
       if (result.ok) {
         if (input) input.classList.add("is-ok", "is-hit");

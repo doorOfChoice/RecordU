@@ -266,7 +266,8 @@
     }
     #rc-overlay textarea.rc-input:focus {
       border-color: ${ink};
-      background: ${warm};
+      background: ${paper};
+      box-shadow: 0 0 0 3px ${warm};
     }
     #rc-overlay .rc-lookup {
       margin: 10px 16px 0;
@@ -310,7 +311,8 @@
       transition: background-color 0.15s ease-out;
     }
     #rc-overlay .rc-field input:focus {
-      background: ${warm};
+      background: ${paper};
+      box-shadow: 0 0 0 3px ${warm};
     }
     #rc-overlay .rc-readonly {
       flex: 1;

@@ -171,7 +171,8 @@ body.popup-page {
 
 .input:focus {
   border-color: var(--ru-ink);
-  background: var(--ru-accent-soft);
+  background: var(--rv-surface);
+  box-shadow: 0 0 0 3px var(--ru-accent-soft);
 }
 
 .actions {

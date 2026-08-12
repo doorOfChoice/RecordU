@@ -12,10 +12,16 @@ import {
   splitBlanksForGrading
 } from "../shared/quiz.js";
 import {
+  pickRecentMissWords,
+  resolveArenaMissPool
+} from "../shared/arena-misses.js";
+import {
   deleteQuiz,
   generateQuiz,
   getAllQuizzes,
+  getArenaMisses,
   gradeQuizBlanks,
+  removeArenaMisses,
   saveQuiz,
   updateQuiz
 } from "../shared/api.js";
@@ -48,23 +54,143 @@ function formatQuizTime(ts) {
 }
 
 /**
+ * Shared LLM generate → saveQuiz pipeline.
+ * @param {object} opts
+ * @param {object[]} opts.picked
+ * @param {{ promptLang: string, difficulty: string, showSourceWords?: boolean }} opts.choice
+ * @param {HTMLButtonElement} opts.progressBtn
+ * @param {(id: string) => void} opts.onOpen
+ * @returns {Promise<object|null>} saved quiz or null
+ */
+async function runQuizGeneratePipeline({ picked, choice, progressBtn, onOpen }) {
+  const captures = Array.isArray(state.captures) ? state.captures : [];
+  const enriched = enrichWordsForQuiz(picked, captures);
+  const chunks = chunkList(enriched, QUIZ_GENERATE_CHUNK);
+  console.log("[RecordU quiz] ui generate start", {
+    count: enriched.length,
+    chunks: chunks.length,
+    chunkSize: QUIZ_GENERATE_CHUNK,
+    concurrent: true,
+    captures: captures.length,
+    withContext: enriched.filter((w) => w && w.context).length,
+    promptLang: choice.promptLang,
+    difficulty: choice.difficulty
+  });
+
+  let done = 0;
+  const setProgress = () => {
+    progressBtn.textContent =
+      chunks.length > 1 ? `生成中 ${done}/${chunks.length}…` : "生成中…";
+  };
+  setProgress();
+
+  const results = await Promise.all(
+    chunks.map(async (chunk, i) => {
+      const t0 = Date.now();
+      console.log("[RecordU quiz] ui chunk request", {
+        chunk: `${i + 1}/${chunks.length}`,
+        words: chunk.length
+      });
+      try {
+        const res = await generateQuiz(chunk, choice.promptLang, choice.difficulty);
+        console.log("[RecordU quiz] ui chunk response", {
+          chunk: `${i + 1}/${chunks.length}`,
+          ok: !!(res && res.ok),
+          code: res && res.code,
+          items: res && Array.isArray(res.items) ? res.items.length : 0,
+          error: res && res.error,
+          ms: Date.now() - t0,
+          runtimeError: chrome.runtime.lastError && chrome.runtime.lastError.message
+        });
+        return res;
+      } finally {
+        done += 1;
+        setProgress();
+      }
+    })
+  );
+
+  for (const res of results) {
+    if (!res || !res.ok) {
+      const code = res && res.code;
+      let msg = (res && res.error) || "生成失败";
+      if (code === "need_key") msg = "请先到设置 → 大模型填写 API Key。";
+      else if (code === "timeout") msg = "请求超时，请减少题量或稍后重试。";
+      await modalAlert({ title: "生成失败", message: msg });
+      return null;
+    }
+  }
+
+  const allItems = [];
+  for (const res of results) {
+    if (Array.isArray(res.items)) allItems.push(...res.items);
+  }
+  if (!allItems.length) {
+    await modalAlert({ title: "生成失败", message: "模型未返回有效题目。" });
+    return null;
+  }
+  console.log("[RecordU quiz] ui save", { items: allItems.length, words: enriched.length });
+  const saveRes = await saveQuiz({
+    count: enriched.length,
+    promptLang: choice.promptLang,
+    difficulty: choice.difficulty,
+    showSourceWords: !!choice.showSourceWords,
+    status: "ready",
+    sourceWords: enriched,
+    items: allItems,
+    score: null,
+    finishedAt: null
+  });
+  if (!saveRes || !saveRes.ok || !saveRes.quiz) {
+    await modalAlert({ title: "保存失败", message: "试卷未能写入本地。" });
+    return null;
+  }
+  state.quizzes = await getAllQuizzes();
+  onOpen(saveRes.quiz.id);
+  return saveRes.quiz;
+}
+
+/**
  * @param {object} opts
  * @param {HTMLElement} opts.root
  * @param {HTMLElement} opts.progressEl
  * @param {() => void} opts.onRefresh
  * @param {(id: string) => void} opts.onOpen
  */
-export function renderQuizList({ root, progressEl, onRefresh, onOpen }) {
+export async function renderQuizList({ root, progressEl, onRefresh, onOpen }) {
   const list = Array.isArray(state.quizzes) ? state.quizzes : [];
   progressEl.textContent = `试卷 · ${list.length} 份`;
 
   const pool = quizWordPool(state.words || []);
   const canGenerate = pool.length > 0;
 
+  let missUsable = [];
+  try {
+    const misses = await getArenaMisses();
+    const resolved = resolveArenaMissPool(misses, state.words || []);
+    missUsable = resolved.usable;
+    if (resolved.staleIds.length) {
+      removeArenaMisses(resolved.staleIds).catch(() => {});
+    }
+  } catch (e) {
+    missUsable = [];
+  }
+  const missCount = missUsable.length;
+  const canMissGenerate = missCount > 0;
+
   root.innerHTML = `
     <div class="rv-quiz-toolbar">
-      <p class="rv-quiz-toolbar-hint">用大模型从未学会词中出题：语境填空、用法辨析、场景连线（会参考备注与原文语境）。</p>
-      <button type="button" class="btn btn-primary rv-quiz-gen-btn" id="rv-quiz-gen" ${canGenerate ? "" : "disabled"}>生成试卷</button>
+      <p class="rv-quiz-toolbar-hint">用大模型从未学会词中出题：语境填空、用法辨析、场景连线（会参考备注与原文语境）。练习场答错会记入易错词，可单独出卷。</p>
+      <div class="rv-quiz-toolbar-actions">
+        ${
+          canMissGenerate
+            ? `<button type="button" class="btn rv-quiz-gen-misses-btn" id="rv-quiz-gen-misses">易错词出卷 · ${missCount}</button>`
+            : ""
+        }
+        <button type="button" class="btn btn-primary rv-quiz-gen-btn" id="rv-quiz-gen" ${
+          canGenerate ? "" : "disabled"
+        }>生成试卷</button>
+      </div>
     </div>
     ${
       list.length
@@ -90,6 +216,8 @@ export function renderQuizList({ root, progressEl, onRefresh, onOpen }) {
   `;
 
   const genBtn = root.querySelector("#rv-quiz-gen");
+  const missBtn = root.querySelector("#rv-quiz-gen-misses");
+
   genBtn.addEventListener("click", async () => {
     if (!canGenerate) {
       await modalAlert({
@@ -117,94 +245,17 @@ export function renderQuizList({ root, progressEl, onRefresh, onOpen }) {
     }
 
     genBtn.disabled = true;
+    if (missBtn) missBtn.disabled = true;
     const prev = genBtn.textContent;
     genBtn.textContent = "生成中…";
     try {
       const picked = pickRandomWords(scoped, choice.count);
-      const captures = Array.isArray(state.captures) ? state.captures : [];
-      const enriched = enrichWordsForQuiz(picked, captures);
-      const chunks = chunkList(enriched, QUIZ_GENERATE_CHUNK);
-      console.log("[RecordU quiz] ui generate start", {
-        count: enriched.length,
-        chunks: chunks.length,
-        chunkSize: QUIZ_GENERATE_CHUNK,
-        concurrent: true,
-        captures: captures.length,
-        withContext: enriched.filter((w) => w && w.context).length,
-        promptLang: choice.promptLang,
-        difficulty: choice.difficulty
+      await runQuizGeneratePipeline({
+        picked,
+        choice,
+        progressBtn: genBtn,
+        onOpen
       });
-
-      let done = 0;
-      const setProgress = () => {
-        genBtn.textContent =
-          chunks.length > 1 ? `生成中 ${done}/${chunks.length}…` : "生成中…";
-      };
-      setProgress();
-
-      const results = await Promise.all(
-        chunks.map(async (chunk, i) => {
-          const t0 = Date.now();
-          console.log("[RecordU quiz] ui chunk request", {
-            chunk: `${i + 1}/${chunks.length}`,
-            words: chunk.length
-          });
-          try {
-            const res = await generateQuiz(chunk, choice.promptLang, choice.difficulty);
-            console.log("[RecordU quiz] ui chunk response", {
-              chunk: `${i + 1}/${chunks.length}`,
-              ok: !!(res && res.ok),
-              code: res && res.code,
-              items: res && Array.isArray(res.items) ? res.items.length : 0,
-              error: res && res.error,
-              ms: Date.now() - t0,
-              runtimeError: chrome.runtime.lastError && chrome.runtime.lastError.message
-            });
-            return res;
-          } finally {
-            done += 1;
-            setProgress();
-          }
-        })
-      );
-
-      for (const res of results) {
-        if (!res || !res.ok) {
-          const code = res && res.code;
-          let msg = (res && res.error) || "生成失败";
-          if (code === "need_key") msg = "请先到设置 → 大模型填写 API Key。";
-          else if (code === "timeout") msg = "请求超时，请减少题量或稍后重试。";
-          await modalAlert({ title: "生成失败", message: msg });
-          return;
-        }
-      }
-
-      const allItems = [];
-      for (const res of results) {
-        if (Array.isArray(res.items)) allItems.push(...res.items);
-      }
-      if (!allItems.length) {
-        await modalAlert({ title: "生成失败", message: "模型未返回有效题目。" });
-        return;
-      }
-      console.log("[RecordU quiz] ui save", { items: allItems.length, words: enriched.length });
-      const saveRes = await saveQuiz({
-        count: enriched.length,
-        promptLang: choice.promptLang,
-        difficulty: choice.difficulty,
-        showSourceWords: !!choice.showSourceWords,
-        status: "ready",
-        sourceWords: enriched,
-        items: allItems,
-        score: null,
-        finishedAt: null
-      });
-      if (!saveRes || !saveRes.ok || !saveRes.quiz) {
-        await modalAlert({ title: "保存失败", message: "试卷未能写入本地。" });
-        return;
-      }
-      state.quizzes = await getAllQuizzes();
-      onOpen(saveRes.quiz.id);
     } catch (e) {
       console.warn("[RecordU quiz] ui generate exception", e);
       await modalAlert({
@@ -214,6 +265,81 @@ export function renderQuizList({ root, progressEl, onRefresh, onOpen }) {
     } finally {
       genBtn.disabled = !canGenerate;
       genBtn.textContent = prev;
+      if (missBtn) missBtn.disabled = !canMissGenerate;
+    }
+  });
+
+  missBtn?.addEventListener("click", async () => {
+    let usable = missUsable;
+    try {
+      const misses = await getArenaMisses();
+      const resolved = resolveArenaMissPool(misses, state.words || []);
+      usable = resolved.usable;
+      if (resolved.staleIds.length) {
+        removeArenaMisses(resolved.staleIds).catch(() => {});
+      }
+    } catch (e) {
+      usable = [];
+    }
+
+    if (!usable.length) {
+      await modalAlert({
+        title: "无法生成",
+        message: "暂无可用易错词。去练习场答错几题后再来。"
+      });
+      onRefresh();
+      return;
+    }
+
+    const maxCount = Math.min(50, usable.length);
+    const choice = await promptQuizGenerate({
+      title: "易错词出卷",
+      hideDay: true,
+      maxCount,
+      defaultCount: Math.min(10, maxCount),
+      countLabel: `练习几个易错词（1–${maxCount}）`
+    });
+    if (!choice) return;
+
+    const picked = pickRecentMissWords(usable, choice.count);
+    if (!picked.length) {
+      await modalAlert({ title: "无法生成", message: "暂无可用易错词。" });
+      return;
+    }
+    const pickedIds = picked.map((w) => String(w.id || "")).filter(Boolean);
+
+    genBtn.disabled = true;
+    missBtn.disabled = true;
+    missBtn.textContent = "生成中…";
+    try {
+      const quiz = await runQuizGeneratePipeline({
+        picked,
+        choice,
+        progressBtn: missBtn,
+        onOpen
+      });
+      if (quiz && pickedIds.length) {
+        await removeArenaMisses(pickedIds);
+      }
+    } catch (e) {
+      console.warn("[RecordU quiz] ui miss generate exception", e);
+      await modalAlert({
+        title: "生成失败",
+        message: e && e.message ? e.message : String(e)
+      });
+    } finally {
+      genBtn.disabled = !canGenerate;
+      try {
+        const left = resolveArenaMissPool(await getArenaMisses(), state.words || []).usable;
+        if (!left.length) {
+          missBtn.remove();
+        } else {
+          missBtn.disabled = false;
+          missBtn.textContent = `易错词出卷 · ${left.length}`;
+        }
+      } catch (e) {
+        missBtn.remove();
+      }
     }
   });
 

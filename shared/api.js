@@ -128,6 +128,19 @@ export async function deleteQuiz(id) {
   return chrome.runtime.sendMessage({ type: "rc-delete-quiz", id });
 }
 
+export async function getArenaMisses() {
+  const res = await chrome.runtime.sendMessage({ type: "rc-get-arena-misses" });
+  return (res && res.misses) || [];
+}
+
+export async function upsertArenaMisses(misses) {
+  return chrome.runtime.sendMessage({ type: "rc-upsert-arena-misses", misses });
+}
+
+export async function removeArenaMisses(ids) {
+  return chrome.runtime.sendMessage({ type: "rc-remove-arena-misses", ids });
+}
+
 export async function saveSettings(patch) {
   return chrome.runtime.sendMessage({ type: "rc-save-settings", patch });
 }

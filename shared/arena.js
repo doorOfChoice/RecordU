@@ -197,7 +197,9 @@ export function createDetectiveSession(words, captures, count = DETECTIVE_DEFAUL
     correctCount: 0,
     combo: 0,
     maxCombo: 0,
-    finished: false
+    finished: false,
+    /** @type {{ wordId: string, word: string, translation: string, phonetic: string }[]} */
+    misses: []
   };
 }
 
@@ -299,6 +301,19 @@ export function answerDetective(session, userAnswer) {
     if (session.combo > session.maxCombo) session.maxCombo = session.combo;
   } else {
     session.combo = 0;
+    if (!Array.isArray(session.misses)) session.misses = [];
+    const wordId = String(item.id || item.word || "");
+    const already = session.misses.some(
+      (m) => m && String(m.wordId || m.word || "") === wordId && wordId
+    );
+    if (!already) {
+      session.misses.push({
+        wordId,
+        word: String(item.word || "").trim(),
+        translation: String(item.translation || "").trim(),
+        phonetic: String(item.phonetic || "").trim()
+      });
+    }
   }
   return { ok };
 }

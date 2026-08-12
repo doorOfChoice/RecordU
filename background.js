@@ -7,6 +7,11 @@ import {
 } from "./shared/settings.js";
 import { lookupWordWithLlm, generateQuizWithLlm, gradeBlankAnswersWithLlm } from "./shared/llm.js";
 import {
+  loadArenaMisses,
+  removeArenaMissesStorage,
+  upsertArenaMissesStorage
+} from "./shared/arena-misses.js";
+import {
   deleteCapture as dbDeleteCapture,
   deleteQuiz as dbDeleteQuiz,
   deleteWord as dbDeleteWord,
@@ -822,6 +827,27 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     ensureMigrated()
       .then(() => dbDeleteQuiz(msg.id))
       .then(() => sendResponse({ ok: true }))
+      .catch((e) => sendResponse({ ok: false, error: String(e) }));
+    return true;
+  }
+
+  if (msg.type === "rc-get-arena-misses") {
+    loadArenaMisses()
+      .then((misses) => sendResponse({ ok: true, misses: misses || [] }))
+      .catch((e) => sendResponse({ ok: false, misses: [], error: String(e) }));
+    return true;
+  }
+
+  if (msg.type === "rc-upsert-arena-misses") {
+    upsertArenaMissesStorage(msg.misses || [])
+      .then((misses) => sendResponse({ ok: true, misses }))
+      .catch((e) => sendResponse({ ok: false, error: String(e) }));
+    return true;
+  }
+
+  if (msg.type === "rc-remove-arena-misses") {
+    removeArenaMissesStorage(msg.ids || [])
+      .then((misses) => sendResponse({ ok: true, misses }))
       .catch((e) => sendResponse({ ok: false, error: String(e) }));
     return true;
   }

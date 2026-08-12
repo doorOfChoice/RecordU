@@ -152,7 +152,8 @@
 .rv-settings-hex:focus {
   outline: none;
   border-color: var(--rv-ink);
-  background: var(--rv-accent-soft);
+  background: var(--rv-surface);
+  box-shadow: 0 0 0 3px var(--rv-accent-soft);
 }
 
 .rv-settings-text,
@@ -174,7 +175,8 @@
 .rv-settings-select:focus {
   outline: none;
   border-color: var(--rv-ink);
-  background: var(--rv-accent-soft);
+  background: var(--rv-surface);
+  box-shadow: 0 0 0 3px var(--rv-accent-soft);
 }
 
 .rv-settings-prompt {
@@ -197,7 +199,8 @@
 .rv-settings-prompt:focus {
   outline: none;
   border-color: var(--rv-ink);
-  background: var(--rv-accent-soft);
+  background: var(--rv-surface);
+  box-shadow: 0 0 0 3px var(--rv-accent-soft);
 }
 
 .rv-settings-textarea {
@@ -220,7 +223,8 @@
 .rv-settings-textarea:focus {
   outline: none;
   border-color: var(--rv-ink);
-  background: var(--rv-accent-soft);
+  background: var(--rv-surface);
+  box-shadow: 0 0 0 3px var(--rv-accent-soft);
 }
 
 .rv-settings-swatch {
