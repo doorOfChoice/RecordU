@@ -1239,7 +1239,9 @@
     if (parent.closest(`script, style, noscript, textarea, ${OWN_UI_SEL}`)) {
       return NodeFilter.FILTER_REJECT;
     }
-    if (skipHighlights && parent.closest(".rc-highlight, .rc-word-highlight")) {
+    if (skipHighlights === "word") {
+      if (parent.closest(".rc-word-highlight")) return NodeFilter.FILTER_REJECT;
+    } else if (skipHighlights && parent.closest(".rc-highlight, .rc-word-highlight")) {
       return NodeFilter.FILTER_REJECT;
     }
     return NodeFilter.FILTER_ACCEPT;
@@ -1577,6 +1579,8 @@
       const h = e.target.closest && e.target.closest(".rc-highlight");
       if (!h || !h.dataset.rcId) return;
       if (document.getElementById("rc-overlay")) return;
+      const sel = window.getSelection();
+      if (sel && !sel.isCollapsed && sel.toString().trim()) return;
       e.preventDefault();
       e.stopPropagation();
       showEditOverlay(h.dataset.rcId, h.getBoundingClientRect());
@@ -1871,11 +1875,9 @@
 
     reconcilePassRunning = true;
     try {
-      const tasks = [];
-      if (doIdea) tasks.push(reconcileHighlights());
-      if (wordFull) tasks.push(reconcileWordHighlights({ full: true }));
-      else if (wordInc) tasks.push(reconcileWordHighlights({ full: false, roots }));
-      if (tasks.length) await Promise.all(tasks);
+      if (doIdea) await reconcileHighlights();
+      if (wordFull) await reconcileWordHighlights({ full: true });
+      else if (wordInc) await reconcileWordHighlights({ full: false, roots });
     } finally {
       reconcilePassRunning = false;
       if (pendingPass.idea || pendingPass.wordFull || pendingPass.wordIncremental) {
@@ -1986,7 +1988,7 @@
 
   function wrapWordRange(node, start, end, id, word, tip) {
     if (!node || !node.parentNode || start >= end) return;
-    if (node.parentElement && node.parentElement.closest(".rc-highlight, .rc-word-highlight")) return;
+    if (node.parentElement && node.parentElement.closest(".rc-word-highlight")) return;
 
     const text = node.nodeValue || "";
     let s = Math.max(0, start);
@@ -2081,7 +2083,7 @@
 
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
       acceptNode(node) {
-        return acceptTextNode(node, true);
+        return acceptTextNode(node, "word");
       }
     });
 
