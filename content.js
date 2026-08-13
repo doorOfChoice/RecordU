@@ -862,7 +862,7 @@
     const old = document.getElementById("rc-overlay");
     if (old) old.remove();
 
-    const word = String(wordText || "").replace(/\s+/g, " ").trim();
+    const word = normalizeCapturedWord(wordText);
     let wordId = opts.wordId || null;
     let initialNote = typeof opts.note === "string" ? opts.note : "";
     let initialPhonetic = typeof opts.phonetic === "string" ? opts.phonetic : "";
@@ -1897,13 +1897,34 @@
 
   // ---------- word highlights (global) ----------
 
+  function foldWordMarks(s) {
+    return String(s || "")
+      .replace(/[\u2018\u2019\u02BC]/g, "'")
+      .replace(/[\u2010\u2011\u2012\u2013\u2014\u2212\uFE58\uFE63\uFF0D]/g, "-");
+  }
+
+  function stripWordPunct(s) {
+    return String(s || "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .replace(/^[\s.,;:!?…·•"'“”‘’«»()[\]{}<>]+/u, "")
+      .replace(/[\s.,;:!?…·•"'“”‘’«»()[\]{}<>]+$/u, "")
+      .trim();
+  }
+
+  function normalizeCapturedWord(s) {
+    return foldWordMarks(stripWordPunct(s));
+  }
+
   function isLatinWord(word) {
-    return /^[A-Za-z0-9][A-Za-z0-9'\-]*$/.test(word);
+    return /^[A-Za-z0-9][A-Za-z0-9'\-]*$/.test(foldWordMarks(word));
   }
 
   /** Keep in sync with isLatinWord: hyphen/apostrophe stay inside one token (e.g. high-profile, don't). */
   function isWordChar(ch) {
-    return /[A-Za-z0-9'\-]/.test(ch);
+    if (!ch) return false;
+    if (/[A-Za-z0-9'\-]/.test(ch)) return true;
+    return /[\u2018\u2019\u02BC\u2010\u2011\u2012\u2013\u2014\u2212\uFE58\uFE63\uFF0D]/.test(ch);
   }
 
   /** Longest-first English suffixes for stem derivation. */
@@ -1948,12 +1969,21 @@
 
   function deriveLatinStem(lower) {
     if (!lower || lower.length < 5) return lower || "";
+    let stem = lower;
     for (const suf of LATIN_STEM_SUFFIXES) {
       if (lower.length - suf.length >= 4 && lower.endsWith(suf)) {
-        return lower.slice(0, -suf.length);
+        stem = lower.slice(0, -suf.length);
+        break;
       }
     }
-    return lower;
+    if (
+      stem.length >= 4 &&
+      stem[stem.length - 1] === stem[stem.length - 2] &&
+      /[^aeiou]/.test(stem[stem.length - 1])
+    ) {
+      stem = stem.slice(0, -1);
+    }
+    return stem;
   }
 
   function isSuffixRest(rest) {
@@ -2014,11 +2044,22 @@
     span.appendChild(target);
   }
 
+  function foldedEqualsAt(nodeValue, start, endLimit, foldedTarget) {
+    const n = foldedTarget.length;
+    if (!n || start + n > endLimit) return null;
+    const raw = nodeValue.slice(start, start + n);
+    if (foldWordMarks(raw).toLowerCase() === foldedTarget) {
+      return { start, end: start + n };
+    }
+    return null;
+  }
+
   function findWordMatchesInNode(nodeValue, word, latin, mode) {
     const matches = [];
     if (!nodeValue || !word) return matches;
+    const foldedWord = foldWordMarks(word);
     if (latin) {
-      const lowerWord = word.toLowerCase();
+      const lowerWord = foldedWord.toLowerCase();
       let i = 0;
       while (i < nodeValue.length) {
         if (!isWordChar(nodeValue[i])) {
@@ -2027,19 +2068,64 @@
         }
         let j = i + 1;
         while (j < nodeValue.length && isWordChar(nodeValue[j])) j++;
-        const tokenLower = nodeValue.slice(i, j).toLowerCase();
+        const tokenLower = foldWordMarks(nodeValue.slice(i, j)).toLowerCase();
         if (latinTokenMatches(tokenLower, lowerWord, mode)) {
           matches.push({ start: i, end: j });
+          i = j;
+          continue;
+        }
+
+        let partHit = false;
+        let partStart = i;
+        for (let k = i; k <= j; k++) {
+          const atEnd = k === j;
+          const isHyphen = !atEnd && foldWordMarks(nodeValue[k]) === "-";
+          if (!atEnd && !isHyphen) continue;
+          if (k > partStart) {
+            const partLower = foldWordMarks(nodeValue.slice(partStart, k)).toLowerCase();
+            if (latinTokenMatches(partLower, lowerWord, mode)) {
+              matches.push({ start: partStart, end: k });
+              partHit = true;
+            }
+          }
+          partStart = k + 1;
+        }
+        if (!partHit) {
+          for (let pos = i; pos < j; ) {
+            const leftOk = pos === i || foldWordMarks(nodeValue[pos - 1]) === "-";
+            if (leftOk) {
+              const span = foldedEqualsAt(nodeValue, pos, j, lowerWord);
+              if (span) {
+                matches.push(span);
+                pos = span.end;
+                continue;
+              }
+            }
+            pos++;
+          }
         }
         i = j;
       }
     } else {
-      let from = 0;
-      while (from <= nodeValue.length - word.length) {
-        const idx = nodeValue.indexOf(word, from);
-        if (idx < 0) break;
-        matches.push({ start: idx, end: idx + word.length });
-        from = idx + word.length;
+      const needle = foldedWord;
+      const needleLower = needle.toLowerCase();
+      const hayLower = foldWordMarks(nodeValue).toLowerCase();
+      if (hayLower.length === nodeValue.length && needleLower.length === needle.length) {
+        let from = 0;
+        while (from <= hayLower.length - needleLower.length) {
+          const idx = hayLower.indexOf(needleLower, from);
+          if (idx < 0) break;
+          matches.push({ start: idx, end: idx + needleLower.length });
+          from = idx + needleLower.length;
+        }
+      } else {
+        let from = 0;
+        while (from <= nodeValue.length - word.length) {
+          const idx = nodeValue.indexOf(word, from);
+          if (idx < 0) break;
+          matches.push({ start: idx, end: idx + word.length });
+          from = idx + word.length;
+        }
       }
     }
     return matches;
