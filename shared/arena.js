@@ -1,8 +1,44 @@
 import { normalizeWordKey } from "./db.js";
 import { enrichWordsForQuiz, pickRandomWords, quizWordPool } from "./quiz.js";
 
-export const SPRINT_DURATION_SEC = 60;
+export const SPRINT_DURATION_MIN = 10;
+export const SPRINT_DURATION_MAX = 300;
+export const SPRINT_DURATION_STEP = 10;
+export const SPRINT_DURATION_DEFAULT = 60;
+export const SPRINT_DURATION_SEC = SPRINT_DURATION_DEFAULT;
 export const DETECTIVE_DEFAULT_COUNT = 8;
+
+/**
+ * @param {unknown} value
+ * @returns {number}
+ */
+export function clampSprintDuration(value) {
+  const raw = Number(value);
+  if (!Number.isFinite(raw)) return SPRINT_DURATION_DEFAULT;
+  const stepped = Math.round(raw / SPRINT_DURATION_STEP) * SPRINT_DURATION_STEP;
+  return Math.min(SPRINT_DURATION_MAX, Math.max(SPRINT_DURATION_MIN, stepped));
+}
+
+/**
+ * @param {unknown} value
+ * @returns {string}
+ */
+export function normalizeArenaDayKey(value) {
+  const key = String(value || "").trim();
+  return key || "all";
+}
+
+/**
+ * Remaining milliseconds for a sprint session (based on startedAt).
+ * @param {object} session
+ * @returns {number}
+ */
+export function sprintRemainingMs(session) {
+  if (!session) return 0;
+  const durationMs = clampSprintDuration(session.durationSec) * 1000;
+  const started = Number(session.startedAt) || Date.now();
+  return Math.max(0, started + durationMs - Date.now());
+}
 
 /**
  * @param {unknown} value
@@ -186,12 +222,14 @@ function shuffleCopy(arr) {
  * @param {object[]} words
  * @param {object[]} captures
  * @param {number} [count]
+ * @param {string} [dayKey]
  */
-export function createDetectiveSession(words, captures, count = DETECTIVE_DEFAULT_COUNT) {
+export function createDetectiveSession(words, captures, count = DETECTIVE_DEFAULT_COUNT, dayKey = "all") {
   const pool = quizWordPool(words);
   const picked = pickDetectiveWords(pool, captures, count);
   return {
     mode: "detective",
+    dayKey: normalizeArenaDayKey(dayKey),
     items: picked.map(buildDetectiveItem),
     index: 0,
     correctCount: 0,
@@ -206,14 +244,19 @@ export function createDetectiveSession(words, captures, count = DETECTIVE_DEFAUL
 /**
  * @param {object[]} words
  * @param {"en2zh"|"zh2en"} direction
+ * @param {number} [durationSec]
+ * @param {string} [dayKey]
  */
-export function createSprintSession(words, direction = "en2zh") {
+export function createSprintSession(words, direction = "en2zh", durationSec, dayKey = "all") {
   const pool = quizWordPool(words);
+  const duration = clampSprintDuration(durationSec);
   return {
     mode: "sprint",
     pool,
+    dayKey: normalizeArenaDayKey(dayKey),
     direction: normalizeSprintDirection(direction),
-    remainingSec: SPRINT_DURATION_SEC,
+    durationSec: duration,
+    remainingSec: duration,
     answered: 0,
     correctCount: 0,
     combo: 0,

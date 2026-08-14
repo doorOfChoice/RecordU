@@ -1,25 +1,36 @@
 import { escapeHtml } from "../shared/dom.js";
 import {
   DETECTIVE_DEFAULT_COUNT,
-  SPRINT_DURATION_SEC,
+  SPRINT_DURATION_DEFAULT,
+  SPRINT_DURATION_MAX,
+  SPRINT_DURATION_MIN,
+  SPRINT_DURATION_STEP,
   answerDetective,
   answerSprint,
+  clampSprintDuration,
   createDetectiveSession,
   createSprintSession,
   nextSprintQuestion,
-  normalizeSprintDirection
+  normalizeArenaDayKey,
+  normalizeSprintDirection,
+  sprintRemainingMs
 } from "../shared/arena.js";
 import {
   burstLabelFromCombo,
   burstWaitMs,
   spawnBurst
 } from "../shared/fx-burst.js";
-import { quizWordPool } from "../shared/quiz.js";
+import { filterQuizPoolByDay, quizDayOptions, quizWordPool } from "../shared/quiz.js";
 import { upsertArenaMisses } from "../shared/api.js";
 import { state } from "./state.js";
 
+const RING_R = 26;
+const RING_C = 2 * Math.PI * RING_R;
+
 /** @type {ReturnType<typeof setInterval> | null} */
 let sprintTimer = null;
+/** @type {number | null} */
+let sprintRaf = null;
 
 /**
  * Persist one arena miss (fire-and-forget).
@@ -80,6 +91,98 @@ function clearSprintTimer() {
     clearInterval(sprintTimer);
     sprintTimer = null;
   }
+  if (sprintRaf != null) {
+    cancelAnimationFrame(sprintRaf);
+    sprintRaf = null;
+  }
+}
+
+function scopedArenaPool(dayKey) {
+  return filterQuizPoolByDay(quizWordPool(state.words || []), normalizeArenaDayKey(dayKey));
+}
+
+function daySelectHtml(pool, which) {
+  const options = [{ key: "all", label: "全部", count: pool.length }, ...quizDayOptions(pool)];
+  return `<label class="rv-arena-field">
+    <span class="rv-arena-field-label">时间</span>
+    <select class="rv-arena-select" data-arena-day="${escapeHtml(which)}" aria-label="时间">
+      ${options
+        .map((o) => {
+          const key = String(o.key);
+          const count = Math.max(0, Number(o.count) || 0);
+          const label = key === "all" ? String(o.label || "全部") : `${o.label || key}（${count}）`;
+          return `<option value="${escapeHtml(key)}">${escapeHtml(label)}</option>`;
+        })
+        .join("")}
+    </select>
+  </label>`;
+}
+
+function durationFillPct(sec) {
+  const span = SPRINT_DURATION_MAX - SPRINT_DURATION_MIN;
+  if (span <= 0) return 100;
+  return Math.max(0, Math.min(100, ((sec - SPRINT_DURATION_MIN) / span) * 100));
+}
+
+function ringToneClass(remainSec) {
+  if (remainSec <= 10) return " is-danger";
+  if (remainSec <= 30) return " is-warn";
+  return "";
+}
+
+function sprintRingHtml(remainSec, durationSec) {
+  const dur = Math.max(1, Number(durationSec) || SPRINT_DURATION_DEFAULT);
+  const frac = Math.max(0, Math.min(1, remainSec / dur));
+  const offset = RING_C * (1 - frac);
+  const display = Math.max(0, Math.ceil(remainSec));
+  return `<div class="rv-arena-ring${ringToneClass(remainSec)}" data-sprint-ring aria-live="polite" aria-label="${display}秒">
+    <svg class="rv-arena-ring-svg" viewBox="0 0 64 64" aria-hidden="true">
+      <circle class="rv-arena-ring-track" cx="32" cy="32" r="${RING_R}"></circle>
+      <circle class="rv-arena-ring-arc" cx="32" cy="32" r="${RING_R}"
+        stroke-dasharray="${RING_C.toFixed(3)}"
+        stroke-dashoffset="${offset.toFixed(3)}"
+        transform="rotate(-90 32 32)"></circle>
+    </svg>
+    <span class="rv-arena-ring-num">${display}</span>
+  </div>`;
+}
+
+function applySprintRing(root, remainSec, durationSec) {
+  const wrap = root.querySelector("[data-sprint-ring]");
+  const arc = root.querySelector(".rv-arena-ring-arc");
+  const num = root.querySelector(".rv-arena-ring-num");
+  const dur = Math.max(1, Number(durationSec) || SPRINT_DURATION_DEFAULT);
+  const frac = Math.max(0, Math.min(1, remainSec / dur));
+  if (wrap) {
+    wrap.classList.toggle("is-warn", remainSec <= 30 && remainSec > 10);
+    wrap.classList.toggle("is-danger", remainSec <= 10);
+    wrap.setAttribute("aria-label", `${Math.max(0, Math.ceil(remainSec))}秒`);
+  }
+  if (arc) arc.setAttribute("stroke-dashoffset", String((RING_C * (1 - frac)).toFixed(3)));
+  if (num) num.textContent = String(Math.max(0, Math.ceil(remainSec)));
+}
+
+function startDetective(dayKey, onRefresh) {
+  const scoped = scopedArenaPool(dayKey);
+  if (!scoped.length) return;
+  state.arenaSession = createDetectiveSession(
+    scoped,
+    state.captures || [],
+    DETECTIVE_DEFAULT_COUNT,
+    dayKey
+  );
+  state.activeArenaMode = "detective";
+  onRefresh();
+}
+
+function startSprint({ dayKey, direction, durationSec, onRefresh }) {
+  const scoped = scopedArenaPool(dayKey);
+  if (!scoped.length) return;
+  const session = createSprintSession(scoped, direction, durationSec, dayKey);
+  nextSprintQuestion(session);
+  state.arenaSession = session;
+  state.activeArenaMode = "sprint";
+  onRefresh();
 }
 
 function poolEmptyHtml() {
@@ -141,6 +244,8 @@ function renderArenaHub({ root, progressEl, onRefresh }) {
   const pool = quizWordPool(state.words || []);
   const n = pool.length;
   progressEl.textContent = `练习场 · ${n} 个可练词`;
+  const dur = SPRINT_DURATION_DEFAULT;
+  const fillPct = durationFillPct(dur);
 
   root.innerHTML = `
     <div class="rv-arena-hub">
@@ -152,12 +257,14 @@ function renderArenaHub({ root, progressEl, onRefresh }) {
             <div class="rv-arena-card-icon is-detective" aria-hidden="true">${iconDetective()}</div>
             <h3 class="rv-arena-card-title">语境侦探</h3>
             <p class="rv-arena-card-desc">从你当初划词的原文里挖空，凭语境填回单词。没有原文时改为看释义填词。</p>
-            <button type="button" class="btn btn-primary" data-arena-start="detective">开始</button>
+            ${daySelectHtml(pool, "detective")}
+            <button type="button" class="btn" data-arena-start="detective">开始</button>
           </article>
           <article class="rv-arena-card">
             <div class="rv-arena-card-icon is-sprint" aria-hidden="true">${iconSprint()}</div>
             <h3 class="rv-arena-card-title">六十秒闪回</h3>
             <p class="rv-arena-card-desc">限时抢答：认词或认义，四选一。连对会安静地叠 combo。</p>
+            ${daySelectHtml(pool, "sprint")}
             <div class="rv-arena-card-opts" role="group" aria-label="出题方向">
               <label class="rv-arena-radio">
                 <input type="radio" name="rv-sprint-dir" value="en2zh" checked>
@@ -168,7 +275,18 @@ function renderArenaHub({ root, progressEl, onRefresh }) {
                 <span>义 → 英</span>
               </label>
             </div>
-            <button type="button" class="btn btn-primary" data-arena-start="sprint">开始</button>
+            <div class="rv-arena-duration">
+              <div class="rv-arena-duration-head">
+                <span class="rv-arena-field-label">时长</span>
+                <span class="rv-arena-duration-val" data-sprint-duration-label>${dur}s</span>
+              </div>
+              <div class="rv-arena-duration-track">
+                <div class="rv-arena-duration-fill" data-sprint-duration-fill style="width:${fillPct}%"></div>
+                <input type="range" min="${SPRINT_DURATION_MIN}" max="${SPRINT_DURATION_MAX}"
+                  step="${SPRINT_DURATION_STEP}" value="${dur}" data-sprint-duration aria-label="闪回时长">
+              </div>
+            </div>
+            <button type="button" class="btn" data-arena-start="sprint">开始</button>
           </article>
         </div>`
           : poolEmptyHtml()
@@ -176,29 +294,50 @@ function renderArenaHub({ root, progressEl, onRefresh }) {
     </div>
   `;
 
+  function syncStartEnabled(which) {
+    const select = root.querySelector(`[data-arena-day="${which}"]`);
+    const btn = root.querySelector(`[data-arena-start="${which}"]`);
+    if (!select || !btn) return;
+    const count = scopedArenaPool(select.value).length;
+    btn.disabled = count < 1;
+  }
+
+  root.querySelectorAll("[data-arena-day]").forEach((sel) => {
+    sel.addEventListener("change", () => syncStartEnabled(sel.getAttribute("data-arena-day")));
+    syncStartEnabled(sel.getAttribute("data-arena-day"));
+  });
+
+  const durInput = root.querySelector("[data-sprint-duration]");
+  const durLabel = root.querySelector("[data-sprint-duration-label]");
+  const durFill = root.querySelector("[data-sprint-duration-fill]");
+  if (durInput) {
+    const syncDur = () => {
+      const sec = clampSprintDuration(durInput.value);
+      durInput.value = String(sec);
+      if (durLabel) durLabel.textContent = `${sec}s`;
+      if (durFill) durFill.style.width = `${durationFillPct(sec)}%`;
+    };
+    durInput.addEventListener("input", syncDur);
+  }
+
   root.querySelectorAll("[data-arena-start]").forEach((btn) => {
     btn.addEventListener("click", () => {
       const kind = btn.getAttribute("data-arena-start");
       if (kind === "detective") {
-        if (!quizWordPool(state.words || []).length) return;
-        state.arenaSession = createDetectiveSession(
-          state.words || [],
-          state.captures || [],
-          DETECTIVE_DEFAULT_COUNT
-        );
-        state.activeArenaMode = "detective";
-        onRefresh();
+        const dayEl = root.querySelector('[data-arena-day="detective"]');
+        startDetective(dayEl && dayEl.value, onRefresh);
         return;
       }
       if (kind === "sprint") {
-        if (!quizWordPool(state.words || []).length) return;
+        const dayEl = root.querySelector('[data-arena-day="sprint"]');
         const dirEl = root.querySelector('input[name="rv-sprint-dir"]:checked');
-        const direction = normalizeSprintDirection(dirEl && dirEl.value);
-        const session = createSprintSession(state.words || [], direction);
-        nextSprintQuestion(session);
-        state.arenaSession = session;
-        state.activeArenaMode = "sprint";
-        onRefresh();
+        const durationEl = root.querySelector("[data-sprint-duration]");
+        startSprint({
+          dayKey: dayEl && dayEl.value,
+          direction: normalizeSprintDirection(dirEl && dirEl.value),
+          durationSec: durationEl && durationEl.value,
+          onRefresh
+        });
       }
     });
   });
@@ -276,6 +415,7 @@ function renderSprint({ root, progressEl, onRefresh }) {
     const correct = session.correctCount || 0;
     const rate = answered ? Math.round((correct / answered) * 100) : 0;
     const maxCombo = session.maxCombo || 0;
+    const durationSec = session.durationSec || SPRINT_DURATION_DEFAULT;
     const misses = Array.isArray(session.misses) ? session.misses : [];
     root.innerHTML = `
       <div class="rv-arena-play">
@@ -283,7 +423,7 @@ function renderSprint({ root, progressEl, onRefresh }) {
           <button type="button" class="rv-arena-back" data-arena-back>← 练习场</button>
         </div>
         <div class="rv-arena-result">
-          <h3 class="rv-arena-result-title">六十秒结束</h3>
+          <h3 class="rv-arena-result-title">${durationSec}秒结束</h3>
           <ul class="rv-arena-stats">
             ${sprintStatHtml("答对", correct, sprintStatTone("correct", correct))}
             ${sprintStatHtml("作答", answered, sprintStatTone("answered", answered))}
@@ -298,7 +438,7 @@ function renderSprint({ root, progressEl, onRefresh }) {
         </div>
       </div>
     `;
-    bindArenaChrome(root, onRefresh, session.direction);
+    bindArenaChrome(root, onRefresh, session);
     return;
   }
 
@@ -310,25 +450,26 @@ function renderSprint({ root, progressEl, onRefresh }) {
     return;
   }
 
+  const remainMs = sprintRemainingMs(session);
+  if (remainMs <= 0) {
+    session.remainingSec = 0;
+    session.finished = true;
+    renderSprint({ root, progressEl, onRefresh });
+    return;
+  }
+  const remainSec = remainMs / 1000;
+  const durationSec = session.durationSec || SPRINT_DURATION_DEFAULT;
+  session.remainingSec = Math.max(0, Math.ceil(remainSec));
   progressEl.textContent = `闪回 · ${session.remainingSec}s · 连对 ${session.combo}`;
 
   root.innerHTML = `
     <div class="rv-arena-play" data-sprint-play>
       <div class="rv-arena-top">
         <button type="button" class="rv-arena-back" data-arena-back>← 练习场</button>
-        <div class="rv-arena-timer" aria-live="polite">
-          <span class="rv-arena-timer-num">${session.remainingSec}</span>
-          <span class="rv-arena-timer-unit">秒</span>
-        </div>
+        ${sprintRingHtml(remainSec, durationSec)}
         <span class="rv-arena-combo${session.combo >= 2 ? " is-on" : ""}" data-combo aria-live="polite">${
           session.combo >= 2 ? `×${session.combo}` : ""
         }</span>
-      </div>
-      <div class="rv-arena-timer-bar" aria-hidden="true">
-        <div class="rv-arena-timer-fill" style="width:${Math.max(
-          0,
-          Math.min(100, (session.remainingSec / SPRINT_DURATION_SEC) * 100)
-        )}%"></div>
       </div>
       <p class="rv-arena-prompt" data-prompt>${escapeHtml(q.prompt)}</p>
       ${
@@ -351,7 +492,7 @@ function renderSprint({ root, progressEl, onRefresh }) {
     </div>
   `;
 
-  bindArenaChrome(root, onRefresh, session.direction);
+  bindArenaChrome(root, onRefresh, session);
 
   const play = root.querySelector("[data-sprint-play]");
   const feedback = root.querySelector("[data-feedback]");
@@ -420,70 +561,54 @@ function renderSprint({ root, progressEl, onRefresh }) {
   });
 
   clearSprintTimer();
-  sprintTimer = setInterval(() => {
+  const tick = () => {
     const s = state.arenaSession;
     if (!s || s.mode !== "sprint" || s.finished) {
-      clearSprintTimer();
+      sprintRaf = null;
       return;
     }
-    s.remainingSec = Math.max(0, (s.remainingSec || 0) - 1);
-    if (s.remainingSec <= 0) {
+    const ms = sprintRemainingMs(s);
+    const dur = s.durationSec || SPRINT_DURATION_DEFAULT;
+    const remain = ms / 1000;
+    s.remainingSec = Math.max(0, Math.ceil(remain));
+    if (ms <= 0) {
+      s.remainingSec = 0;
       s.finished = true;
-      clearSprintTimer();
+      sprintRaf = null;
       onRefresh();
       return;
     }
-    const num = root.querySelector(".rv-arena-timer-num");
-    const fill = root.querySelector(".rv-arena-timer-fill");
-    const combo = root.querySelector(".rv-arena-combo");
-    if (num) num.textContent = String(s.remainingSec);
-    if (fill) {
-      fill.style.width = `${Math.max(0, Math.min(100, (s.remainingSec / SPRINT_DURATION_SEC) * 100))}%`;
-    }
-    if (combo) {
-      if (s.combo >= 2) {
-        combo.textContent = `×${s.combo}`;
-        combo.classList.add("is-on");
-      } else {
-        combo.textContent = "";
-        combo.classList.remove("is-on");
-      }
-    }
+    applySprintRing(root, remain, dur);
     progressEl.textContent = `闪回 · ${s.remainingSec}s · 连对 ${s.combo}`;
-  }, 1000);
+    sprintRaf = requestAnimationFrame(tick);
+  };
+  sprintRaf = requestAnimationFrame(tick);
 }
 
 /**
  * @param {HTMLElement} root
  * @param {() => void} onRefresh
- * @param {"en2zh"|"zh2en"} [sprintDirection]
+ * @param {object} [prevSession]
  */
-function bindArenaChrome(root, onRefresh, sprintDirection) {
+function bindArenaChrome(root, onRefresh, prevSession) {
   root.querySelectorAll("[data-arena-back]").forEach((btn) => {
     btn.addEventListener("click", () => backToHub(onRefresh));
   });
   root.querySelectorAll("[data-arena-again]").forEach((btn) => {
     btn.addEventListener("click", () => {
       const kind = btn.getAttribute("data-arena-again");
+      const prev = prevSession || state.arenaSession || {};
       if (kind === "sprint") {
-        const session = createSprintSession(
-          state.words || [],
-          sprintDirection || "en2zh"
-        );
-        nextSprintQuestion(session);
-        state.arenaSession = session;
-        state.activeArenaMode = "sprint";
-        onRefresh();
+        startSprint({
+          dayKey: prev.dayKey,
+          direction: prev.direction,
+          durationSec: prev.durationSec,
+          onRefresh
+        });
         return;
       }
       if (kind === "detective") {
-        state.arenaSession = createDetectiveSession(
-          state.words || [],
-          state.captures || [],
-          DETECTIVE_DEFAULT_COUNT
-        );
-        state.activeArenaMode = "detective";
-        onRefresh();
+        startDetective(prev.dayKey, onRefresh);
       }
     });
   });
