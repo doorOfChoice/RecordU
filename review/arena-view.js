@@ -20,7 +20,8 @@ import {
   burstWaitMs,
   spawnBurst
 } from "../shared/fx-burst.js";
-import { filterQuizPoolByDay, quizDayOptions, quizWordPool } from "../shared/quiz.js";
+import { bindDayMultiselect, dayMultiselectHtml } from "../shared/day-multiselect.js";
+import { dayFilterFromChecks, filterQuizPoolByDay, quizDayOptions, quizWordPool } from "../shared/quiz.js";
 import { upsertArenaMisses } from "../shared/api.js";
 import { state } from "./state.js";
 
@@ -105,16 +106,10 @@ function daySelectHtml(pool, which) {
   const options = [{ key: "all", label: "全部", count: pool.length }, ...quizDayOptions(pool)];
   return `<label class="rv-arena-field">
     <span class="rv-arena-field-label">时间</span>
-    <select class="rv-arena-select" data-arena-day="${escapeHtml(which)}" aria-label="时间">
-      ${options
-        .map((o) => {
-          const key = String(o.key);
-          const count = Math.max(0, Number(o.count) || 0);
-          const label = key === "all" ? String(o.label || "全部") : `${o.label || key}（${count}）`;
-          return `<option value="${escapeHtml(key)}">${escapeHtml(label)}</option>`;
-        })
-        .join("")}
-    </select>
+    ${dayMultiselectHtml(options, {
+      dataDay: which,
+      wrapAttrs: `data-arena-days="${escapeHtml(which)}"`
+    })}
   </label>`;
 }
 
@@ -294,17 +289,25 @@ function renderArenaHub({ root, progressEl, onRefresh }) {
     </div>
   `;
 
+  function dayBoxes(which) {
+    return root.querySelectorAll(`[data-arena-day="${which}"]`);
+  }
+
+  function selectedDayKey(which) {
+    return dayFilterFromChecks(dayBoxes(which));
+  }
+
   function syncStartEnabled(which) {
-    const select = root.querySelector(`[data-arena-day="${which}"]`);
     const btn = root.querySelector(`[data-arena-start="${which}"]`);
-    if (!select || !btn) return;
-    const count = scopedArenaPool(select.value).length;
+    if (!btn) return;
+    const count = scopedArenaPool(selectedDayKey(which)).length;
     btn.disabled = count < 1;
   }
 
-  root.querySelectorAll("[data-arena-day]").forEach((sel) => {
-    sel.addEventListener("change", () => syncStartEnabled(sel.getAttribute("data-arena-day")));
-    syncStartEnabled(sel.getAttribute("data-arena-day"));
+  root.querySelectorAll("[data-arena-days]").forEach((wrap) => {
+    const which = wrap.getAttribute("data-arena-days");
+    bindDayMultiselect(wrap, () => syncStartEnabled(which));
+    syncStartEnabled(which);
   });
 
   const durInput = root.querySelector("[data-sprint-duration]");
@@ -324,16 +327,14 @@ function renderArenaHub({ root, progressEl, onRefresh }) {
     btn.addEventListener("click", () => {
       const kind = btn.getAttribute("data-arena-start");
       if (kind === "detective") {
-        const dayEl = root.querySelector('[data-arena-day="detective"]');
-        startDetective(dayEl && dayEl.value, onRefresh);
+        startDetective(selectedDayKey("detective"), onRefresh);
         return;
       }
       if (kind === "sprint") {
-        const dayEl = root.querySelector('[data-arena-day="sprint"]');
         const dirEl = root.querySelector('input[name="rv-sprint-dir"]:checked');
         const durationEl = root.querySelector("[data-sprint-duration]");
         startSprint({
-          dayKey: dayEl && dayEl.value,
+          dayKey: selectedDayKey("sprint"),
           direction: normalizeSprintDirection(dirEl && dirEl.value),
           durationSec: durationEl && durationEl.value,
           onRefresh

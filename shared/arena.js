@@ -1,5 +1,5 @@
 import { normalizeWordKey } from "./db.js";
-import { enrichWordsForQuiz, pickRandomWords, quizWordPool } from "./quiz.js";
+import { enrichWordsForQuiz, pickRandomWords, quizWordPool, serializeDayFilter } from "./quiz.js";
 
 export const SPRINT_DURATION_MIN = 10;
 export const SPRINT_DURATION_MAX = 300;
@@ -20,12 +20,12 @@ export function clampSprintDuration(value) {
 }
 
 /**
+ * `"all"` or comma-joined day keys.
  * @param {unknown} value
  * @returns {string}
  */
 export function normalizeArenaDayKey(value) {
-  const key = String(value || "").trim();
-  return key || "all";
+  return serializeDayFilter(value);
 }
 
 /**

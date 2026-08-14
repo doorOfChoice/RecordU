@@ -1,5 +1,7 @@
 import { escapeHtml } from "./shared/dom.js";
 import { speakWord } from "./shared/tts.js";
+import { bindDayMultiselect, dayMultiselectHtml } from "./shared/day-multiselect.js";
+import { dayFilterFromChecks, normalizeDayFilter } from "./shared/quiz.js";
 
 let current = null;
 
@@ -289,15 +291,9 @@ export function promptQuizGenerate(opts = {}) {
       ? `练习几个易错词（1–${activeMax}）`
       : `练习几个未学完的单词（1–${activeMax}）`);
 
-  const daySelectHtml = dayOptions
-    .map((o, i) => {
-      const key = String(o.key);
-      const count = Math.max(0, Number(o.count) || 0);
-      const label =
-        key === "all" ? String(o.label || "全部") : `${o.label || key}（${count}）`;
-      return `<option value="${escapeHtml(key)}"${i === 0 ? " selected" : ""}>${escapeHtml(label)}</option>`;
-    })
-    .join("");
+  const daySelectHtml = hideDay
+    ? ""
+    : dayMultiselectHtml(dayOptions, { name: "rc-modal-quiz-day" });
 
   const overlay = document.createElement("div");
   overlay.className = "rc-modal-overlay";
@@ -308,8 +304,8 @@ export function promptQuizGenerate(opts = {}) {
         hideDay
           ? ""
           : `<div class="rc-modal-field">
-        <label for="rc-modal-quiz-day">时间</label>
-        <select id="rc-modal-quiz-day">${daySelectHtml}</select>
+        <span class="rc-modal-field-label" id="rc-modal-quiz-day-label">时间</span>
+        ${daySelectHtml}
       </div>`
       }
       <div class="rc-modal-field">
@@ -368,7 +364,13 @@ export function promptQuizGenerate(opts = {}) {
 
   const countEl = overlay.querySelector("#rc-modal-quiz-count");
   const countLabel = overlay.querySelector("#rc-modal-quiz-count-label");
-  const dayEl = hideDay ? null : overlay.querySelector("#rc-modal-quiz-day");
+  const dayBoxes = hideDay ? [] : [...overlay.querySelectorAll('input[name="rc-modal-quiz-day"]')];
+
+  function selectedDayCount() {
+    const filter = normalizeDayFilter(dayBoxes.filter((el) => el.checked).map((el) => el.value));
+    if (filter === "all") return countByKey.get("all") || 1;
+    return filter.reduce((sum, key) => sum + (countByKey.get(key) || 0), 0);
+  }
 
   function syncCountLimit() {
     if (hideDay) {
@@ -376,8 +378,7 @@ export function promptQuizGenerate(opts = {}) {
       countLabel.textContent =
         opts.countLabel || `练习几个易错词（1–${activeMax}）`;
     } else {
-      const key = (dayEl && dayEl.value) || "all";
-      const raw = countByKey.get(key) || 1;
+      const raw = selectedDayCount();
       activeMax = Math.min(50, Math.max(1, raw));
       countLabel.textContent = `练习几个未学完的单词（1–${activeMax}）`;
     }
@@ -387,7 +388,10 @@ export function promptQuizGenerate(opts = {}) {
     countEl.value = String(Math.min(activeMax, Math.max(1, n)));
   }
 
-  if (dayEl) dayEl.addEventListener("change", syncCountLimit);
+  if (dayBoxes.length) {
+    const wrap = overlay.querySelector(".ru-day-ms");
+    bindDayMultiselect(wrap, syncCountLimit);
+  }
 
   if (current) current.resolve("cancel");
   document.body.appendChild(overlay);
@@ -407,7 +411,7 @@ export function promptQuizGenerate(opts = {}) {
       const langEl = overlay.querySelector('input[name="rc-modal-quiz-lang"]:checked');
       const difficultyEl = overlay.querySelector('input[name="rc-modal-quiz-difficulty"]:checked');
       const showWordsEl = overlay.querySelector('input[name="rc-modal-quiz-show-words"]:checked');
-      const dayKeyVal = hideDay ? "all" : String((dayEl && dayEl.value) || "all");
+      const dayKeyVal = hideDay ? "all" : dayFilterFromChecks(dayBoxes);
       const difficultyRaw = difficultyEl && difficultyEl.value;
       const difficulty =
         difficultyRaw === "normal" || difficultyRaw === "hard" ? difficultyRaw : "easy";

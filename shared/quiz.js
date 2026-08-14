@@ -56,15 +56,87 @@ export function quizDayOptions(pool) {
 }
 
 /**
+ * Normalize a day filter to `"all"` or unique day keys (no `"all"`).
+ * Accepts a string, comma-separated string, or string[].
+ * Empty / `"all"` / containing `"all"` → `"all"`.
+ * @param {unknown} value
+ * @returns {"all"|string[]}
+ */
+export function normalizeDayFilter(value) {
+  const raw = Array.isArray(value)
+    ? value
+    : String(value == null ? "" : value)
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+  const keys = [];
+  const seen = new Set();
+  for (const item of raw) {
+    const key = String(item || "").trim();
+    if (!key) continue;
+    if (key === "all") return "all";
+    if (seen.has(key)) continue;
+    seen.add(key);
+    keys.push(key);
+  }
+  return keys.length ? keys : "all";
+}
+
+/**
+ * `"all"` or comma-joined day keys (stable for session replay).
+ * @param {unknown} value
+ * @returns {string}
+ */
+export function serializeDayFilter(value) {
+  const filter = normalizeDayFilter(value);
+  return filter === "all" ? "all" : filter.join(",");
+}
+
+/**
+ * After a 时间 checkbox change: 「全部」 XOR specific days.
+ * Unchecking the last day (or 「全部」 with no days) snaps back to 「全部」.
+ * @param {Iterable<HTMLInputElement>|NodeListOf<HTMLInputElement>|null|undefined} boxes
+ * @param {HTMLInputElement|null|undefined} changed
+ */
+export function applyExclusiveAllDayChecks(boxes, changed) {
+  const list = [...(boxes || [])];
+  if (!list.length) return;
+  const allBox = list.find((el) => el.value === "all");
+  const dayBoxes = list.filter((el) => el.value !== "all");
+  if (changed && changed.value === "all") {
+    if (changed.checked) {
+      dayBoxes.forEach((el) => {
+        el.checked = false;
+      });
+    } else if (!dayBoxes.some((el) => el.checked)) {
+      changed.checked = true;
+    }
+    return;
+  }
+  if (allBox) allBox.checked = false;
+  if (!dayBoxes.some((el) => el.checked) && allBox) allBox.checked = true;
+}
+
+/**
+ * @param {Iterable<HTMLInputElement>|NodeListOf<HTMLInputElement>|null|undefined} boxes
+ * @returns {string}
+ */
+export function dayFilterFromChecks(boxes) {
+  const checked = [...(boxes || [])].filter((el) => el.checked).map((el) => el.value);
+  return serializeDayFilter(checked);
+}
+
+/**
  * @param {object[]} pool
- * @param {string} [day]
+ * @param {unknown} [day]
  * @returns {object[]}
  */
 export function filterQuizPoolByDay(pool, day) {
   const list = Array.isArray(pool) ? pool : [];
-  const key = String(day || "").trim();
-  if (!key || key === "all") return list;
-  return list.filter((w) => w && dayKey(new Date(w.createdAt || Date.now())) === key);
+  const filter = normalizeDayFilter(day);
+  if (filter === "all") return list;
+  const set = new Set(filter);
+  return list.filter((w) => w && set.has(dayKey(new Date(w.createdAt || Date.now()))));
 }
 
 const CONTEXT_MAX_LEN = 160;
