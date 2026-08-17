@@ -116,6 +116,217 @@ async function notifySettingsChanged(settings) {
   });
 }
 
+// ---------- toolbar icon: word-scan progress ring ----------
+
+const DEFAULT_ACTION_ICON = {
+  16: "icons/icon16.png",
+  48: "icons/icon48.png",
+  128: "icons/icon128.png"
+};
+const ICON_PROGRESS_SIZES = [16, 32];
+const ICON_DONE_HOLD_MS = 520;
+/** Merge back-to-back word scans (idle + delayed reconcile) into one ring. */
+const ICON_DONE_SETTLE_MS = 750;
+/** @type {ImageBitmap | null} */
+let actionIconBitmap = null;
+/** @type {Map<number, any>} */
+const tabIconProgress = new Map();
+
+async function loadActionIconBitmap() {
+  if (actionIconBitmap) return actionIconBitmap;
+  const res = await fetch(chrome.runtime.getURL("icons/icon128.png"));
+  const blob = await res.blob();
+  actionIconBitmap = await createImageBitmap(blob);
+  return actionIconBitmap;
+}
+
+function drawActionProgressIcon(bitmap, size, ratio, done) {
+  const canvas = new OffscreenCanvas(size, size);
+  const ctx = canvas.getContext("2d");
+  const lw = Math.max(1.5, size * 0.14);
+  const inset = Math.ceil(lw + 0.5);
+  ctx.clearRect(0, 0, size, size);
+  ctx.drawImage(bitmap, inset, inset, size - inset * 2, size - inset * 2);
+
+  const t = Math.max(0, Math.min(1, ratio));
+  if (t <= 0.001 && !done) {
+    return ctx.getImageData(0, 0, size, size);
+  }
+
+  const cx = size / 2;
+  const cy = size / 2;
+  const r = size / 2 - lw / 2;
+  const start = -Math.PI / 2;
+  const sweep = Math.PI * 2 * (done ? 1 : t);
+  ctx.lineWidth = lw;
+  ctx.lineCap = "butt";
+  ctx.strokeStyle = done ? "#2e7d32" : "#0000ff";
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, start, start + sweep);
+  ctx.stroke();
+
+  return ctx.getImageData(0, 0, size, size);
+}
+
+function clearTabIconState(tabId) {
+  const st = tabIconProgress.get(tabId);
+  if (st) {
+    if (st.doneTimer) clearTimeout(st.doneTimer);
+    if (st.settleTimer) clearTimeout(st.settleTimer);
+    if (st.animTimer) clearInterval(st.animTimer);
+  }
+  tabIconProgress.delete(tabId);
+}
+
+async function restoreDefaultActionIcon(tabId) {
+  clearTabIconState(tabId);
+  try {
+    await chrome.action.setIcon({ tabId, path: DEFAULT_ACTION_ICON });
+  } catch (e) {}
+}
+
+async function paintTabActionProgress(tabId, ratio, done) {
+  const bitmap = await loadActionIconBitmap();
+  const imageData = {};
+  for (const size of ICON_PROGRESS_SIZES) {
+    imageData[size] = drawActionProgressIcon(bitmap, size, ratio, done);
+  }
+  try {
+    await chrome.action.setIcon({ tabId, imageData });
+  } catch (e) {}
+}
+
+function ensureTabIconAnim(tabId) {
+  let st = tabIconProgress.get(tabId);
+  if (!st || st.animTimer) return;
+  st.animTimer = setInterval(() => {
+    st = tabIconProgress.get(tabId);
+    if (!st) return;
+    const target = Math.max(0, Math.min(1, st.targetRatio || 0));
+    const step = target >= 0.999 ? 0.08 : 0.028;
+    if (st.displayRatio + 0.002 >= target) {
+      st.displayRatio = target;
+      clearInterval(st.animTimer);
+      st.animTimer = null;
+      const finishing = !!st.pendingDone && target >= 0.999;
+      paintTabActionProgress(tabId, st.displayRatio, finishing).catch(() => {});
+      if (finishing) {
+        st.pendingDone = false;
+        st.sessionActive = false;
+        if (st.doneTimer) clearTimeout(st.doneTimer);
+        st.doneTimer = setTimeout(() => {
+          restoreDefaultActionIcon(tabId);
+        }, ICON_DONE_HOLD_MS);
+      }
+      return;
+    }
+    st.displayRatio = Math.min(target, st.displayRatio + step);
+    paintTabActionProgress(tabId, st.displayRatio, false).catch(() => {});
+  }, 45);
+}
+
+function cancelIconDonePipeline(st) {
+  if (st.doneTimer) {
+    clearTimeout(st.doneTimer);
+    st.doneTimer = null;
+  }
+  if (st.settleTimer) {
+    clearTimeout(st.settleTimer);
+    st.settleTimer = null;
+  }
+  st.pendingDone = false;
+}
+
+async function handleWordScanProgress(tabId, msg) {
+  if (!tabId) return;
+  const phase = msg && msg.phase;
+  const gen = Number(msg && msg.gen) || 0;
+  let st = tabIconProgress.get(tabId);
+  if (!st) {
+    st = {
+      lastSentAt: 0,
+      lastRatio: 0,
+      displayRatio: 0,
+      targetRatio: 0,
+      sessionBase: 0,
+      sessionActive: false,
+      doneTimer: null,
+      settleTimer: null,
+      animTimer: null,
+      pendingDone: false,
+      gen: 0
+    };
+    tabIconProgress.set(tabId, st);
+  }
+
+  if (phase === "clear") {
+    await restoreDefaultActionIcon(tabId);
+    return;
+  }
+
+  if (phase === "start") {
+    cancelIconDonePipeline(st);
+    st.gen = gen;
+    const continueSession =
+      st.sessionActive || st.displayRatio > 0.02 || st.targetRatio > 0.02;
+    if (continueSession) {
+      // Page often runs wordFull more than once; keep the ring growing.
+      st.sessionBase = Math.max(st.sessionBase, st.displayRatio);
+      st.sessionActive = true;
+      return;
+    }
+    if (st.animTimer) {
+      clearInterval(st.animTimer);
+      st.animTimer = null;
+    }
+    st.sessionActive = true;
+    st.sessionBase = 0;
+    st.displayRatio = 0;
+    st.targetRatio = 0;
+    st.lastRatio = 0;
+    st.lastSentAt = Date.now();
+    await paintTabActionProgress(tabId, 0, false);
+    return;
+  }
+
+  if (phase === "done") {
+    st.gen = gen;
+    // Wait: another word pass may start immediately (idle / delayed reconcile).
+    if (st.settleTimer) clearTimeout(st.settleTimer);
+    st.settleTimer = setTimeout(() => {
+      st.settleTimer = null;
+      st.pendingDone = true;
+      st.targetRatio = 1;
+      st.lastRatio = 1;
+      ensureTabIconAnim(tabId);
+    }, ICON_DONE_SETTLE_MS);
+    return;
+  }
+
+  cancelIconDonePipeline(st);
+  st.gen = gen;
+  st.sessionActive = true;
+
+  const raw = Math.max(0, Math.min(1, Number(msg.ratio) || 0));
+  const base = Math.max(0, Math.min(1, st.sessionBase || 0));
+  const mapped = base + (1 - base) * raw;
+  if (mapped + 0.0005 < st.targetRatio) return;
+  st.targetRatio = mapped;
+  st.lastRatio = mapped;
+  st.lastSentAt = Date.now();
+  ensureTabIconAnim(tabId);
+}
+
+chrome.tabs.onRemoved.addListener((tabId) => {
+  clearTabIconState(tabId);
+});
+
+chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+  if (changeInfo.status === "loading" && changeInfo.url) {
+    restoreDefaultActionIcon(tabId);
+  }
+});
+
 async function getSettings() {
   const data = await chrome.storage.local.get(SETTINGS_KEY);
   return normalizeSettings(data[SETTINGS_KEY]);
@@ -583,6 +794,12 @@ async function fetchFaviconDataUrl(host) {
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (!msg || !msg.type) return;
+
+  if (msg.type === "rc-word-scan-progress") {
+    const tabId = sender.tab && sender.tab.id;
+    handleWordScanProgress(tabId, msg).catch(() => {});
+    return;
+  }
 
   if (msg.type === "rc-save") {
     saveCapture({

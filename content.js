@@ -29,6 +29,9 @@
   const WORD_SCAN_SLICE_MS = 8;
   let reconcilePassRunning = false;
   let ideaCapturesComplete = true;
+  let wordScanProgressGen = 0;
+  /** Soft estimate from the last completed scan node count (no pre-count walk). */
+  let lastWordScanNodeCount = 0;
 
   const OWN_UI_SEL = "#rc-overlay, #rc-float-bar, #rc-region-mask, #rc-word-tip";
   const WORD_HL_MAX = 40;
@@ -2230,6 +2233,45 @@
     });
   }
 
+  /** Progress only — does not affect scan scheduling or matching. */
+  function reportWordScanProgress(payload) {
+    try {
+      const p = chrome.runtime.sendMessage({
+        type: "rc-word-scan-progress",
+        gen: wordScanProgressGen,
+        ...payload
+      });
+      if (p && typeof p.catch === "function") p.catch(() => {});
+    } catch (e) {}
+  }
+
+  function beginWordScanProgress() {
+    wordScanProgressGen += 1;
+    reportWordScanProgress({ phase: "start", ratio: 0 });
+    return wordScanProgressGen;
+  }
+
+  function endWordScanProgress(gen, ok) {
+    if (gen !== wordScanProgressGen) return;
+    reportWordScanProgress({ phase: ok ? "done" : "clear", ratio: ok ? 1 : 0 });
+  }
+
+  /**
+   * Map scan/wrap ticks to 0..1 without a pre-count pass.
+   * Scan uses last run's node count when available; otherwise asymptotic.
+   */
+  function wordScanRatio(phase, done, totalHint) {
+    if (phase === "wrap") {
+      const t = totalHint > 0 ? totalHint : 1;
+      return 0.85 + 0.15 * Math.min(1, done / t);
+    }
+    const est = totalHint > 0 ? totalHint : lastWordScanNodeCount;
+    if (est > 0) {
+      return 0.85 * Math.min(1, done / est);
+    }
+    return 0.85 * (1 - 1 / (1 + done / 80));
+  }
+
   function collectLatinCandidateIds(index, nodeValue, tokens) {
     const ids = new Set();
     function absorbPiece(pieceLower) {
@@ -2265,7 +2307,7 @@
     return ids;
   }
 
-  async function collectWordHighlightPlans(root, index, counts) {
+  async function collectWordHighlightPlans(root, index, counts, progress) {
     const planned = [];
     if (!root || !index.matchers.length) return planned;
 
@@ -2298,12 +2340,28 @@
       }
     });
 
+    let nodesDone = 0;
     let sliceAt = performance.now() + WORD_SCAN_SLICE_MS;
+    let lastReported = -1;
+    const reportEvery = 24;
+    function maybeReportScan(force) {
+      if (!progress || progress.gen !== wordScanProgressGen) return;
+      if (!force && nodesDone - lastReported < reportEvery) return;
+      if (nodesDone === lastReported) return;
+      lastReported = nodesDone;
+      reportWordScanProgress({
+        phase: "scan",
+        ratio: wordScanRatio("scan", nodesDone, progress.estimate)
+      });
+    }
     while (walker.nextNode()) {
       if (performance.now() >= sliceAt) {
         await yieldToMain();
+        maybeReportScan(true);
         sliceAt = performance.now() + WORD_SCAN_SLICE_MS;
       }
+      nodesDone += 1;
+      maybeReportScan(false);
       const node = walker.currentNode;
       const value = node.nodeValue;
       if (!value) continue;
@@ -2324,10 +2382,11 @@
         }
       }
     }
+    if (progress) progress.nodesDone = (progress.nodesDone || 0) + nodesDone;
     return planned;
   }
 
-  async function sortAndWrapWordPlans(planned) {
+  async function sortAndWrapWordPlans(planned, progress) {
     const sorted = planned.slice().sort((a, b) => {
       if (a.node === b.node) return b.start - a.start;
       const pos = a.node.compareDocumentPosition(b.node);
@@ -2336,19 +2395,31 @@
       return 0;
     });
 
+    const total = sorted.length;
+    let done = 0;
     let sliceAt = performance.now() + WORD_SCAN_SLICE_MS;
     for (const frag of sorted) {
       if (performance.now() >= sliceAt) {
         await yieldToMain();
+        if (progress && progress.gen === wordScanProgressGen) {
+          reportWordScanProgress({
+            phase: "wrap",
+            ratio: wordScanRatio("wrap", done, total)
+          });
+        }
         sliceAt = performance.now() + WORD_SCAN_SLICE_MS;
       }
-      if (!frag.node || !frag.node.isConnected) continue;
+      if (!frag.node || !frag.node.isConnected) {
+        done += 1;
+        continue;
+      }
       const entry = frag.entry;
       wrapWordRange(frag.node, frag.start, frag.end, entry.id, entry.word, {
         note: entry.note || "",
         translation: entry.translation || "",
         phonetic: entry.phonetic || ""
       });
+      done += 1;
     }
     return sorted.length;
   }
@@ -2445,6 +2516,7 @@
     }
     if (isHighlightBlocked()) {
       clearAllPageHighlights();
+      reportWordScanProgress({ phase: "clear", ratio: 0 });
       return;
     }
 
@@ -2458,18 +2530,34 @@
     const index = buildActiveWordMatchers(words);
     if (!index.matchers.length) {
       if (opts.full) unwrapAllWordHighlights();
+      reportWordScanProgress({ phase: "clear", ratio: 0 });
       return;
     }
+
+    let roots = null;
+    if (!opts.full) {
+      roots = normalizeDirtyRoots(opts.roots || []);
+      if (!roots.length) return;
+    }
+
+    const gen = beginWordScanProgress();
+    const progress = {
+      gen,
+      estimate: opts.full ? lastWordScanNodeCount : 0,
+      nodesDone: 0
+    };
+    let finishedOk = false;
     applyingWordHighlight = true;
     try {
       if (opts.full) {
         unwrapAllWordHighlights();
         const counts = new Map();
-        const planned = await collectWordHighlightPlans(document.body, index, counts);
-        await sortAndWrapWordPlans(planned);
+        const planned = await collectWordHighlightPlans(document.body, index, counts, progress);
+        if (gen === wordScanProgressGen) {
+          lastWordScanNodeCount = progress.nodesDone || lastWordScanNodeCount;
+        }
+        await sortAndWrapWordPlans(planned, progress);
       } else {
-        const roots = normalizeDirtyRoots(opts.roots || []);
-        if (!roots.length) return;
         // Unwrap word highlights inside dirty roots so text nodes are scannable again.
         for (const root of roots) {
           root.querySelectorAll("span.rc-word-highlight").forEach((el) => {
@@ -2483,13 +2571,15 @@
         const planned = [];
         for (const root of roots) {
           if (!root.isConnected) continue;
-          planned.push(...(await collectWordHighlightPlans(root, index, counts)));
+          planned.push(...(await collectWordHighlightPlans(root, index, counts, progress)));
         }
-        await sortAndWrapWordPlans(planned);
+        await sortAndWrapWordPlans(planned, progress);
       }
+      finishedOk = gen === wordScanProgressGen;
     } finally {
       applyingWordHighlight = false;
       wordHlQuietUntil = Date.now() + 250;
+      endWordScanProgress(gen, finishedOk);
     }
   }
 
