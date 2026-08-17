@@ -25,8 +25,10 @@
   let wordTipHideTimer = null;
   let pendingPass = { idea: false, wordFull: false, wordIncremental: false };
   const dirtyWordRoots = new Set();
-  const MUTATION_RECONCILE_MS = 550;
+  const MUTATION_RECONCILE_MS = 900;
+  const WORD_SCAN_SLICE_MS = 8;
   let reconcilePassRunning = false;
+  let ideaCapturesComplete = true;
 
   const OWN_UI_SEL = "#rc-overlay, #rc-float-bar, #rc-region-mask, #rc-word-tip";
   const WORD_HL_MAX = 40;
@@ -1815,10 +1817,12 @@
     }
 
     if (matched < captures.length) {
+      ideaCapturesComplete = false;
       failCount++;
       ensureObserver();
       if (failCount <= 12) scheduleReconcilePass(null, { idea: true });
     } else {
+      ideaCapturesComplete = true;
       failCount = 0;
       // All matched: keep observer alive but idle; it wakes on real DOM changes.
       ensureObserver();
@@ -2054,81 +2058,113 @@
     return null;
   }
 
-  function findWordMatchesInNode(nodeValue, word, latin, mode) {
-    const matches = [];
-    if (!nodeValue || !word) return matches;
-    const foldedWord = foldWordMarks(word);
-    if (latin) {
-      const lowerWord = foldedWord.toLowerCase();
-      let i = 0;
-      while (i < nodeValue.length) {
-        if (!isWordChar(nodeValue[i])) {
-          i++;
-          continue;
-        }
-        let j = i + 1;
-        while (j < nodeValue.length && isWordChar(nodeValue[j])) j++;
-        const tokenLower = foldWordMarks(nodeValue.slice(i, j)).toLowerCase();
-        if (latinTokenMatches(tokenLower, lowerWord, mode)) {
-          matches.push({ start: i, end: j });
-          i = j;
-          continue;
-        }
-
-        let partHit = false;
-        let partStart = i;
-        for (let k = i; k <= j; k++) {
-          const atEnd = k === j;
-          const isHyphen = !atEnd && foldWordMarks(nodeValue[k]) === "-";
-          if (!atEnd && !isHyphen) continue;
-          if (k > partStart) {
-            const partLower = foldWordMarks(nodeValue.slice(partStart, k)).toLowerCase();
-            if (latinTokenMatches(partLower, lowerWord, mode)) {
-              matches.push({ start: partStart, end: k });
-              partHit = true;
-            }
-          }
-          partStart = k + 1;
-        }
-        if (!partHit) {
-          for (let pos = i; pos < j; ) {
-            const leftOk = pos === i || foldWordMarks(nodeValue[pos - 1]) === "-";
-            if (leftOk) {
-              const span = foldedEqualsAt(nodeValue, pos, j, lowerWord);
-              if (span) {
-                matches.push(span);
-                pos = span.end;
-                continue;
-              }
-            }
-            pos++;
-          }
-        }
-        i = j;
+  function tokenizeLatinSpans(nodeValue) {
+    const tokens = [];
+    let i = 0;
+    while (i < nodeValue.length) {
+      if (!isWordChar(nodeValue[i])) {
+        i++;
+        continue;
       }
-    } else {
-      const needle = foldedWord;
-      const needleLower = needle.toLowerCase();
-      const hayLower = foldWordMarks(nodeValue).toLowerCase();
-      if (hayLower.length === nodeValue.length && needleLower.length === needle.length) {
-        let from = 0;
-        while (from <= hayLower.length - needleLower.length) {
-          const idx = hayLower.indexOf(needleLower, from);
-          if (idx < 0) break;
-          matches.push({ start: idx, end: idx + needleLower.length });
-          from = idx + needleLower.length;
+      let j = i + 1;
+      while (j < nodeValue.length && isWordChar(nodeValue[j])) j++;
+      tokens.push({
+        start: i,
+        end: j,
+        lower: foldWordMarks(nodeValue.slice(i, j)).toLowerCase()
+      });
+      i = j;
+    }
+    return tokens;
+  }
+
+  function findLatinMatchesInTokens(nodeValue, tokens, lowerWord, mode) {
+    const matches = [];
+    if (!lowerWord) return matches;
+    for (const tok of tokens) {
+      const i = tok.start;
+      const j = tok.end;
+      if (latinTokenMatches(tok.lower, lowerWord, mode)) {
+        matches.push({ start: i, end: j });
+        continue;
+      }
+
+      let partHit = false;
+      let partStart = i;
+      for (let k = i; k <= j; k++) {
+        const atEnd = k === j;
+        const isHyphen = !atEnd && foldWordMarks(nodeValue[k]) === "-";
+        if (!atEnd && !isHyphen) continue;
+        if (k > partStart) {
+          const partLower = foldWordMarks(nodeValue.slice(partStart, k)).toLowerCase();
+          if (latinTokenMatches(partLower, lowerWord, mode)) {
+            matches.push({ start: partStart, end: k });
+            partHit = true;
+          }
         }
-      } else {
-        let from = 0;
-        while (from <= nodeValue.length - word.length) {
-          const idx = nodeValue.indexOf(word, from);
-          if (idx < 0) break;
-          matches.push({ start: idx, end: idx + word.length });
-          from = idx + word.length;
+        partStart = k + 1;
+      }
+      if (!partHit) {
+        for (let pos = i; pos < j; ) {
+          const leftOk = pos === i || foldWordMarks(nodeValue[pos - 1]) === "-";
+          if (leftOk) {
+            const span = foldedEqualsAt(nodeValue, pos, j, lowerWord);
+            if (span) {
+              matches.push(span);
+              pos = span.end;
+              continue;
+            }
+          }
+          pos++;
         }
       }
     }
     return matches;
+  }
+
+  function findNonLatinMatchesInNode(nodeValue, word, hayLower) {
+    const matches = [];
+    if (!nodeValue || !word) return matches;
+    const foldedWord = foldWordMarks(word);
+    const needleLower = foldedWord.toLowerCase();
+    if (hayLower && hayLower.length === nodeValue.length && needleLower.length === foldedWord.length) {
+      let from = 0;
+      while (from <= hayLower.length - needleLower.length) {
+        const idx = hayLower.indexOf(needleLower, from);
+        if (idx < 0) break;
+        matches.push({ start: idx, end: idx + needleLower.length });
+        from = idx + needleLower.length;
+      }
+    } else {
+      let from = 0;
+      while (from <= nodeValue.length - word.length) {
+        const idx = nodeValue.indexOf(word, from);
+        if (idx < 0) break;
+        matches.push({ start: idx, end: idx + word.length });
+        from = idx + word.length;
+      }
+    }
+    return matches;
+  }
+
+  function latinCandidatesForPiece(index, pieceLower) {
+    if (!pieceLower) return [];
+    const seen = new Set();
+    const out = [];
+    function add(list) {
+      if (!list) return;
+      for (const m of list) {
+        const id = m.entry.id;
+        if (seen.has(id)) continue;
+        seen.add(id);
+        out.push(m);
+      }
+    }
+    add(index.latinExact.get(pieceLower));
+    const stem = deriveLatinStem(pieceLower);
+    if (stem.length >= 4) add(index.latinStem.get(stem));
+    add(index.latinFirst.get(pieceLower[0]));
+    return out;
   }
 
   function countExistingWordHighlights() {
@@ -2141,23 +2177,97 @@
     return counts;
   }
 
+  function addToMatcherMap(map, key, matcher) {
+    if (!key) return;
+    let list = map.get(key);
+    if (!list) {
+      list = [];
+      map.set(key, list);
+    }
+    list.push(matcher);
+  }
+
   function buildActiveWordMatchers(words) {
     const matchers = [];
+    const latinExact = new Map();
+    const latinStem = new Map();
+    const latinFirst = new Map();
+    const latinLengths = new Set();
+    const nonLatin = [];
     for (const w of words) {
       if (!w || w.learned || !w.word || !w.id) continue;
-      matchers.push({
+      const matcher = {
         entry: w,
         word: w.word,
         latin: isLatinWord(w.word),
-        mode: resolveWordMatchMode(w)
-      });
+        mode: resolveWordMatchMode(w),
+        lower: foldWordMarks(w.word).toLowerCase()
+      };
+      matchers.push(matcher);
+      if (matcher.latin) {
+        addToMatcherMap(latinExact, matcher.lower, matcher);
+        addToMatcherMap(latinStem, deriveLatinStem(matcher.lower), matcher);
+        addToMatcherMap(latinFirst, matcher.lower[0], matcher);
+        latinLengths.add(matcher.lower.length);
+      } else {
+        nonLatin.push(matcher);
+      }
     }
-    return matchers;
+    nonLatin.sort((a, b) => b.word.length - a.word.length);
+    return {
+      matchers,
+      latinExact,
+      latinStem,
+      latinFirst,
+      latinLengths: [...latinLengths],
+      nonLatin
+    };
   }
 
-  function collectWordHighlightPlans(root, matchers, counts) {
+  function yieldToMain() {
+    return new Promise((resolve) => {
+      requestAnimationFrame(resolve);
+    });
+  }
+
+  function collectLatinCandidateIds(index, nodeValue, tokens) {
+    const ids = new Set();
+    function absorbPiece(pieceLower) {
+      if (!pieceLower) return;
+      const list = latinCandidatesForPiece(index, pieceLower);
+      for (const m of list) ids.add(m.entry.id);
+    }
+    for (const tok of tokens) {
+      absorbPiece(tok.lower);
+      let partStart = tok.start;
+      for (let k = tok.start; k <= tok.end; k++) {
+        const atEnd = k === tok.end;
+        const isHyphen = !atEnd && foldWordMarks(nodeValue[k]) === "-";
+        if (!atEnd && !isHyphen) continue;
+        if (k > partStart) {
+          absorbPiece(foldWordMarks(nodeValue.slice(partStart, k)).toLowerCase());
+        }
+        partStart = k + 1;
+      }
+      for (let pos = tok.start; pos < tok.end; pos++) {
+        const leftOk = pos === tok.start || foldWordMarks(nodeValue[pos - 1]) === "-";
+        if (!leftOk) continue;
+        for (const len of index.latinLengths) {
+          if (pos + len > tok.end) continue;
+          const raw = foldWordMarks(nodeValue.slice(pos, pos + len)).toLowerCase();
+          const exact = index.latinExact.get(raw);
+          if (exact) {
+            for (const m of exact) ids.add(m.entry.id);
+          }
+        }
+      }
+    }
+    return ids;
+  }
+
+  async function collectWordHighlightPlans(root, index, counts) {
     const planned = [];
-    if (!root || !matchers.length) return planned;
+    if (!root || !index.matchers.length) return planned;
 
     function overlapsPlanned(node, start, end) {
       for (const p of planned) {
@@ -2167,38 +2277,57 @@
       return false;
     }
 
+    function takeHits(node, hits, matcher) {
+      for (const hit of hits) {
+        const n = counts.get(matcher.entry.id) || 0;
+        if (n >= WORD_HL_MAX) break;
+        if (overlapsPlanned(node, hit.start, hit.end)) continue;
+        planned.push({
+          node,
+          start: hit.start,
+          end: hit.end,
+          entry: matcher.entry
+        });
+        counts.set(matcher.entry.id, n + 1);
+      }
+    }
+
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
       acceptNode(node) {
         return acceptTextNode(node, "word");
       }
     });
 
+    let sliceAt = performance.now() + WORD_SCAN_SLICE_MS;
     while (walker.nextNode()) {
+      if (performance.now() >= sliceAt) {
+        await yieldToMain();
+        sliceAt = performance.now() + WORD_SCAN_SLICE_MS;
+      }
       const node = walker.currentNode;
       const value = node.nodeValue;
       if (!value) continue;
-      for (const m of matchers) {
+
+      const tokens = tokenizeLatinSpans(value);
+      const latinIds = tokens.length ? collectLatinCandidateIds(index, value, tokens) : null;
+      const hayLower = index.nonLatin.length ? foldWordMarks(value).toLowerCase() : "";
+
+      for (const m of index.matchers) {
         const used = counts.get(m.entry.id) || 0;
         if (used >= WORD_HL_MAX) continue;
-        const hits = findWordMatchesInNode(value, m.word, m.latin, m.mode);
-        for (const hit of hits) {
-          const n = counts.get(m.entry.id) || 0;
-          if (n >= WORD_HL_MAX) break;
-          if (overlapsPlanned(node, hit.start, hit.end)) continue;
-          planned.push({
-            node,
-            start: hit.start,
-            end: hit.end,
-            entry: m.entry
-          });
-          counts.set(m.entry.id, n + 1);
+        if (m.latin) {
+          if (!tokens.length) continue;
+          if (latinIds && !latinIds.has(m.entry.id)) continue;
+          takeHits(node, findLatinMatchesInTokens(value, tokens, m.lower, m.mode), m);
+        } else {
+          takeHits(node, findNonLatinMatchesInNode(value, m.word, hayLower), m);
         }
       }
     }
     return planned;
   }
 
-  function sortAndWrapWordPlans(planned) {
+  async function sortAndWrapWordPlans(planned) {
     const sorted = planned.slice().sort((a, b) => {
       if (a.node === b.node) return b.start - a.start;
       const pos = a.node.compareDocumentPosition(b.node);
@@ -2207,7 +2336,12 @@
       return 0;
     });
 
+    let sliceAt = performance.now() + WORD_SCAN_SLICE_MS;
     for (const frag of sorted) {
+      if (performance.now() >= sliceAt) {
+        await yieldToMain();
+        sliceAt = performance.now() + WORD_SCAN_SLICE_MS;
+      }
       if (!frag.node || !frag.node.isConnected) continue;
       const entry = frag.entry;
       wrapWordRange(frag.node, frag.start, frag.end, entry.id, entry.word, {
@@ -2257,7 +2391,12 @@
     for (const m of mutations) {
       if (m.type === "characterData") {
         const parent = m.target && m.target.parentElement;
-        if (parent) roots.push(parent);
+        if (!parent) continue;
+        if (parent.closest(`.rc-highlight, .rc-word-highlight, ${OWN_UI_SEL}`)) continue;
+        if (parent.closest("script, style, noscript, textarea, input, select")) continue;
+        const val = m.target.nodeValue || "";
+        if (val.length < 12 && !/\s/.test(val)) continue;
+        roots.push(parent);
         continue;
       }
 
@@ -2316,14 +2455,18 @@
       return;
     }
 
-    const matchers = buildActiveWordMatchers(words);
+    const index = buildActiveWordMatchers(words);
+    if (!index.matchers.length) {
+      if (opts.full) unwrapAllWordHighlights();
+      return;
+    }
     applyingWordHighlight = true;
     try {
       if (opts.full) {
         unwrapAllWordHighlights();
         const counts = new Map();
-        const planned = collectWordHighlightPlans(document.body, matchers, counts);
-        sortAndWrapWordPlans(planned);
+        const planned = await collectWordHighlightPlans(document.body, index, counts);
+        await sortAndWrapWordPlans(planned);
       } else {
         const roots = normalizeDirtyRoots(opts.roots || []);
         if (!roots.length) return;
@@ -2340,9 +2483,9 @@
         const planned = [];
         for (const root of roots) {
           if (!root.isConnected) continue;
-          planned.push(...collectWordHighlightPlans(root, matchers, counts));
+          planned.push(...(await collectWordHighlightPlans(root, index, counts)));
         }
-        sortAndWrapWordPlans(planned);
+        await sortAndWrapWordPlans(planned);
       }
     } finally {
       applyingWordHighlight = false;
@@ -2364,8 +2507,9 @@
         pass.wordIncremental = true;
         pass.roots = roots;
       }
-      // Do not reset failCount on every mutation; backoff stays until a successful full match.
-      scheduleReconcilePass(MUTATION_RECONCILE_MS, pass);
+      const delay =
+        mutations.length > 40 ? Math.max(MUTATION_RECONCILE_MS, 1400) : MUTATION_RECONCILE_MS;
+      scheduleReconcilePass(delay, pass);
     });
     observer.observe(document.body, {
       childList: true,
@@ -2374,10 +2518,21 @@
     });
   }
 
+  function scheduleIdleWordFull() {
+    const kick = () => scheduleReconcilePass(0, { wordFull: true });
+    if (typeof requestIdleCallback === "function") {
+      requestIdleCallback(kick, { timeout: 1200 });
+    } else {
+      setTimeout(kick, 0);
+    }
+  }
+
   function scheduleDelayedReconcilePasses(delays) {
     for (const ms of delays) {
       setTimeout(() => {
-        scheduleReconcilePass(0, { idea: true, wordFull: true });
+        const pass = { idea: true };
+        if (!ideaCapturesComplete) pass.wordFull = true;
+        scheduleReconcilePass(0, pass);
       }, ms);
     }
   }
@@ -2386,8 +2541,10 @@
     if (location.href === lastUrl) return;
     lastUrl = location.href;
     failCount = 0;
+    ideaCapturesComplete = true;
     cachedCaptures = null;
-    scheduleReconcilePass(100, { idea: true, wordFull: true });
+    scheduleReconcilePass(100, { idea: true });
+    scheduleIdleWordFull();
     scheduleDelayedReconcilePasses([800, 2500]);
   }
 
@@ -2412,7 +2569,8 @@
 
   function init() {
     hookSpaNavigation();
-    scheduleReconcilePass(0, { idea: true, wordFull: true });
+    scheduleReconcilePass(0, { idea: true });
+    scheduleIdleWordFull();
     ensureObserver();
     scheduleDelayedReconcilePasses([800, 2500]);
   }
@@ -2428,7 +2586,8 @@
     lastUrl = location.href;
     cachedCaptures = null;
     wordsCacheFresh = false;
-    scheduleReconcilePass(0, { idea: true, wordFull: true });
+    scheduleReconcilePass(0, { idea: true });
+    scheduleIdleWordFull();
     ensureObserver();
     scheduleDelayedReconcilePasses([800, 2500]);
   });
