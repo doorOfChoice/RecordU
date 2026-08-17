@@ -323,7 +323,7 @@ function renderPromptsPanel(settings) {
 
     <div class="rv-settings-field">
       <label class="rv-settings-label" for="rv-set-llm-prompt">翻译提示词</label>
-      <p class="rv-settings-desc rv-settings-desc-tight">须含 <code>{{word}}</code>；返回 JSON：<code>{"phonetic":"…","translation":"…"}</code>。</p>
+      <p class="rv-settings-desc rv-settings-desc-tight">须含 <code>{{word}}</code>；返回 JSON：<code>{"phonetic":"…","translation":"…"}</code>。默认：英文入则中文释义，中文入则 translation 为英文。</p>
       <textarea id="rv-set-llm-prompt" class="rv-settings-prompt" rows="8" spellcheck="false">${escapeHtml(llmLookupPrompt)}</textarea>
       <div class="rv-settings-actions rv-settings-actions-tight">
         <button type="button" class="btn" id="rv-set-prompt-reset">恢复默认翻译提示词</button>

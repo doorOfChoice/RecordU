@@ -389,6 +389,20 @@ body.popup-page {
   margin-top: 12px;
 }
 
+.popup-lookup-actions .btn,
+.popup-note .actions .btn {
+  background: var(--ru-ink);
+  border-color: var(--ru-ink);
+  color: #ffffff;
+}
+
+.popup-lookup-actions .btn:hover:not(:disabled),
+.popup-note .actions .btn:hover {
+  background: var(--ru-accent-soft);
+  border-color: var(--ru-ink);
+  color: var(--ru-ink);
+}
+
 .popup-extra {
   display: flex;
   align-items: baseline;

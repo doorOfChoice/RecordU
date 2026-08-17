@@ -24,6 +24,7 @@ const lookupResult = document.getElementById("lookup-result");
 const lookupPhoneticRow = document.getElementById("lookup-phonetic-row");
 const lookupPhonetic = document.getElementById("lookup-phonetic");
 const lookupTranslation = document.getElementById("lookup-translation");
+const lookupTranslationLabel = document.getElementById("lookup-translation-label");
 const lookupSpeak = document.getElementById("lookup-speak");
 const lookupSpeakAlt = document.getElementById("lookup-speak-alt");
 const panelNote = document.getElementById("panel-note");
@@ -40,6 +41,7 @@ let savingBlock = false;
 let lookupBusy = false;
 let lookupGen = 0;
 let lastLookupTerm = "";
+let lastSpeakTerm = "";
 
 function isMac() {
   return /Mac|iPhone|iPad|iPod/i.test(navigator.platform || navigator.userAgent || "");
@@ -216,6 +218,10 @@ function canSpeakTerm(term) {
   return !!t && !/[\r\n]/.test(t) && t.length <= SPEAK_MAX;
 }
 
+function inputLooksChinese(term) {
+  return /[\u4e00-\u9fff]/.test(String(term || ""));
+}
+
 function lookupErrorMessage(res) {
   const code = res && res.code;
   if (code === "need_key") return "请到设置 → 大模型 填写 API Key";
@@ -243,9 +249,13 @@ function showLookupResult(phonetic, translation, term) {
   lookupError.hidden = true;
   lookupResult.hidden = false;
   const ph = String(phonetic || "").trim();
+  const rendered = String(translation || "").trim();
+  const zhIn = inputLooksChinese(term);
   lookupPhonetic.textContent = ph;
-  lookupTranslation.textContent = String(translation || "").trim() || "（无翻译）";
-  const speak = canSpeakTerm(term);
+  lookupTranslation.textContent = rendered || (zhIn ? "（无英文）" : "（无翻译）");
+  if (lookupTranslationLabel) lookupTranslationLabel.textContent = zhIn ? "英文" : "翻译";
+  lastSpeakTerm = zhIn ? rendered : term;
+  const speak = canSpeakTerm(lastSpeakTerm);
   lookupPhoneticRow.hidden = !ph;
   lookupSpeak.hidden = !ph || !speak;
   lookupSpeakAlt.hidden = !!ph || !speak;
@@ -289,7 +299,7 @@ async function runLookup() {
 }
 
 function speakLookup() {
-  if (canSpeakTerm(lastLookupTerm)) speakWord(lastLookupTerm);
+  if (canSpeakTerm(lastSpeakTerm)) speakWord(lastSpeakTerm);
 }
 
 async function save() {

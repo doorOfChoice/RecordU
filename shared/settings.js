@@ -2,13 +2,13 @@
 
 export const SETTINGS_KEY = "rc_settings";
 
-export const DEFAULT_LLM_LOOKUP_PROMPT = `你是英语词典助手。请为单词或短语「{{word}}」给出音标与中文释义。
+export const DEFAULT_LLM_LOOKUP_PROMPT = `你是英汉互译助手。请处理用户输入「{{word}}」（单词、短语或短句）。
 
 要求：
 1. 只输出一个 JSON 对象，不要 markdown 代码块，不要其它说明文字。
 2. JSON 格式严格为：{"phonetic":"...","translation":"..."}
-3. phonetic 使用 IPA，两侧可带斜杠，如 /ˈwɜːrd/；若无法确定则用空字符串。
-4. translation 为简洁中文释义（可含词性），多个义项用分号分隔。`;
+3. 若输入主要为中文：translation 填合适英文（词/短语用自然对应，句子通顺）；phonetic 为该英文的 IPA（两侧可带斜杠），句子无法确定时用空字符串。
+4. 若输入主要为英文或其它外语：phonetic 使用 IPA（两侧可带斜杠，如 /ˈwɜːrd/；无法确定则空字符串）；translation 为简洁中文释义（可含词性），多个义项用分号分隔。`;
 
 export const DEFAULT_LLM_QUIZ_PROMPT = `你是英语词汇练习出题助手。按指定难度出题，帮助学习者巩固词表。
 
@@ -123,6 +123,14 @@ export function normalizeLlmReasoningEffort(value) {
 export function normalizeLlmLookupPrompt(value) {
   const raw = String(value == null ? "" : value);
   if (!raw.trim()) return DEFAULT_LLM_LOOKUP_PROMPT;
+  const LEGACY_LLM_LOOKUP_PROMPT = `你是英语词典助手。请为单词或短语「{{word}}」给出音标与中文释义。
+
+要求：
+1. 只输出一个 JSON 对象，不要 markdown 代码块，不要其它说明文字。
+2. JSON 格式严格为：{"phonetic":"...","translation":"..."}
+3. phonetic 使用 IPA，两侧可带斜杠，如 /ˈwɜːrd/；若无法确定则用空字符串。
+4. translation 为简洁中文释义（可含词性），多个义项用分号分隔。`;
+  if (raw.trim() === LEGACY_LLM_LOOKUP_PROMPT.trim()) return DEFAULT_LLM_LOOKUP_PROMPT;
   return raw;
 }
 
