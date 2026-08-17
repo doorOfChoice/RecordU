@@ -152,6 +152,214 @@ body.popup-page {
   box-shadow: inset 0 0 0 2px var(--ru-accent);
 }
 
+.popup-mode {
+  display: flex;
+  width: 100%;
+  margin: 0 0 12px;
+  border: 3px solid var(--ru-ink);
+  background: var(--ru-surface);
+}
+
+.popup-mode-btn {
+  appearance: none;
+  margin: 0;
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--ru-ink);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color 0.15s ease-out, background-color 0.15s ease-out;
+}
+
+.popup-mode-icon {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  display: block;
+}
+
+.popup-mode-btn + .popup-mode-btn {
+  box-shadow: inset 1px 0 0 var(--ru-ink);
+}
+
+.popup-mode-btn:hover {
+  background: var(--ru-accent-soft);
+  color: var(--ru-ink);
+}
+
+.popup-mode-btn.is-on {
+  color: #ffffff;
+  background: var(--ru-ink);
+}
+
+.popup-mode-btn:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--ru-accent-soft);
+}
+
+.popup-note[hidden],
+.popup-lookup[hidden] {
+  display: none !important;
+}
+
+.popup-lookup {
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: var(--ru-surface);
+}
+
+.popup-lookup-hint {
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ru-ink);
+}
+
+.popup-lookup-input {
+  min-height: 72px;
+  resize: vertical;
+}
+
+.popup-lookup-actions {
+  display: flex;
+  margin-top: 8px;
+}
+
+.popup-lookup-actions .btn {
+  flex: 1;
+}
+
+.popup-lookup-actions .btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.popup-lookup-status {
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ru-ink);
+}
+
+.popup-lookup-error[hidden],
+.popup-lookup-result[hidden],
+.popup-lookup-status[hidden],
+.popup-lookup-row[hidden],
+.popup-lookup-speak[hidden] {
+  display: none !important;
+}
+
+.popup-lookup-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 8px;
+  border: 3px solid var(--ru-vermilion);
+  background: var(--ru-surface);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ru-ink);
+}
+
+.popup-lookup-retry {
+  appearance: none;
+  flex: none;
+  margin: 0;
+  padding: 4px 8px;
+  border: 2px solid var(--ru-ink);
+  border-radius: 0;
+  background: var(--ru-ink);
+  color: #ffffff;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.popup-lookup-retry:hover {
+  background: var(--ru-vermilion);
+  border-color: var(--ru-ink);
+  color: #ffffff;
+}
+
+.popup-lookup-result {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--ru-line);
+}
+
+.popup-lookup-row + .popup-lookup-row {
+  margin-top: 8px;
+}
+
+.popup-lookup-label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ru-ink);
+}
+
+.popup-lookup-value-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.popup-lookup-value {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.5;
+  color: var(--ru-ink);
+  word-break: break-word;
+}
+
+.popup-lookup-speak {
+  appearance: none;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 2px solid var(--ru-ink);
+  border-radius: 0;
+  background: var(--ru-surface);
+  color: var(--ru-ink);
+  cursor: pointer;
+}
+
+.popup-lookup-speak:hover {
+  background: var(--ru-accent-soft);
+}
+
+.popup-lookup-speak svg {
+  display: block;
+  width: 16px;
+  height: 16px;
+  margin: 5px auto 0;
+}
+
 .input {
   width: 100%;
   border: 2px solid var(--ru-ink);

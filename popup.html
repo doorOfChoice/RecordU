@@ -25,16 +25,68 @@
         </div>
       </div>
     </div>
-    <textarea id="input" class="input" rows="6"
-      placeholder="你的感触，用你自己的话……"></textarea>
-    <div class="actions">
-      <button id="save" class="btn btn-primary">保存</button>
-      <button id="cancel" class="btn">取消</button>
+    <div class="popup-mode" role="tablist" aria-label="弹窗模式">
+      <button type="button" class="popup-mode-btn is-on" id="mode-lookup" role="tab" aria-selected="true" data-mode="lookup">
+        <svg class="popup-mode-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+          <path d="M2.5 3.5h5v9H3.5A1 1 0 012.5 11.5v-8z"/>
+          <path d="M13.5 3.5h-5v9H12.5A1 1 0 0013.5 11.5v-8z"/>
+          <path d="M8 3.5v9"/>
+        </svg>
+        查译
+      </button>
+      <button type="button" class="popup-mode-btn" id="mode-note" role="tab" aria-selected="false" data-mode="note">
+        <svg class="popup-mode-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+          <path d="M9.5 3.5l3 3L6 13H3v-3l6.5-6.5z"/>
+          <path d="M8.5 4.5l3 3"/>
+        </svg>
+        想法
+      </button>
     </div>
-    <div class="popup-extra">
-      <button type="button" id="shot" class="popup-shot">截图批注</button>
-      <span class="popup-hint" id="shot-hint"></span>
-    </div>
+    <section class="popup-lookup" id="panel-lookup" aria-label="临时查译">
+      <p class="popup-lookup-hint">不保存到词库</p>
+      <textarea id="lookup-input" class="input popup-lookup-input" rows="3"
+        maxlength="500" placeholder="单词或句子…"></textarea>
+      <div class="popup-lookup-actions">
+        <button type="button" id="lookup-go" class="btn btn-solid">查译</button>
+      </div>
+      <div class="popup-lookup-status" id="lookup-status" hidden></div>
+      <div class="popup-lookup-error" id="lookup-error" hidden>
+        <span id="lookup-error-text"></span>
+        <button type="button" class="popup-lookup-retry" id="lookup-retry">重试</button>
+      </div>
+      <div class="popup-lookup-result" id="lookup-result" hidden>
+        <div class="popup-lookup-row" id="lookup-phonetic-row" hidden>
+          <span class="popup-lookup-label">音标</span>
+          <div class="popup-lookup-value-row">
+            <div class="popup-lookup-value" id="lookup-phonetic"></div>
+            <button type="button" class="popup-lookup-speak" id="lookup-speak" title="朗读" aria-label="朗读" hidden>
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M2.5 6.5h2L7.5 4v8l-3-2.5h-2z"/><path d="M10 6a3.2 3.2 0 010 4"/><path d="M11.6 4.4a5.6 5.6 0 010 7.2"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="popup-lookup-row">
+          <span class="popup-lookup-label">翻译</span>
+          <div class="popup-lookup-value-row">
+            <div class="popup-lookup-value" id="lookup-translation"></div>
+            <button type="button" class="popup-lookup-speak" id="lookup-speak-alt" title="朗读" aria-label="朗读" hidden>
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M2.5 6.5h2L7.5 4v8l-3-2.5h-2z"/><path d="M10 6a3.2 3.2 0 010 4"/><path d="M11.6 4.4a5.6 5.6 0 010 7.2"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+    <section class="popup-note" id="panel-note" hidden aria-label="记下感触">
+      <textarea id="input" class="input" rows="6"
+        placeholder="你的感触，用你自己的话……"></textarea>
+      <div class="actions">
+        <button id="save" class="btn btn-primary">保存</button>
+        <button id="cancel" class="btn">取消</button>
+      </div>
+      <div class="popup-extra">
+        <button type="button" id="shot" class="popup-shot">截图批注</button>
+        <span class="popup-hint" id="shot-hint"></span>
+      </div>
+    </section>
     <div class="toast" id="toast">✓ 已保存</div>
   </div>
   <script type="module" src="popup.js"></script>
